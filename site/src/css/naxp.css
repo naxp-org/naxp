@@ -1,0 +1,663 @@
+/* naxp.org
+   ------------------------------------------------------------------
+   Lisnoti is referenced by family name only, so a local install is
+   picked up during development. Before deployment, replace the
+   @font-face block below with self-hosted WOFF2 subsets partitioned
+   by unicode-range.
+
+   Colours come from the design notes, which are not in this repository.
+   Every resting state there is measured against WCAG AA; do not adjust a
+   value without re-checking it against them.
+
+   Band numbering follows those same notes:
+     1 header  2 title and examples  3 selling points  4 tour title
+     5 quick guide  6 button links  7 credits */
+
+@font-face {
+  font-family: "Lisnoti";
+  src: local("Lisnoti"), local("Lisnoti-Regular");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lisnoti";
+  src: local("Lisnoti Bold"), local("Lisnoti-Bold");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lisnoti";
+  src: local("Lisnoti Italic"), local("Lisnoti-Italic");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---------- tokens ---------- */
+
+:root {
+  --color-bg:          #FFFFFF;
+  --color-bg-tint:     #FFF0F9;
+  --color-bg-code:     #F4F0F2;
+
+  --color-ink:         #1A0A15;
+  --color-ink-muted:   #665460;
+
+  --color-rule:        #E6DBE2;
+  --color-rule-strong: #A9899E;
+
+  --color-brand:       #FF00AA;
+  --color-brand-text:  #B30077;
+  --color-on-brand:    #1A0A15;
+
+  --color-link:        #006E78;
+  --color-link-hover:  #007A85;
+
+  /* Lisnoti for everything that is not code; code takes a monospace so
+     that generated listings line up and match the reader's editor. */
+  --font-sans: "Lisnoti", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Lisnoti was designed for code as well as prose, so it leads here too. The
+     monospace stack is only a fallback for machines without it installed. */
+  --font-code: "Lisnoti", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --measure: 34rem;
+  --page: 72rem;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+  --band-space: clamp(1.5rem, 3vw, 2.25rem);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg:          #14090F;
+    --color-bg-tint:     #2B1925;
+    --color-bg-code:     #22151E;
+
+    --color-ink:         #EDE7EB;
+    --color-ink-muted:   #B09AA9;
+
+    --color-rule:        #472D3E;
+    --color-rule-strong: #78546C;
+
+    --color-brand:       #FF00AA;
+    --color-brand-text:  #FF49C2;
+    --color-on-brand:    #1A0A15;
+
+    --color-link:        #32BCC9;
+    --color-link-hover:  #78D5DD;
+  }
+}
+
+/* ---------- base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  line-height: 1.5;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+h1, h2, h3 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0 0 0.7rem;
+  max-width: var(--measure);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--color-link-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.muted {
+  color: var(--color-ink-muted);
+}
+
+/* ---------- bands ---------- */
+
+.band {
+  padding-block: var(--band-space);
+  background: var(--color-bg);
+}
+
+.band__inner {
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Every band takes the page colour. Structure comes from the rules below and
+   from the dark credits band at the foot. --color-bg-tint is still in the
+   palette but is no longer used on the page. */
+
+/* One rule weight and colour for every band edge on the page. */
+.band--edge-top {
+  border-top: 1px solid var(--color-rule);
+}
+
+.band--edge-bottom {
+  border-bottom: 1px solid var(--color-rule);
+}
+
+/* ---------- band 1: header ---------- */
+
+.siteheader {
+  padding-block: 0.7rem;
+}
+
+.siteheader__inner {
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.navbtn {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--color-link);
+  background: none;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.3rem;
+  padding: 0.22rem 0.7rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.navbtn:hover {
+  color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
+}
+
+.navbtn[aria-disabled="true"] {
+  color: var(--color-ink-muted);
+  cursor: default;
+}
+
+.navbtn[aria-disabled="true"]:hover {
+  color: var(--color-ink-muted);
+  border-color: var(--color-rule-strong);
+}
+
+.navbtn svg {
+  width: 1.05em;
+  height: 1.05em;
+  fill: currentColor;
+}
+
+/* ---------- band 2: title, pitch, examples ---------- */
+
+.hero__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.wordmark {
+  display: block;
+  height: clamp(2.4rem, 7vw, 3.25rem);
+  width: auto;
+  max-width: 100%;
+  color: var(--color-ink);
+}
+
+.hero__title {
+  margin: 0;
+  line-height: 0;
+}
+
+.hero__strap {
+  margin: 0.8rem 0 0;
+  font-size: clamp(1.1rem, 1rem + 0.6vw, 1.3rem);
+  line-height: 1.3;
+  max-width: 24rem;
+}
+
+.hero__pitch {
+  margin: 0.7rem 0 0;
+  color: var(--color-ink-muted);
+}
+
+.examples__caption {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.examples {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.examples th,
+.examples td {
+  text-align: left;
+  vertical-align: baseline;
+  padding: 0.35rem 0.9rem 0.35rem 0;
+  border-bottom: 1px solid var(--color-rule);
+  white-space: nowrap;
+}
+
+.examples thead th {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+  padding-bottom: 0.3rem;
+}
+
+.examples tbody th {
+  font-weight: 400;
+}
+
+.examples tr > *:last-child {
+  padding-right: 0;
+}
+
+/* The sample code sits on its own line under the name. It is set in the code
+   face because it is a literal, and muted because the name is what the reader
+   is scanning for. */
+.examples .eg {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  font-feature-settings: "zero" 1, "tnum" 1;
+  color: var(--color-ink-muted);
+  padding-top: 0.05rem;
+}
+
+/* The longer expressions would otherwise force the table far wider than the
+   column it sits in. Whitespace carries no meaning inside a naxp, so wrapping
+   at the spaces already written into the expression is safe: the line can only
+   break where a break changes nothing, never inside a token. */
+.examples .naxp--wrap {
+  white-space: normal;
+  overflow-wrap: normal;
+}
+
+.examples .naxp {
+  font-family: var(--font-code);
+  font-size: 0.92em;
+  font-weight: 700;
+}
+
+.examples .num {
+  text-align: right;
+  font-feature-settings: "zero" 1, "tnum" 1;
+  color: var(--color-ink-muted);
+}
+
+.examples__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+/* ---------- band 3: selling points ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.card--feature {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.85rem;
+  row-gap: 0.3rem;
+  align-items: start;
+}
+
+/* One colour throughout, so the file can stay a file: it is used as a mask
+   and background-color paints it. The SVG needs to know nothing about the
+   page, and nothing is inlined. --icon is set per card below.
+
+   Top alignment needs no nudge: align-items: start on the card lands the
+   icon's top edge on the top of the heading's em box, which is where a round
+   mark wants to be. A circle needs slight overshoot above the cap line to
+   look level. Measured at 0.4px. */
+.card__icon {
+  grid-column: 1;
+  grid-row: 1;
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: var(--color-brand);
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.card__icon--easy     { --icon: url("/img/icon-easy-to-use.svg"); }
+.card__icon--platform { --icon: url("/img/icon-platform-independent.svg"); }
+.card__icon--support  { --icon: url("/img/icon-widely-supported.svg"); }
+
+.card--feature h3 {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.card--feature p {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  color: var(--color-ink-muted);
+  max-width: none;
+}
+
+/* ---------- bands 4 and 6: section titles ---------- */
+
+.bandtitle {
+  margin: 0;
+  font-size: clamp(1.4rem, 1.1rem + 1.5vw, 2rem);
+  color: var(--color-brand-text);
+}
+
+/* ---------- band 5: quick guide ---------- */
+
+/* Two named values: the count is a maximum and the width is a minimum, so
+   this gives two columns when there is room and one when there is not. */
+.tour {
+  columns: 2 21rem;
+  column-gap: clamp(1.5rem, 4vw, 3rem);
+}
+
+.tour > section {
+  break-inside: avoid;
+  margin: 0 0 1.4rem;
+}
+
+.tour > section:last-child {
+  margin-bottom: 0;
+}
+
+.tour h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.tour p {
+  margin: 0 0 0.5rem;
+  color: var(--color-ink-muted);
+  font-size: 0.92rem;
+  max-width: none;
+}
+
+.syntax {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.syntax td {
+  vertical-align: baseline;
+  padding: 0.15rem 0.75rem 0.15rem 0;
+  border: 0;
+}
+
+.syntax td:last-child {
+  padding-right: 0;
+  color: var(--color-ink-muted);
+}
+
+.syntax .tok {
+  font-family: var(--font-code);
+  font-size: 0.92em;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+/* ---------- code ---------- */
+
+code {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  background: var(--color-bg-code);
+  padding: 0.1em 0.32em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+}
+
+pre {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  background: var(--color-bg-code);
+  border: 1px solid var(--color-rule);
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.35rem;
+  overflow-x: auto;
+  margin: 0;
+  line-height: 1.45;
+  font-size: 0.88rem;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ---------- band 6: button links ---------- */
+
+.cards--actions .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.cards--actions .card h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.02rem;
+}
+
+.cards--actions .card p {
+  margin: 0 0 0.9rem;
+  color: var(--color-ink-muted);
+  max-width: none;
+}
+
+/* Pushes every button to the bottom of its card, so they line up across the
+   row whatever the text above them does. */
+.cards--actions .btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.btn {
+  display: inline-block;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--color-bg);
+  background: var(--color-link);
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  color: var(--color-bg);
+  background: var(--color-link-hover);
+}
+
+/* ---------- band 8: credits ---------- */
+
+/* Dark in both modes. The overrides are local custom properties, so links and
+   muted text inside the band resolve against the dark ground rather than the
+   page's. Values are the dark-mode set from color-scheme.md, already measured
+   against this background. */
+.sitefooter {
+  --color-ink:        #EDE7EB;
+  --color-ink-muted:  #B09AA9;
+  --color-link:       #32BCC9;
+  --color-link-hover: #78D5DD;
+
+  background: #14090F;
+  color: var(--color-ink-muted);
+  /* In dark mode the page is this same colour, so the band needs its own edge
+     to read as a band at all. Against a white page the line simply softens the
+     step down into the dark. */
+  border-top: 1px solid #472D3E;
+  padding-block: 1.25rem 1.6rem;
+  font-size: 0.875rem;
+}
+
+.sitefooter__inner {
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.sitefooter p {
+  margin: 0 0 0.15rem;
+  max-width: none;
+}
+
+/* ---------- spec pages ---------- */
+
+.spec {
+  max-width: calc(var(--measure) + 8rem + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  padding-block: 1.25rem 2.5rem;
+}
+
+.spec p,
+.spec li {
+  line-height: 1.55;
+}
+
+.spec h1 {
+  font-size: clamp(1.6rem, 1.35rem + 1.4vw, 2.25rem);
+  margin: 1rem 0 1.5rem;
+}
+
+.spec h2 {
+  margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.4rem);
+}
+
+.spec h3 {
+  margin-top: 1.5rem;
+  font-size: 1.02rem;
+}
+
+.spec table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  margin: 0 0 0.9rem;
+}
+
+.spec th,
+.spec td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.9rem 0.4rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.spec blockquote {
+  margin: 0.9rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--color-rule-strong);
+  color: var(--color-ink-muted);
+}
+
+.spec ul,
+.spec ol {
+  max-width: var(--measure);
+  padding-left: 1.25rem;
+}
+
+.spec li {
+  margin-bottom: 0.25rem;
+}
+
+.spec pre {
+  margin-bottom: 0.9rem;
+}
+
+/* ---------- version list ---------- */
+
+.versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.versions li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.versions a {
+  font-weight: 700;
+}
+
+.versions .badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.75rem;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  vertical-align: 0.12em;
+}

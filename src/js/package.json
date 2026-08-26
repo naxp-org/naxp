@@ -1,0 +1,47 @@
+{
+	"name": "naxp",
+	"version": "0.5.0-alpha",
+	"description": "naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.",
+	"keywords": [
+		"naxp",
+		"encoding",
+		"ascii",
+		"identifier",
+		"postcode"
+	],
+	"homepage": "https://naxp.org",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/naxp-org/naxp.git",
+		"directory": "src/js"
+	},
+	"bugs": {
+		"url": "https://github.com/naxp-org/naxp/issues"
+	},
+	"license": "Apache-2.0",
+	"author": "Tim Gordon",
+	"type": "module",
+	"types": "./types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./types/index.d.ts",
+			"default": "./lib/index.js"
+		}
+	},
+	"files": [
+		"lib",
+		"types",
+		"LICENSE",
+		"NOTICE",
+		"README.md"
+	],
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "node --test",
+		"types": "tsc -p tsconfig.json",
+		"prepack": "npm run types && npm test"
+	}
+}

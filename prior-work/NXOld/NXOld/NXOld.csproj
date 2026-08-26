@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latestMajor</LangVersion>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <RootNamespace>NXOld</RootNamespace>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <IsTrimmable>True</IsTrimmable>
+  </PropertyGroup>
+
+  <Target Name="Date" BeforeTargets="BeforeBuild">
+    <!-- 
+      The following is based on the answer by https://stackoverflow.com/users/1082110/dmitry-gusarov
+      to this Stack Overflow question: https://stackoverflow.com/questions/1600962/displaying-the-build-date.
+      Tim Gordon 2024-01-16
+    -->
+    <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.cs" Lines="using System%3B%0D%0Anamespace NXOld%3B%0D%0A/// %3Csummary&gt; Build info generated at compile time. %3C/summary&gt;%3B%0D%0A static public class BuildInfo%0D%0A{%0D%0A    /// %3Csummary&gt; UTC timestamp of this build. %3C/summary&gt;%0D%0A    public static readonly DateTime UtcTimestamp = new (ticks: $([System.DateTime]::UtcNow.Ticks), DateTimeKind.Utc)%3B%0D%0A}%0D%0A" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    </Target>
+  <ItemGroup>
+    <Compile Include="$(IntermediateOutputPath)BuildInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <!-- Make visible to the test project -->
+      <_Parameter1>$(AssemblyName).UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

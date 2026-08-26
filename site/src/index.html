@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>naxp — define mappings for alphanumeric codes using expressions</title>
+<meta name="description" content="naxp maps alphanumeric codes, such as postcodes, to a numerical index unambiguously and safely across coding languages and hardware platforms.">
+<link rel="icon" href="/img/naxp-icon-solid-pink.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="naxp — define mappings for alphanumeric codes using expressions">
+<meta property="og:description" content="Map alphanumeric codes to a numerical index unambiguously, across languages and platforms.">
+<meta property="og:url" content="https://naxp.org/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: header with button links -->
+<header class="siteheader band--edge-bottom">
+  <div class="siteheader__inner">
+    <!-- TODO: no page behind this yet -->
+    <a class="navbtn" href="#">Standard naxps</a>
+    <!-- English only for now, so this is inert rather than a picker -->
+    <span class="navbtn" role="button" aria-disabled="true">English</span>
+    <!-- TODO: no page behind this yet -->
+    <a class="navbtn" href="#">Test data</a>
+    <a class="navbtn" href="https://github.com/naxp-org" aria-label="naxp on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<main>
+
+<!-- Band 2: naxp title, pitch and examples -->
+<section class="band">
+  <div class="band__inner hero__grid">
+
+    <div>
+      <h1 class="hero__title">
+        <!-- brand/naxp-logo-clear.svg, inlined and cropped to the wordmark.
+             The letterforms take currentColor so they stay legible in dark
+             mode; the underline keeps the brand colour. Paths are unchanged. -->
+        <svg class="wordmark" viewBox="12 58 176 82" role="img" aria-label="naxp" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(-27.35, 1) scale(1.25)">
+            <g fill="currentColor">
+              <path d="M 52.075269,49.316964 q 7.168003,0 10.826672,3.509335 3.658668,3.434669 3.658668,11.200006 V 90.084984 H 60.064606 V 64.474305 q 0,-4.853336 -2.165334,-7.24267 -2.165335,-2.389335 -6.79467,-2.389335 -6.645337,0 -9.184005,3.733335 -2.538667,3.733336 -2.538667,10.752006 V 90.084984 H 32.81126 V 50.063631 h 5.301336 l 0.970667,5.45067 h 0.373333 q 1.344001,-2.090668 3.285335,-3.434669 2.016001,-1.418667 4.405336,-2.090667 2.389334,-0.672001 4.928002,-0.672001 z" />
+              <path d="m 86.112622,49.391631 q 7.317337,0 10.826672,3.210668 3.509336,3.210668 3.509336,10.229338 v 27.253347 h -4.77867 l -1.269334,-5.67467 h -0.298667 q -1.717334,2.165335 -3.584001,3.658669 -1.792001,1.418667 -4.181336,2.090668 -2.314667,0.672 -5.674669,0.672 -3.584002,0 -6.496003,-1.269334 -2.837335,-1.269334 -4.480002,-3.882669 -1.642668,-2.688001 -1.642668,-6.720003 0,-5.973336 4.704003,-9.184004 4.704002,-3.285335 14.48534,-3.584002 l 6.79467,-0.224 v -2.389334 q 0,-5.00267 -2.165335,-6.944004 -2.165334,-1.941334 -6.122669,-1.941334 -3.136002,0 -5.973336,0.970667 -2.837335,0.896001 -5.301336,2.090668 l -2.016001,-4.928003 q 2.613334,-1.418667 6.197336,-2.389334 3.584002,-1.045334 7.46667,-1.045334 z m 1.941335,21.354677 q -7.466671,0.298667 -10.378672,2.389334 -2.837335,2.090668 -2.837335,5.89867 0,3.360001 2.016001,4.928002 2.090668,1.568001 5.301336,1.568001 5.077336,0 8.437337,-2.762668 3.360002,-2.837335 3.360002,-8.661337 v -3.584002 z" />
+              <path d="M 114.32603,69.626307 100.51269,50.063631 h 7.46667 l 10.304,15.082674 10.22934,-15.082674 h 7.39201 l -13.81334,19.562676 14.56,20.458677 H 129.1847 L 118.28336,74.10631 107.23269,90.084984 h -7.392001 z" />
+              <path d="m 155.38201,49.316964 q 7.392,0 11.87201,5.152003 4.55466,5.152002 4.55466,15.530674 0,6.79467 -2.09066,11.498672 -2.016,4.629336 -5.74934,7.01867 -3.65867,2.314668 -8.66134,2.314668 -3.06133,0 -5.45067,-0.821334 -2.38933,-0.821334 -4.10667,-2.090668 -1.64266,-1.344 -2.83733,-2.912001 h -0.448 q 0.14933,1.269334 0.29867,3.210668 0.14933,1.941335 0.14933,3.360002 V 108.00499 H 136.342 V 50.063631 h 5.376 l 0.896,5.45067 h 0.29867 q 1.19467,-1.717334 2.83733,-3.136002 1.71734,-1.418667 4.03201,-2.240001 2.38933,-0.821334 5.6,-0.821334 z m -1.19467,5.525336 q -4.032,0 -6.496,1.568001 -2.464,1.493334 -3.584,4.554669 -1.12,3.061335 -1.19467,7.765337 v 1.269334 q 0,4.928002 1.04533,8.362671 1.04534,3.434668 3.50934,5.226669 2.53867,1.792001 6.86934,1.792001 3.65866,0 5.97333,-2.016001 2.38934,-2.016001 3.50934,-5.45067 1.19466,-3.509335 1.19466,-7.989337 0,-6.869336 -2.688,-10.976005 -2.61333,-4.106669 -8.13867,-4.106669 z" />
+            </g>
+            <g fill="#F0A">
+              <rect x="32.75" y="95" width="100" height="13" />
+              <rect x="146.5" y="95" width="24.5" height="13" />
+            </g>
+          </g>
+        </svg>
+      </h1>
+
+      <p class="hero__strap">Define mappings for alphanumeric codes using expressions.</p>
+
+      <p class="hero__pitch">
+        naxp allows you to map alphanumeric codes, e.g. postcodes, to a numerical
+        index unambiguously and safely across multiple coding languages and
+        hardware platforms.
+      </p>
+    </div>
+
+    <div>
+      <p class="examples__caption">Examples</p>
+      <div class="table-scroll">
+        <table class="examples">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">naxp</th>
+              <th scope="col" class="num">Value count</th>
+              <th scope="col" class="num">Bits</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Flight number<span class="eg">e.g. BA2490</span></th>
+              <td class="naxp">\A\A#[1-9999]</td>
+              <td class="num">6.8&nbsp;m</td>
+              <td class="num">23</td>
+            </tr>
+            <!-- TODO: verify the N00 prefix for NI Super Output Areas, and all
+                 four upper bounds, against the ONS Register of Geographic Codes
+                 before this goes live. -->
+            <tr>
+              <th scope="row">UK small area<span class="eg">e.g. E01000001</span></th>
+              <td class="naxp naxp--wrap">E01#[000001-035144] | W01#[000001-001917] | S01#[006506-013481] | N00#[000001-000890]</td>
+              <td class="num">45&nbsp;k</td>
+              <td class="num">16</td>
+            </tr>
+            <tr>
+              <th scope="row">UK postcode<span class="eg">e.g. EC4M 8AD</span></th>
+              <td class="naxp">\A\A?\9\X? \s!! \9\A\A</td>
+              <td class="num">1.8&nbsp;bn</td>
+              <td class="num">31</td>
+            </tr>
+            <tr>
+              <th scope="row">Ireland Eircode<span class="eg">e.g. A65 F4E2</span></th>
+              <td class="naxp naxp--wrap">(\A\9\9|D6W) \s!! [\9AC-FHKNPRTV-Y]{4}</td>
+              <td class="num">1.1&nbsp;bn</td>
+              <td class="num">30</td>
+            </tr>
+            <tr>
+              <th scope="row">Netherlands postcode<span class="eg">e.g. 1012 AB</span></th>
+              <td class="naxp">#[1000-9999] \s!! \A\A</td>
+              <td class="num">6.1&nbsp;m</td>
+              <td class="num">23</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- TODO: needs the code generation page -->
+      <p class="examples__note">Take any of these and <a href="#">generate a matcher</a> in your language.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Band 3: selling points -->
+<section class="band band--edge-bottom">
+  <div class="band__inner cards">
+
+    <div class="card card--feature">
+      <div class="card__icon card__icon--easy" aria-hidden="true"></div>
+      <h3>Simple to use</h3>
+      <p>Simple regex-like text specification.</p>
+    </div>
+
+    <div class="card card--feature">
+      <div class="card__icon card__icon--platform" aria-hidden="true"></div>
+      <h3>naxp is standard across languages and platforms</h3>
+      <p>
+        With one simple expression you can standardise conversion of codes to
+        integer indexes <strong>independent</strong> of programming language or
+        hardware platform.
+      </p>
+    </div>
+
+    <div class="card card--feature">
+      <div class="card__icon card__icon--support" aria-hidden="true"></div>
+      <h3>naxp is widely supported</h3>
+      <!-- TODO: nothing is implemented yet; placeholder left visible on purpose -->
+      <p>naxp has implementations in <span class="muted">[list of implementations]</span>.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Band 4: quick guide title -->
+<section class="band">
+  <div class="band__inner">
+    <h2 class="bandtitle">A quick tour of naxp</h2>
+  </div>
+</section>
+
+<!-- Band 5: quick guide -->
+<section class="band">
+  <div class="band__inner tour">
+
+    <section>
+      <h3>Characters</h3>
+      <p>
+        Every printable ASCII character stands for itself, apart from twelve that
+        carry syntactic meaning. Those take a backslash:
+        <code>!</code> <code>#</code> <code>(</code> <code>)</code>
+        <code>-</code> <code>?</code> <code>[</code> <code>\</code>
+        <code>]</code> <code>{</code> <code>|</code> <code>}</code>.
+        Whitespace in a naxp is ignored, so space an expression out to make it
+        readable, and write <code>\s</code> where you mean a space.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">A</td><td>the character A</td></tr>
+        <tr><td class="tok">\-</td><td>a literal hyphen</td></tr>
+        <tr><td class="tok">\s</td><td>a space</td></tr>
+      </table>
+      <pre><code>\A{2}\-\9{4}
+matches PO-1234</code></pre>
+    </section>
+
+    <section>
+      <h3>Character classes</h3>
+      <p>Four block escapes cover the sets you need most often.</p>
+      <table class="syntax">
+        <tr><td class="tok">\9</td><td>a digit</td></tr>
+        <tr><td class="tok">\A</td><td>a capital</td></tr>
+        <tr><td class="tok">\a</td><td>a lower case letter</td></tr>
+        <tr><td class="tok">\X</td><td>a digit or a capital</td></tr>
+      </table>
+      <pre><code>\A\A\9
+matches EC4</code></pre>
+    </section>
+
+    <section>
+      <h3>Character sets</h3>
+      <p>
+        Square brackets take the union of what is inside. Each item is a single
+        character, an inclusive range written lowest first, or a block escape.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">[AEIOU]</td><td>any listed character</td></tr>
+        <tr><td class="tok">[A-F]</td><td>an inclusive range</td></tr>
+        <tr><td class="tok">[\9A-F]</td><td>a hexadecimal digit</td></tr>
+      </table>
+      <pre><code>\#[\9A-F]{6}
+matches #FF00AA</code></pre>
+    </section>
+
+    <section>
+      <h3>Digits ranges</h3>
+      <p>
+        A digits range stands for the decimal representations of the numbers
+        between two bounds. The digits you write fix the widths generated, so
+        leading zeros in the lower bound set a minimum width.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">#[1-9999]</td><td>1 to 9999, one to four digits</td></tr>
+        <tr><td class="tok">#[01-31]</td><td>01 to 31, always two digits</td></tr>
+      </table>
+      <pre><code>\A{2}#[1-9999]
+matches BA2490</code></pre>
+    </section>
+
+    <section>
+      <h3>Alternatives and groups</h3>
+      <p>
+        A vertical bar separates alternatives. Parentheses group, which matters
+        because a postfix binds to the single item before it.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">x|y</td><td>either x or y</td></tr>
+        <tr><td class="tok">(x)</td><td>grouping</td></tr>
+      </table>
+      <pre><code>(EC|WC)\9\A
+matches EC4M</code></pre>
+    </section>
+
+    <section>
+      <h3>Optional</h3>
+      <p>
+        A question mark makes one item optional. Which way it went is part of the
+        encoding, so the two cases take different values.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">x?</td><td>x or nothing</td></tr>
+      </table>
+      <pre><code>\A\A?\9
+matches EC4 and E4</code></pre>
+    </section>
+
+    <section>
+      <h3>Intervals</h3>
+      <p>
+        An interval repeats one item a fixed number of times, or a range of
+        times. There is no unbounded form, because a naxp must have a finite
+        count of values.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">x{3}</td><td>exactly three of x</td></tr>
+        <tr><td class="tok">x{2,4}</td><td>two to four of x</td></tr>
+      </table>
+      <pre><code>\A{3}
+matches LHR</code></pre>
+    </section>
+
+    <section>
+      <h3>Replaceable</h3>
+      <p>
+        A replaceable element matches as usual, but which string it matched is
+        not part of the encoding. Every match takes the same value, and the
+        replacement is what gets printed when text is rebuilt from an integer.
+      </p>
+      <table class="syntax">
+        <tr><td class="tok">x!y</td><td>anything x matches, printed as y</td></tr>
+        <tr><td class="tok">x!!</td><td>x or nothing, printed as x</td></tr>
+        <tr><td class="tok">x!?</td><td>x or nothing, printed as nothing</td></tr>
+      </table>
+      <pre><code>\A\A?\9\X?\s!!\9\A\A
+matches EC4M 8AD and EC4M8AD</code></pre>
+    </section>
+
+    <section>
+      <h3>The whole grammar</h3>
+      <p>
+        The specification defines the syntax and the rules a naxp must satisfy
+        to be well formed. Version 1 will be the first release; it is still
+        being written and is not published yet.
+      </p>
+    </section>
+
+  </div>
+</section>
+
+<!-- Band 6: get started title -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="bandtitle">Get started</h2>
+  </div>
+</section>
+
+<!-- Band 7: handy button links -->
+<section class="band">
+  <div class="band__inner cards cards--actions">
+
+    <div class="card">
+      <h3>Develop a naxp</h3>
+      <p>Test, debug or develop a naxp interactively.</p>
+      <!-- TODO: needs the encoding specified and the engine built -->
+      <a class="btn" href="#">Interactive naxp dev</a>
+    </div>
+
+    <div class="card">
+      <h3>Implement a specific naxp</h3>
+      <p>Generate code to match a naxp in your chosen programming language.</p>
+      <!-- TODO: needs the code generator -->
+      <a class="btn" href="#">Generate naxp matcher</a>
+    </div>
+
+    <div class="card">
+      <h3>Start coding</h3>
+      <!-- TODO: nothing is implemented yet; placeholder left visible on purpose -->
+      <p>naxp is implemented in <span class="muted">[X]</span> programming languages.</p>
+      <a class="btn" href="#">Find a library</a>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 8: credits and licensing -->
+<footer class="sitefooter">
+  <div class="sitefooter__inner">
+    <p>Created by Tim Gordon</p>
+    <p>naxp is released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache Licence</a></p>
+    <p>Typeset in Lisnoti</p>
+  </div>
+</footer>
+
+</body>
+</html>

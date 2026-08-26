@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Mechanical check for encoding/canonicity.md, run 2026-08-06: 43 checks, all passed.
+    References the prebuilt NXOld.dll rather than the project, so build NXOld first.
+    Also the seed of the conformance test data (plan step 4).
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>CanonCheck</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="NXOld">
+      <HintPath>..\..\prior-work\NXOld\NXOld\bin\Debug\net8.0\NXOld.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

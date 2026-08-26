@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!-- netstandard2.0 is the only thing a Roslyn source generator may target. -->
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latestMajor</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		<!-- RS1035 and friends: the rules an analyzer has to keep to, such as no file system. -->
+		<EnforceExtendedAnalyzerRules>True</EnforceExtendedAnalyzerRules>
+		<IsRoslynComponent>True</IsRoslynComponent>
+		<RootNamespace>LogMu.Generator</RootNamespace>
+		<!-- The generator ships inside the naxp package, packed by Naxp.csproj, not on its own. -->
+		<IsPackable>False</IsPackable>
+		<!--
+		The generator stamps this into the code it writes, so keep it in step with the Version in
+		Naxp.csproj.
+		-->
+		<Version>0.5.0-alpha</Version>
+		<GenerateDocumentationFile>False</GenerateDocumentationFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!--
+		4.8.0 rather than the newest, because the version referenced here is the oldest Roslyn the
+		generator will load in: 4.8 covers Visual Studio 2022 17.8 and the .NET 8 SDK upwards.
+		ExcludeAssets=runtime and PrivateAssets=all keep Roslyn's own assemblies out of the build
+		output, since the compiler host supplies them.
+		-->
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" ExcludeAssets="runtime" />
+		<!--
+		System.Memory and System.Collections.Immutable are deliberately *not* referenced here.
+		The linked library sources need both, and both arrive transitively from Roslyn at the
+		version the compiler host itself loads. Referencing them directly is how an analyzer ends
+		up carrying a copy that Visual Studio then refuses to load beside its own; see the comment
+		in Naxp.csproj.
+		-->
+		<PackageReference Include="PolySharp" Version="1.16.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--
+		The library's sources are compiled into the generator rather than referenced as an
+		assembly, so the analyzer is one self-contained file with nothing shipped beside it. The
+		cost is that the library compiles twice; the gain is that no copy of Naxp.dll,
+		System.Memory or System.Collections.Immutable goes anywhere near analyzers/dotnet/cs.
+
+		Naxp.cs is left out. It holds the library's public facade, its only public type, and the
+		generator works below it through Compiler and CSharpEmitter. Compiling it in as well would
+		put a second public LogMu.Naxp in this assembly, which any project referencing both -
+		Naxp.UnitTests, for one - would then find ambiguous.
+
+		The emitters for other languages are left out too. The generator writes C# and nothing else,
+		and an analyzer that Visual Studio loads into every solution should carry no more than it
+		uses. Add each new emitter to the Exclude as it arrives.
+		-->
+		<Compile Include="..\Naxp\*.cs"
+			Exclude="..\Naxp\Naxp.cs;..\Naxp\JavaScriptEmitter.cs"
+			Link="Naxp\%(Filename)%(Extension)" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,122 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!--
+		netstandard2.0 is required because a Roslyn source generator cannot target anything else.
+		net8.0 is the fast path: BitOperations maps to hardware instructions there.
+		NXOld also targets net8.0, so benchmarks against it compare on one runtime.
+		-->
+		<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+		<LangVersion>latestMajor</LangVersion>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<RootNamespace>LogMu</RootNamespace>
+	</PropertyGroup>
+
+	<!--
+	NuGet package metadata.
+
+	This is an ordinary library, so it keeps its lib/ build output. Do *not* copy the
+	IncludeBuildOutput=false plus analyzers/dotnet/cs recipe from LogMu.X here - that is the
+	source generator packing recipe and belongs only in the generator project.
+	-->
+	<PropertyGroup>
+		<IsPackable>true</IsPackable>
+		<PackageId>naxp</PackageId>
+		<!--
+		The version tracks the specification version this implements, which is 0.5.
+		The prerelease tag stays until the specification stops being an early draft.
+		-->
+		<Version>0.5.0-alpha</Version>
+		<Description>naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.</Description>
+		<Authors>Tim Gordon</Authors>
+		<Copyright>Copyright 2026 Tim Gordon</Copyright>
+		<PackageProjectUrl>https://naxp.org/</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/naxp-org/naxp.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>naxp;ascii;encoding;expression;index;regex</PackageTags>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageIcon>naxp-icon-solid-pink.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!--
+		PackageIcon and PackageReadmeFile name a file *inside* the package, so each source file
+		has to be packed explicitly as well as named above.
+		-->
+		<None Include="..\..\..\brand\naxp-icon-solid-pink.png" Pack="true" PackagePath="/" Visible="false" />
+		<None Include="..\..\..\README.md" Pack="true" PackagePath="/" Visible="false" />
+	</ItemGroup>
+
+	<!--
+	netstandard2.0 has no Span<T>, and the public surface takes ReadOnlySpan<char> throughout.
+	net8.0 has it in the framework, so the reference is conditional.
+
+	This matters beyond the dependency itself: the netstandard2.0 target is what the source
+	generator will load, and analyzers that carry their own copies of System.Memory and
+	System.Runtime.CompilerServices.Unsafe can fail to load inside Visual Studio, which supplies
+	its own. Check that when the generator is built.
+
+	The same clash has already bitten once outside the generator. Visual Studio 18's test platform
+	ships System.Memory 4.0.5.0, so the test project pins 4.6.3 to match it and lets the generated
+	binding redirects settle the rest. See Naxp.UnitTests.csproj.
+	-->
+	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<PackageReference Include="System.Memory" Version="4.5.5" />
+		<!--
+		ImmutableArray, which net8.0 has in the framework. 9.0.0 rather than newer because it sits
+		exactly on the System.Memory 4.5.5 pin above, where 10.0.1 forces 4.6.3. The
+		analyzer-loading caveat above applies to this dependency too: Visual Studio supplies its
+		own System.Collections.Immutable, so check the generator still loads when it is built.
+		-->
+		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--  Add PolySharp as a development-only dependency -->
+		<PackageReference Include="PolySharp" Version="1.16.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<!--
+	The source generator ships inside this package rather than one of its own, so a project that
+	references naxp gets both the library and [GeneratedNaxp] with nothing further to install.
+
+	ReferenceOutputAssembly=false because the library must not reference the generator - the
+	dependency runs the other way, the generator compiling the library's own sources into itself.
+	The ProjectReference is here only to order the builds. Only Naxp.Generator.dll is packed:
+	analyzers/dotnet/cs holds the generator and nothing else, which is what keeps Visual Studio
+	from having to choose between our copy of System.Memory and its own.
+	-->
+	<ItemGroup>
+		<ProjectReference Include="..\Naxp.Generator\Naxp.Generator.csproj"
+			ReferenceOutputAssembly="false"
+			PrivateAssets="all" />
+	</ItemGroup>
+
+	<!--
+	No TargetFramework condition here: pack runs once, outside the per-framework builds, where
+	TargetFramework is empty and a condition on it would drop the analyzer from the package
+	without saying so.
+	-->
+	<ItemGroup>
+		<None Include="..\Naxp.Generator\bin\$(Configuration)\netstandard2.0\Naxp.Generator.dll"
+			Pack="true"
+			PackagePath="analyzers/dotnet/cs"
+			Visible="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+			<!-- Make visible to the test project -->
+			<_Parameter1>Naxp.UnitTests</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
+
+</Project>

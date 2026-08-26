@@ -1,0 +1,79 @@
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+
+# Logs and scratch files
+*.log
+*.tmp
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+*.Rcheck/
+*.tar.gz
+
+# JavaScript / Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+# Declarations, generated from the JSDoc by 'npm run types' and again by prepack on publishing.
+src/js/types/
+
+# C / C++
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.exe
+*.out
+*.pdb
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+
+# .NET
+bin/
+obj/
+
+# Packages built for samples/try-naxp to restore from
+artifacts/
+*.user
+.vs/
+
+# BenchmarkDotNet
+# Regenerated on every run, and the results are specific to one machine on one day.
+# Results worth keeping go in the header comment of the benchmark that produced them.
+BenchmarkDotNet.Artifacts/
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+target/
+.gradle/
+
+# Website (Jekyll / GitHub Pages)
+_site/
+.jekyll-cache/
+.jekyll-metadata
+dist/

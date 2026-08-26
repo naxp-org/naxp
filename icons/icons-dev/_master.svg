@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+    
+  <!-- 
+    View box:
+    <rect x="0" y="0" width="24" height="24" fill="none" stroke="red" stroke-width="0.5"/>
+    <line x1="12" y1="0" x2="12" y2="24" stroke="red"  stroke-width="0.125"/>
+    <line x1="0" y1="12" x2="24" y2="12" stroke="red"  stroke-width="0.125"/>
+    <path d="M0 0h24v24h-24z" fill="#fff" fill-opacity=".5" stroke-width="0"/>
+
+    stroke-linecap: Controls the appearance of the starting and ending points of a line.
+     - butt: Flat edges that end exactly at the coordinate (default).
+     - round: Rounded ends that extend past the coordinate. (Best for modern, friendly UIs).
+     - square: Square ends that extend past the coordinate by half the stroke width.
+     
+     stroke-linejoin: Controls the corners where two lines meet.
+     - miter: Sharp, pointed corners (default).
+     - round: Smooth, rounded corners. (Matches round linecaps best).
+     - bevel: Flat, squared-off corners.
+  -->
+
+  <circle stroke-width="0.75" cx="12" cy="12" r="11.5" />
+
+  <!-- Easy to use - smiley face
+  <g stroke-linecap="round">
+    <path stroke-width="3.5" d="M8 8h.001 M16 8h.001" />
+    <path stroke-width="2.5" d="M 7 15 A 6 6 0 0 0 17 15" />
+  </g>
+  -->
+
+  <!-- Platform independent - equals sign
+  <g stroke-width="3" stroke-linecap="butt">
+    <line x1="4" y1="9" x2="20" y2="9" />
+    <line x1="4" y1="15" x2="20" y2="15" />
+  </g>
+  -->
+
+  <!-- Platform independent - stack
+  <path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M3 7l9 -4 9 4
+      M3 7l9 4 9-4
+      M3 12l9 4 9-4
+      M3 17l9 4 9-4
+      M3 7v10
+      M12 11v10
+      M21 7v10
+    " />
+  -->
+
+  <!-- Platform independent - tick
+  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+    d="M 20 7 L 9 18 L 4 13" />
+  -->
+        
+  <!-- Widely supported - 4 arrows
+  <path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M5 5L19 19
+      M5 5h4 M5 5v4
+      M19 19h-4 M19 19v-4
+      M5 19L19 5
+      M5 19h4 M5 19v-4
+      M19 5h-4 M19 5v4
+    " />
+    -->
+
+  <!-- Widely supported - 5 spokes with dots at ends
+  <path stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M 12 3 L12 12
+      M 20.56 9.22 L12 12
+      M 17.29 19.28 L12 12
+      M 6.71 19.28 L12 12
+      M 3.44 9.22 L12 12
+    " />
+  <path stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M 12 3 h0.001
+      M 20.56 9.22 h0.001
+      M 17.29 19.28 h0.001
+      M 6.71 19.28 h0.001
+      M 3.44 9.22 h0.001
+    " />
+  -->
+
+  <!-- Widely supported - 5 spokes with central dot
+  -->
+  <path stroke-width="7" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M 12 12 h0.001
+    " />
+  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M 12 3 L12 12
+      M 20.56 9.22 L12 12
+      M 17.29 19.28 L12 12
+      M 6.71 19.28 L12 12
+      M 3.44 9.22 L12 12
+    " />
+
+</svg>

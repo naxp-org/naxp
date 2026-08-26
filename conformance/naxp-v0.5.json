@@ -1,0 +1,7918 @@
+{
+  "naxpVersion": "0.5",
+  "testDataVersion": 3,
+  "note": "Language-neutral conformance data for naxp v0.5. Generated from the specification, not from any implementation. `valueCount`, `acceptedCount` and `out` are written as decimal strings rather than JSON numbers, because W5 allows a naxp up to 2^64 - 1 values and most JSON parsers read a number into a double. `out` is the encoded value, 0 meaning the naxp does not accept `in`. `canon` is the canonical form, which is what decoding `out` must yield. Where `complete` is true, `values` lists every accepted string exactly once and the values are a bijection onto 1..valueCount. Version 3 follows the interval separator changing from `-` to `,`, so `A{2,4}` is now the well-formed spelling and `A{2-5}` the refused one; the languages and every value are unchanged. Derived by hand from the version 0.4 data rather than regenerated; conformance/README.md says what has changed since.",
+  "cases": [
+    {
+      "naxp": "A",
+      "note": "the simplest naxp",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": "A",
+          "out": "1",
+          "canon": "A"
+        }
+      ],
+      "notAccepted": [
+        "B",
+        "",
+        "AA"
+      ]
+    },
+    {
+      "naxp": "A?",
+      "note": "an optional element; the choice is encoded",
+      "valueCount": "2",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "2",
+          "canon": "A"
+        }
+      ],
+      "notAccepted": [
+        "B",
+        "AA"
+      ]
+    },
+    {
+      "naxp": "()",
+      "note": "the empty string is a naxp in its own right",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "A|()",
+      "note": "an empty alternative denotes the same strings as A?",
+      "valueCount": "2",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "2",
+          "canon": "A"
+        }
+      ],
+      "notAccepted": [
+        "B"
+      ]
+    },
+    {
+      "naxp": "AB|B",
+      "note": "class [A] precedes class [B], so AB takes value 1",
+      "valueCount": "2",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "AB",
+          "out": "1",
+          "canon": "AB"
+        },
+        {
+          "in": "B",
+          "out": "2",
+          "canon": "B"
+        }
+      ],
+      "notAccepted": [
+        "A",
+        ""
+      ]
+    },
+    {
+      "naxp": "A(B|C)",
+      "note": "grouped alternation",
+      "valueCount": "2",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "AB",
+          "out": "1",
+          "canon": "AB"
+        },
+        {
+          "in": "AC",
+          "out": "2",
+          "canon": "AC"
+        }
+      ],
+      "notAccepted": [
+        "A",
+        "AD"
+      ]
+    },
+    {
+      "naxp": "AB|AC",
+      "note": "the same language written differently; values must match",
+      "valueCount": "2",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "AB",
+          "out": "1",
+          "canon": "AB"
+        },
+        {
+          "in": "AC",
+          "out": "2",
+          "canon": "AC"
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "[ABC]C",
+      "note": "a three character set",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AC",
+          "out": "1",
+          "canon": "AC"
+        },
+        {
+          "in": "BC",
+          "out": "2",
+          "canon": "BC"
+        },
+        {
+          "in": "CC",
+          "out": "3",
+          "canon": "CC"
+        }
+      ],
+      "notAccepted": [
+        "AB",
+        "DC"
+      ]
+    },
+    {
+      "naxp": "[AB]C|[BC]C",
+      "note": "minterms refine the classes; merging recombines them",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AC",
+          "out": "1",
+          "canon": "AC"
+        },
+        {
+          "in": "BC",
+          "out": "2",
+          "canon": "BC"
+        },
+        {
+          "in": "CC",
+          "out": "3",
+          "canon": "CC"
+        }
+      ],
+      "notAccepted": [
+        "DC"
+      ]
+    },
+    {
+      "naxp": "A?A?",
+      "note": "overlapping options",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "2",
+          "canon": "A"
+        },
+        {
+          "in": "AA",
+          "out": "3",
+          "canon": "AA"
+        }
+      ],
+      "notAccepted": [
+        "AAA",
+        "B"
+      ]
+    },
+    {
+      "naxp": "(AA)?|A",
+      "note": "the same language as A?A?",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "2",
+          "canon": "A"
+        },
+        {
+          "in": "AA",
+          "out": "3",
+          "canon": "AA"
+        }
+      ],
+      "notAccepted": [
+        "AAA"
+      ]
+    },
+    {
+      "naxp": "A|A",
+      "note": "a duplicated alternative changes nothing",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": "A",
+          "out": "1",
+          "canon": "A"
+        }
+      ],
+      "notAccepted": [
+        "B"
+      ]
+    },
+    {
+      "naxp": "A|B|C",
+      "note": "three alternatives",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "A",
+          "out": "1",
+          "canon": "A"
+        },
+        {
+          "in": "B",
+          "out": "2",
+          "canon": "B"
+        },
+        {
+          "in": "C",
+          "out": "3",
+          "canon": "C"
+        }
+      ],
+      "notAccepted": [
+        "D",
+        "AB"
+      ]
+    },
+    {
+      "naxp": "(A|B)(C|D)",
+      "note": "a product of two choices",
+      "valueCount": "4",
+      "acceptedCount": "4",
+      "complete": true,
+      "values": [
+        {
+          "in": "AC",
+          "out": "1",
+          "canon": "AC"
+        },
+        {
+          "in": "AD",
+          "out": "2",
+          "canon": "AD"
+        },
+        {
+          "in": "BC",
+          "out": "3",
+          "canon": "BC"
+        },
+        {
+          "in": "BD",
+          "out": "4",
+          "canon": "BD"
+        }
+      ],
+      "notAccepted": [
+        "AB",
+        "A"
+      ]
+    },
+    {
+      "naxp": "\\s",
+      "note": "a space is written as an escape",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": " ",
+          "out": "1",
+          "canon": " "
+        }
+      ],
+      "notAccepted": [
+        "",
+        "A"
+      ]
+    },
+    {
+      "naxp": "[\\9A-F]",
+      "note": "a block escape combined with a range",
+      "valueCount": "16",
+      "acceptedCount": "16",
+      "complete": true,
+      "values": [
+        {
+          "in": "0",
+          "out": "1",
+          "canon": "0"
+        },
+        {
+          "in": "1",
+          "out": "2",
+          "canon": "1"
+        },
+        {
+          "in": "2",
+          "out": "3",
+          "canon": "2"
+        },
+        {
+          "in": "3",
+          "out": "4",
+          "canon": "3"
+        },
+        {
+          "in": "4",
+          "out": "5",
+          "canon": "4"
+        },
+        {
+          "in": "5",
+          "out": "6",
+          "canon": "5"
+        },
+        {
+          "in": "6",
+          "out": "7",
+          "canon": "6"
+        },
+        {
+          "in": "7",
+          "out": "8",
+          "canon": "7"
+        },
+        {
+          "in": "8",
+          "out": "9",
+          "canon": "8"
+        },
+        {
+          "in": "9",
+          "out": "10",
+          "canon": "9"
+        },
+        {
+          "in": "A",
+          "out": "11",
+          "canon": "A"
+        },
+        {
+          "in": "B",
+          "out": "12",
+          "canon": "B"
+        },
+        {
+          "in": "C",
+          "out": "13",
+          "canon": "C"
+        },
+        {
+          "in": "D",
+          "out": "14",
+          "canon": "D"
+        },
+        {
+          "in": "E",
+          "out": "15",
+          "canon": "E"
+        },
+        {
+          "in": "F",
+          "out": "16",
+          "canon": "F"
+        }
+      ],
+      "notAccepted": [
+        "G",
+        "a"
+      ]
+    },
+    {
+      "naxp": "\\!\\#\\(\\)\\-\\?\\[\\\\\\]\\{\\|\\}",
+      "note": "every reserved character escaped",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": "!#()-?[\\]{|}",
+          "out": "1",
+          "canon": "!#()-?[\\]{|}"
+        }
+      ],
+      "notAccepted": [
+        "!"
+      ]
+    },
+    {
+      "naxp": "#[0-9]",
+      "note": "a digits range equal to a plain set",
+      "valueCount": "10",
+      "acceptedCount": "10",
+      "complete": true,
+      "values": [
+        {
+          "in": "0",
+          "out": "1",
+          "canon": "0"
+        },
+        {
+          "in": "1",
+          "out": "2",
+          "canon": "1"
+        },
+        {
+          "in": "2",
+          "out": "3",
+          "canon": "2"
+        },
+        {
+          "in": "3",
+          "out": "4",
+          "canon": "3"
+        },
+        {
+          "in": "4",
+          "out": "5",
+          "canon": "4"
+        },
+        {
+          "in": "5",
+          "out": "6",
+          "canon": "5"
+        },
+        {
+          "in": "6",
+          "out": "7",
+          "canon": "6"
+        },
+        {
+          "in": "7",
+          "out": "8",
+          "canon": "7"
+        },
+        {
+          "in": "8",
+          "out": "9",
+          "canon": "8"
+        },
+        {
+          "in": "9",
+          "out": "10",
+          "canon": "9"
+        }
+      ],
+      "notAccepted": [
+        "10",
+        "a"
+      ]
+    },
+    {
+      "naxp": "#[0-10]",
+      "note": "the spec's worked value; 1 sorts above 9",
+      "valueCount": "11",
+      "acceptedCount": "11",
+      "complete": true,
+      "values": [
+        {
+          "in": "0",
+          "out": "1",
+          "canon": "0"
+        },
+        {
+          "in": "2",
+          "out": "2",
+          "canon": "2"
+        },
+        {
+          "in": "3",
+          "out": "3",
+          "canon": "3"
+        },
+        {
+          "in": "4",
+          "out": "4",
+          "canon": "4"
+        },
+        {
+          "in": "5",
+          "out": "5",
+          "canon": "5"
+        },
+        {
+          "in": "6",
+          "out": "6",
+          "canon": "6"
+        },
+        {
+          "in": "7",
+          "out": "7",
+          "canon": "7"
+        },
+        {
+          "in": "8",
+          "out": "8",
+          "canon": "8"
+        },
+        {
+          "in": "9",
+          "out": "9",
+          "canon": "9"
+        },
+        {
+          "in": "1",
+          "out": "10",
+          "canon": "1"
+        },
+        {
+          "in": "10",
+          "out": "11",
+          "canon": "10"
+        }
+      ],
+      "notAccepted": [
+        "11",
+        "007",
+        ""
+      ]
+    },
+    {
+      "naxp": "#[00-10]",
+      "note": "padding the lower bound restores numeric order",
+      "valueCount": "11",
+      "acceptedCount": "11",
+      "complete": true,
+      "values": [
+        {
+          "in": "00",
+          "out": "1",
+          "canon": "00"
+        },
+        {
+          "in": "01",
+          "out": "2",
+          "canon": "01"
+        },
+        {
+          "in": "02",
+          "out": "3",
+          "canon": "02"
+        },
+        {
+          "in": "03",
+          "out": "4",
+          "canon": "03"
+        },
+        {
+          "in": "04",
+          "out": "5",
+          "canon": "04"
+        },
+        {
+          "in": "05",
+          "out": "6",
+          "canon": "05"
+        },
+        {
+          "in": "06",
+          "out": "7",
+          "canon": "06"
+        },
+        {
+          "in": "07",
+          "out": "8",
+          "canon": "07"
+        },
+        {
+          "in": "08",
+          "out": "9",
+          "canon": "08"
+        },
+        {
+          "in": "09",
+          "out": "10",
+          "canon": "09"
+        },
+        {
+          "in": "10",
+          "out": "11",
+          "canon": "10"
+        }
+      ],
+      "notAccepted": [
+        "0",
+        "11"
+      ]
+    },
+    {
+      "naxp": "#[0-105]",
+      "note": "three widths",
+      "valueCount": "106",
+      "acceptedCount": "106",
+      "complete": true,
+      "values": [
+        {
+          "in": "0",
+          "out": "1",
+          "canon": "0"
+        },
+        {
+          "in": "1",
+          "out": "2",
+          "canon": "1"
+        },
+        {
+          "in": "10",
+          "out": "3",
+          "canon": "10"
+        },
+        {
+          "in": "100",
+          "out": "4",
+          "canon": "100"
+        },
+        {
+          "in": "101",
+          "out": "5",
+          "canon": "101"
+        },
+        {
+          "in": "102",
+          "out": "6",
+          "canon": "102"
+        },
+        {
+          "in": "103",
+          "out": "7",
+          "canon": "103"
+        },
+        {
+          "in": "104",
+          "out": "8",
+          "canon": "104"
+        },
+        {
+          "in": "105",
+          "out": "9",
+          "canon": "105"
+        },
+        {
+          "in": "11",
+          "out": "10",
+          "canon": "11"
+        },
+        {
+          "in": "12",
+          "out": "11",
+          "canon": "12"
+        },
+        {
+          "in": "13",
+          "out": "12",
+          "canon": "13"
+        },
+        {
+          "in": "14",
+          "out": "13",
+          "canon": "14"
+        },
+        {
+          "in": "15",
+          "out": "14",
+          "canon": "15"
+        },
+        {
+          "in": "16",
+          "out": "15",
+          "canon": "16"
+        },
+        {
+          "in": "17",
+          "out": "16",
+          "canon": "17"
+        },
+        {
+          "in": "18",
+          "out": "17",
+          "canon": "18"
+        },
+        {
+          "in": "19",
+          "out": "18",
+          "canon": "19"
+        },
+        {
+          "in": "2",
+          "out": "19",
+          "canon": "2"
+        },
+        {
+          "in": "20",
+          "out": "20",
+          "canon": "20"
+        },
+        {
+          "in": "21",
+          "out": "21",
+          "canon": "21"
+        },
+        {
+          "in": "22",
+          "out": "22",
+          "canon": "22"
+        },
+        {
+          "in": "23",
+          "out": "23",
+          "canon": "23"
+        },
+        {
+          "in": "24",
+          "out": "24",
+          "canon": "24"
+        },
+        {
+          "in": "25",
+          "out": "25",
+          "canon": "25"
+        },
+        {
+          "in": "26",
+          "out": "26",
+          "canon": "26"
+        },
+        {
+          "in": "27",
+          "out": "27",
+          "canon": "27"
+        },
+        {
+          "in": "28",
+          "out": "28",
+          "canon": "28"
+        },
+        {
+          "in": "29",
+          "out": "29",
+          "canon": "29"
+        },
+        {
+          "in": "3",
+          "out": "30",
+          "canon": "3"
+        },
+        {
+          "in": "30",
+          "out": "31",
+          "canon": "30"
+        },
+        {
+          "in": "31",
+          "out": "32",
+          "canon": "31"
+        },
+        {
+          "in": "32",
+          "out": "33",
+          "canon": "32"
+        },
+        {
+          "in": "33",
+          "out": "34",
+          "canon": "33"
+        },
+        {
+          "in": "34",
+          "out": "35",
+          "canon": "34"
+        },
+        {
+          "in": "35",
+          "out": "36",
+          "canon": "35"
+        },
+        {
+          "in": "36",
+          "out": "37",
+          "canon": "36"
+        },
+        {
+          "in": "37",
+          "out": "38",
+          "canon": "37"
+        },
+        {
+          "in": "38",
+          "out": "39",
+          "canon": "38"
+        },
+        {
+          "in": "39",
+          "out": "40",
+          "canon": "39"
+        },
+        {
+          "in": "4",
+          "out": "41",
+          "canon": "4"
+        },
+        {
+          "in": "40",
+          "out": "42",
+          "canon": "40"
+        },
+        {
+          "in": "41",
+          "out": "43",
+          "canon": "41"
+        },
+        {
+          "in": "42",
+          "out": "44",
+          "canon": "42"
+        },
+        {
+          "in": "43",
+          "out": "45",
+          "canon": "43"
+        },
+        {
+          "in": "44",
+          "out": "46",
+          "canon": "44"
+        },
+        {
+          "in": "45",
+          "out": "47",
+          "canon": "45"
+        },
+        {
+          "in": "46",
+          "out": "48",
+          "canon": "46"
+        },
+        {
+          "in": "47",
+          "out": "49",
+          "canon": "47"
+        },
+        {
+          "in": "48",
+          "out": "50",
+          "canon": "48"
+        },
+        {
+          "in": "49",
+          "out": "51",
+          "canon": "49"
+        },
+        {
+          "in": "5",
+          "out": "52",
+          "canon": "5"
+        },
+        {
+          "in": "50",
+          "out": "53",
+          "canon": "50"
+        },
+        {
+          "in": "51",
+          "out": "54",
+          "canon": "51"
+        },
+        {
+          "in": "52",
+          "out": "55",
+          "canon": "52"
+        },
+        {
+          "in": "53",
+          "out": "56",
+          "canon": "53"
+        },
+        {
+          "in": "54",
+          "out": "57",
+          "canon": "54"
+        },
+        {
+          "in": "55",
+          "out": "58",
+          "canon": "55"
+        },
+        {
+          "in": "56",
+          "out": "59",
+          "canon": "56"
+        },
+        {
+          "in": "57",
+          "out": "60",
+          "canon": "57"
+        },
+        {
+          "in": "58",
+          "out": "61",
+          "canon": "58"
+        },
+        {
+          "in": "59",
+          "out": "62",
+          "canon": "59"
+        },
+        {
+          "in": "6",
+          "out": "63",
+          "canon": "6"
+        },
+        {
+          "in": "60",
+          "out": "64",
+          "canon": "60"
+        },
+        {
+          "in": "61",
+          "out": "65",
+          "canon": "61"
+        },
+        {
+          "in": "62",
+          "out": "66",
+          "canon": "62"
+        },
+        {
+          "in": "63",
+          "out": "67",
+          "canon": "63"
+        },
+        {
+          "in": "64",
+          "out": "68",
+          "canon": "64"
+        },
+        {
+          "in": "65",
+          "out": "69",
+          "canon": "65"
+        },
+        {
+          "in": "66",
+          "out": "70",
+          "canon": "66"
+        },
+        {
+          "in": "67",
+          "out": "71",
+          "canon": "67"
+        },
+        {
+          "in": "68",
+          "out": "72",
+          "canon": "68"
+        },
+        {
+          "in": "69",
+          "out": "73",
+          "canon": "69"
+        },
+        {
+          "in": "7",
+          "out": "74",
+          "canon": "7"
+        },
+        {
+          "in": "70",
+          "out": "75",
+          "canon": "70"
+        },
+        {
+          "in": "71",
+          "out": "76",
+          "canon": "71"
+        },
+        {
+          "in": "72",
+          "out": "77",
+          "canon": "72"
+        },
+        {
+          "in": "73",
+          "out": "78",
+          "canon": "73"
+        },
+        {
+          "in": "74",
+          "out": "79",
+          "canon": "74"
+        },
+        {
+          "in": "75",
+          "out": "80",
+          "canon": "75"
+        },
+        {
+          "in": "76",
+          "out": "81",
+          "canon": "76"
+        },
+        {
+          "in": "77",
+          "out": "82",
+          "canon": "77"
+        },
+        {
+          "in": "78",
+          "out": "83",
+          "canon": "78"
+        },
+        {
+          "in": "79",
+          "out": "84",
+          "canon": "79"
+        },
+        {
+          "in": "8",
+          "out": "85",
+          "canon": "8"
+        },
+        {
+          "in": "80",
+          "out": "86",
+          "canon": "80"
+        },
+        {
+          "in": "81",
+          "out": "87",
+          "canon": "81"
+        },
+        {
+          "in": "82",
+          "out": "88",
+          "canon": "82"
+        },
+        {
+          "in": "83",
+          "out": "89",
+          "canon": "83"
+        },
+        {
+          "in": "84",
+          "out": "90",
+          "canon": "84"
+        },
+        {
+          "in": "85",
+          "out": "91",
+          "canon": "85"
+        },
+        {
+          "in": "86",
+          "out": "92",
+          "canon": "86"
+        },
+        {
+          "in": "87",
+          "out": "93",
+          "canon": "87"
+        },
+        {
+          "in": "88",
+          "out": "94",
+          "canon": "88"
+        },
+        {
+          "in": "89",
+          "out": "95",
+          "canon": "89"
+        },
+        {
+          "in": "9",
+          "out": "96",
+          "canon": "9"
+        },
+        {
+          "in": "90",
+          "out": "97",
+          "canon": "90"
+        },
+        {
+          "in": "91",
+          "out": "98",
+          "canon": "91"
+        },
+        {
+          "in": "92",
+          "out": "99",
+          "canon": "92"
+        },
+        {
+          "in": "93",
+          "out": "100",
+          "canon": "93"
+        },
+        {
+          "in": "94",
+          "out": "101",
+          "canon": "94"
+        },
+        {
+          "in": "95",
+          "out": "102",
+          "canon": "95"
+        },
+        {
+          "in": "96",
+          "out": "103",
+          "canon": "96"
+        },
+        {
+          "in": "97",
+          "out": "104",
+          "canon": "97"
+        },
+        {
+          "in": "98",
+          "out": "105",
+          "canon": "98"
+        },
+        {
+          "in": "99",
+          "out": "106",
+          "canon": "99"
+        }
+      ],
+      "notAccepted": [
+        "106",
+        "00"
+      ]
+    },
+    {
+      "naxp": "#[00-105]",
+      "note": "a minimum width of two",
+      "valueCount": "106",
+      "acceptedCount": "106",
+      "complete": true,
+      "values": [
+        {
+          "in": "00",
+          "out": "1",
+          "canon": "00"
+        },
+        {
+          "in": "01",
+          "out": "2",
+          "canon": "01"
+        },
+        {
+          "in": "02",
+          "out": "3",
+          "canon": "02"
+        },
+        {
+          "in": "03",
+          "out": "4",
+          "canon": "03"
+        },
+        {
+          "in": "04",
+          "out": "5",
+          "canon": "04"
+        },
+        {
+          "in": "05",
+          "out": "6",
+          "canon": "05"
+        },
+        {
+          "in": "06",
+          "out": "7",
+          "canon": "06"
+        },
+        {
+          "in": "07",
+          "out": "8",
+          "canon": "07"
+        },
+        {
+          "in": "08",
+          "out": "9",
+          "canon": "08"
+        },
+        {
+          "in": "09",
+          "out": "10",
+          "canon": "09"
+        },
+        {
+          "in": "20",
+          "out": "11",
+          "canon": "20"
+        },
+        {
+          "in": "21",
+          "out": "12",
+          "canon": "21"
+        },
+        {
+          "in": "22",
+          "out": "13",
+          "canon": "22"
+        },
+        {
+          "in": "23",
+          "out": "14",
+          "canon": "23"
+        },
+        {
+          "in": "24",
+          "out": "15",
+          "canon": "24"
+        },
+        {
+          "in": "25",
+          "out": "16",
+          "canon": "25"
+        },
+        {
+          "in": "26",
+          "out": "17",
+          "canon": "26"
+        },
+        {
+          "in": "27",
+          "out": "18",
+          "canon": "27"
+        },
+        {
+          "in": "28",
+          "out": "19",
+          "canon": "28"
+        },
+        {
+          "in": "29",
+          "out": "20",
+          "canon": "29"
+        },
+        {
+          "in": "30",
+          "out": "21",
+          "canon": "30"
+        },
+        {
+          "in": "31",
+          "out": "22",
+          "canon": "31"
+        },
+        {
+          "in": "32",
+          "out": "23",
+          "canon": "32"
+        },
+        {
+          "in": "33",
+          "out": "24",
+          "canon": "33"
+        },
+        {
+          "in": "34",
+          "out": "25",
+          "canon": "34"
+        },
+        {
+          "in": "35",
+          "out": "26",
+          "canon": "35"
+        },
+        {
+          "in": "36",
+          "out": "27",
+          "canon": "36"
+        },
+        {
+          "in": "37",
+          "out": "28",
+          "canon": "37"
+        },
+        {
+          "in": "38",
+          "out": "29",
+          "canon": "38"
+        },
+        {
+          "in": "39",
+          "out": "30",
+          "canon": "39"
+        },
+        {
+          "in": "40",
+          "out": "31",
+          "canon": "40"
+        },
+        {
+          "in": "41",
+          "out": "32",
+          "canon": "41"
+        },
+        {
+          "in": "42",
+          "out": "33",
+          "canon": "42"
+        },
+        {
+          "in": "43",
+          "out": "34",
+          "canon": "43"
+        },
+        {
+          "in": "44",
+          "out": "35",
+          "canon": "44"
+        },
+        {
+          "in": "45",
+          "out": "36",
+          "canon": "45"
+        },
+        {
+          "in": "46",
+          "out": "37",
+          "canon": "46"
+        },
+        {
+          "in": "47",
+          "out": "38",
+          "canon": "47"
+        },
+        {
+          "in": "48",
+          "out": "39",
+          "canon": "48"
+        },
+        {
+          "in": "49",
+          "out": "40",
+          "canon": "49"
+        },
+        {
+          "in": "50",
+          "out": "41",
+          "canon": "50"
+        },
+        {
+          "in": "51",
+          "out": "42",
+          "canon": "51"
+        },
+        {
+          "in": "52",
+          "out": "43",
+          "canon": "52"
+        },
+        {
+          "in": "53",
+          "out": "44",
+          "canon": "53"
+        },
+        {
+          "in": "54",
+          "out": "45",
+          "canon": "54"
+        },
+        {
+          "in": "55",
+          "out": "46",
+          "canon": "55"
+        },
+        {
+          "in": "56",
+          "out": "47",
+          "canon": "56"
+        },
+        {
+          "in": "57",
+          "out": "48",
+          "canon": "57"
+        },
+        {
+          "in": "58",
+          "out": "49",
+          "canon": "58"
+        },
+        {
+          "in": "59",
+          "out": "50",
+          "canon": "59"
+        },
+        {
+          "in": "60",
+          "out": "51",
+          "canon": "60"
+        },
+        {
+          "in": "61",
+          "out": "52",
+          "canon": "61"
+        },
+        {
+          "in": "62",
+          "out": "53",
+          "canon": "62"
+        },
+        {
+          "in": "63",
+          "out": "54",
+          "canon": "63"
+        },
+        {
+          "in": "64",
+          "out": "55",
+          "canon": "64"
+        },
+        {
+          "in": "65",
+          "out": "56",
+          "canon": "65"
+        },
+        {
+          "in": "66",
+          "out": "57",
+          "canon": "66"
+        },
+        {
+          "in": "67",
+          "out": "58",
+          "canon": "67"
+        },
+        {
+          "in": "68",
+          "out": "59",
+          "canon": "68"
+        },
+        {
+          "in": "69",
+          "out": "60",
+          "canon": "69"
+        },
+        {
+          "in": "70",
+          "out": "61",
+          "canon": "70"
+        },
+        {
+          "in": "71",
+          "out": "62",
+          "canon": "71"
+        },
+        {
+          "in": "72",
+          "out": "63",
+          "canon": "72"
+        },
+        {
+          "in": "73",
+          "out": "64",
+          "canon": "73"
+        },
+        {
+          "in": "74",
+          "out": "65",
+          "canon": "74"
+        },
+        {
+          "in": "75",
+          "out": "66",
+          "canon": "75"
+        },
+        {
+          "in": "76",
+          "out": "67",
+          "canon": "76"
+        },
+        {
+          "in": "77",
+          "out": "68",
+          "canon": "77"
+        },
+        {
+          "in": "78",
+          "out": "69",
+          "canon": "78"
+        },
+        {
+          "in": "79",
+          "out": "70",
+          "canon": "79"
+        },
+        {
+          "in": "80",
+          "out": "71",
+          "canon": "80"
+        },
+        {
+          "in": "81",
+          "out": "72",
+          "canon": "81"
+        },
+        {
+          "in": "82",
+          "out": "73",
+          "canon": "82"
+        },
+        {
+          "in": "83",
+          "out": "74",
+          "canon": "83"
+        },
+        {
+          "in": "84",
+          "out": "75",
+          "canon": "84"
+        },
+        {
+          "in": "85",
+          "out": "76",
+          "canon": "85"
+        },
+        {
+          "in": "86",
+          "out": "77",
+          "canon": "86"
+        },
+        {
+          "in": "87",
+          "out": "78",
+          "canon": "87"
+        },
+        {
+          "in": "88",
+          "out": "79",
+          "canon": "88"
+        },
+        {
+          "in": "89",
+          "out": "80",
+          "canon": "89"
+        },
+        {
+          "in": "90",
+          "out": "81",
+          "canon": "90"
+        },
+        {
+          "in": "91",
+          "out": "82",
+          "canon": "91"
+        },
+        {
+          "in": "92",
+          "out": "83",
+          "canon": "92"
+        },
+        {
+          "in": "93",
+          "out": "84",
+          "canon": "93"
+        },
+        {
+          "in": "94",
+          "out": "85",
+          "canon": "94"
+        },
+        {
+          "in": "95",
+          "out": "86",
+          "canon": "95"
+        },
+        {
+          "in": "96",
+          "out": "87",
+          "canon": "96"
+        },
+        {
+          "in": "97",
+          "out": "88",
+          "canon": "97"
+        },
+        {
+          "in": "98",
+          "out": "89",
+          "canon": "98"
+        },
+        {
+          "in": "99",
+          "out": "90",
+          "canon": "99"
+        },
+        {
+          "in": "10",
+          "out": "91",
+          "canon": "10"
+        },
+        {
+          "in": "100",
+          "out": "92",
+          "canon": "100"
+        },
+        {
+          "in": "101",
+          "out": "93",
+          "canon": "101"
+        },
+        {
+          "in": "102",
+          "out": "94",
+          "canon": "102"
+        },
+        {
+          "in": "103",
+          "out": "95",
+          "canon": "103"
+        },
+        {
+          "in": "104",
+          "out": "96",
+          "canon": "104"
+        },
+        {
+          "in": "105",
+          "out": "97",
+          "canon": "105"
+        },
+        {
+          "in": "11",
+          "out": "98",
+          "canon": "11"
+        },
+        {
+          "in": "12",
+          "out": "99",
+          "canon": "12"
+        },
+        {
+          "in": "13",
+          "out": "100",
+          "canon": "13"
+        },
+        {
+          "in": "14",
+          "out": "101",
+          "canon": "14"
+        },
+        {
+          "in": "15",
+          "out": "102",
+          "canon": "15"
+        },
+        {
+          "in": "16",
+          "out": "103",
+          "canon": "16"
+        },
+        {
+          "in": "17",
+          "out": "104",
+          "canon": "17"
+        },
+        {
+          "in": "18",
+          "out": "105",
+          "canon": "18"
+        },
+        {
+          "in": "19",
+          "out": "106",
+          "canon": "19"
+        }
+      ],
+      "notAccepted": [
+        "7",
+        "106"
+      ]
+    },
+    {
+      "naxp": "A{2,4}",
+      "note": "a bounded interval",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AA",
+          "out": "1",
+          "canon": "AA"
+        },
+        {
+          "in": "AAA",
+          "out": "2",
+          "canon": "AAA"
+        },
+        {
+          "in": "AAAA",
+          "out": "3",
+          "canon": "AAAA"
+        }
+      ],
+      "notAccepted": [
+        "A",
+        "AAAAA"
+      ]
+    },
+    {
+      "naxp": "AAA?A?",
+      "note": "the same language as A{2,4}",
+      "valueCount": "3",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AA",
+          "out": "1",
+          "canon": "AA"
+        },
+        {
+          "in": "AAA",
+          "out": "2",
+          "canon": "AAA"
+        },
+        {
+          "in": "AAAA",
+          "out": "3",
+          "canon": "AAAA"
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "A{0}",
+      "note": "a zero count denotes the empty string",
+      "valueCount": "1",
+      "acceptedCount": "1",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "A{0,3}",
+      "note": "up to three",
+      "valueCount": "4",
+      "acceptedCount": "4",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "2",
+          "canon": "A"
+        },
+        {
+          "in": "AA",
+          "out": "3",
+          "canon": "AA"
+        },
+        {
+          "in": "AAA",
+          "out": "4",
+          "canon": "AAA"
+        }
+      ],
+      "notAccepted": [
+        "AAAA"
+      ]
+    },
+    {
+      "naxp": "\\9{3}",
+      "note": "three digit positions, numeric order preserved",
+      "valueCount": "1000",
+      "acceptedCount": "1000",
+      "complete": false,
+      "values": [
+        {
+          "in": "000",
+          "out": "1",
+          "canon": "000"
+        },
+        {
+          "in": "001",
+          "out": "2",
+          "canon": "001"
+        },
+        {
+          "in": "002",
+          "out": "3",
+          "canon": "002"
+        },
+        {
+          "in": "015",
+          "out": "16",
+          "canon": "015"
+        },
+        {
+          "in": "041",
+          "out": "42",
+          "canon": "041"
+        },
+        {
+          "in": "046",
+          "out": "47",
+          "canon": "046"
+        },
+        {
+          "in": "054",
+          "out": "55",
+          "canon": "054"
+        },
+        {
+          "in": "063",
+          "out": "64",
+          "canon": "063"
+        },
+        {
+          "in": "065",
+          "out": "66",
+          "canon": "065"
+        },
+        {
+          "in": "068",
+          "out": "69",
+          "canon": "068"
+        },
+        {
+          "in": "074",
+          "out": "75",
+          "canon": "074"
+        },
+        {
+          "in": "088",
+          "out": "89",
+          "canon": "088"
+        },
+        {
+          "in": "103",
+          "out": "104",
+          "canon": "103"
+        },
+        {
+          "in": "115",
+          "out": "116",
+          "canon": "115"
+        },
+        {
+          "in": "128",
+          "out": "129",
+          "canon": "128"
+        },
+        {
+          "in": "155",
+          "out": "156",
+          "canon": "155"
+        },
+        {
+          "in": "159",
+          "out": "160",
+          "canon": "159"
+        },
+        {
+          "in": "174",
+          "out": "175",
+          "canon": "174"
+        },
+        {
+          "in": "178",
+          "out": "179",
+          "canon": "178"
+        },
+        {
+          "in": "181",
+          "out": "182",
+          "canon": "181"
+        },
+        {
+          "in": "183",
+          "out": "184",
+          "canon": "183"
+        },
+        {
+          "in": "184",
+          "out": "185",
+          "canon": "184"
+        },
+        {
+          "in": "186",
+          "out": "187",
+          "canon": "186"
+        },
+        {
+          "in": "188",
+          "out": "189",
+          "canon": "188"
+        },
+        {
+          "in": "192",
+          "out": "193",
+          "canon": "192"
+        },
+        {
+          "in": "207",
+          "out": "208",
+          "canon": "207"
+        },
+        {
+          "in": "236",
+          "out": "237",
+          "canon": "236"
+        },
+        {
+          "in": "246",
+          "out": "247",
+          "canon": "246"
+        },
+        {
+          "in": "262",
+          "out": "263",
+          "canon": "262"
+        },
+        {
+          "in": "272",
+          "out": "273",
+          "canon": "272"
+        },
+        {
+          "in": "274",
+          "out": "275",
+          "canon": "274"
+        },
+        {
+          "in": "289",
+          "out": "290",
+          "canon": "289"
+        },
+        {
+          "in": "300",
+          "out": "301",
+          "canon": "300"
+        },
+        {
+          "in": "303",
+          "out": "304",
+          "canon": "303"
+        },
+        {
+          "in": "304",
+          "out": "305",
+          "canon": "304"
+        },
+        {
+          "in": "313",
+          "out": "314",
+          "canon": "313"
+        },
+        {
+          "in": "332",
+          "out": "333",
+          "canon": "332"
+        },
+        {
+          "in": "338",
+          "out": "339",
+          "canon": "338"
+        },
+        {
+          "in": "339",
+          "out": "340",
+          "canon": "339"
+        },
+        {
+          "in": "348",
+          "out": "349",
+          "canon": "348"
+        },
+        {
+          "in": "352",
+          "out": "353",
+          "canon": "352"
+        },
+        {
+          "in": "353",
+          "out": "354",
+          "canon": "353"
+        },
+        {
+          "in": "358",
+          "out": "359",
+          "canon": "358"
+        },
+        {
+          "in": "366",
+          "out": "367",
+          "canon": "366"
+        },
+        {
+          "in": "367",
+          "out": "368",
+          "canon": "367"
+        },
+        {
+          "in": "368",
+          "out": "369",
+          "canon": "368"
+        },
+        {
+          "in": "373",
+          "out": "374",
+          "canon": "373"
+        },
+        {
+          "in": "376",
+          "out": "377",
+          "canon": "376"
+        },
+        {
+          "in": "377",
+          "out": "378",
+          "canon": "377"
+        },
+        {
+          "in": "380",
+          "out": "381",
+          "canon": "380"
+        },
+        {
+          "in": "383",
+          "out": "384",
+          "canon": "383"
+        },
+        {
+          "in": "386",
+          "out": "387",
+          "canon": "386"
+        },
+        {
+          "in": "417",
+          "out": "418",
+          "canon": "417"
+        },
+        {
+          "in": "423",
+          "out": "424",
+          "canon": "423"
+        },
+        {
+          "in": "426",
+          "out": "427",
+          "canon": "426"
+        },
+        {
+          "in": "428",
+          "out": "429",
+          "canon": "428"
+        },
+        {
+          "in": "443",
+          "out": "444",
+          "canon": "443"
+        },
+        {
+          "in": "445",
+          "out": "446",
+          "canon": "445"
+        },
+        {
+          "in": "455",
+          "out": "456",
+          "canon": "455"
+        },
+        {
+          "in": "463",
+          "out": "464",
+          "canon": "463"
+        },
+        {
+          "in": "472",
+          "out": "473",
+          "canon": "472"
+        },
+        {
+          "in": "473",
+          "out": "474",
+          "canon": "473"
+        },
+        {
+          "in": "475",
+          "out": "476",
+          "canon": "475"
+        },
+        {
+          "in": "477",
+          "out": "478",
+          "canon": "477"
+        },
+        {
+          "in": "478",
+          "out": "479",
+          "canon": "478"
+        },
+        {
+          "in": "483",
+          "out": "484",
+          "canon": "483"
+        },
+        {
+          "in": "488",
+          "out": "489",
+          "canon": "488"
+        },
+        {
+          "in": "493",
+          "out": "494",
+          "canon": "493"
+        },
+        {
+          "in": "499",
+          "out": "500",
+          "canon": "499"
+        },
+        {
+          "in": "504",
+          "out": "505",
+          "canon": "504"
+        },
+        {
+          "in": "505",
+          "out": "506",
+          "canon": "505"
+        },
+        {
+          "in": "512",
+          "out": "513",
+          "canon": "512"
+        },
+        {
+          "in": "534",
+          "out": "535",
+          "canon": "534"
+        },
+        {
+          "in": "537",
+          "out": "538",
+          "canon": "537"
+        },
+        {
+          "in": "544",
+          "out": "545",
+          "canon": "544"
+        },
+        {
+          "in": "556",
+          "out": "557",
+          "canon": "556"
+        },
+        {
+          "in": "561",
+          "out": "562",
+          "canon": "561"
+        },
+        {
+          "in": "568",
+          "out": "569",
+          "canon": "568"
+        },
+        {
+          "in": "592",
+          "out": "593",
+          "canon": "592"
+        },
+        {
+          "in": "597",
+          "out": "598",
+          "canon": "597"
+        },
+        {
+          "in": "602",
+          "out": "603",
+          "canon": "602"
+        },
+        {
+          "in": "608",
+          "out": "609",
+          "canon": "608"
+        },
+        {
+          "in": "612",
+          "out": "613",
+          "canon": "612"
+        },
+        {
+          "in": "613",
+          "out": "614",
+          "canon": "613"
+        },
+        {
+          "in": "621",
+          "out": "622",
+          "canon": "621"
+        },
+        {
+          "in": "626",
+          "out": "627",
+          "canon": "626"
+        },
+        {
+          "in": "632",
+          "out": "633",
+          "canon": "632"
+        },
+        {
+          "in": "643",
+          "out": "644",
+          "canon": "643"
+        },
+        {
+          "in": "648",
+          "out": "649",
+          "canon": "648"
+        },
+        {
+          "in": "653",
+          "out": "654",
+          "canon": "653"
+        },
+        {
+          "in": "686",
+          "out": "687",
+          "canon": "686"
+        },
+        {
+          "in": "694",
+          "out": "695",
+          "canon": "694"
+        },
+        {
+          "in": "702",
+          "out": "703",
+          "canon": "702"
+        },
+        {
+          "in": "710",
+          "out": "711",
+          "canon": "710"
+        },
+        {
+          "in": "713",
+          "out": "714",
+          "canon": "713"
+        },
+        {
+          "in": "719",
+          "out": "720",
+          "canon": "719"
+        },
+        {
+          "in": "723",
+          "out": "724",
+          "canon": "723"
+        },
+        {
+          "in": "725",
+          "out": "726",
+          "canon": "725"
+        },
+        {
+          "in": "734",
+          "out": "735",
+          "canon": "734"
+        },
+        {
+          "in": "741",
+          "out": "742",
+          "canon": "741"
+        },
+        {
+          "in": "748",
+          "out": "749",
+          "canon": "748"
+        },
+        {
+          "in": "752",
+          "out": "753",
+          "canon": "752"
+        },
+        {
+          "in": "756",
+          "out": "757",
+          "canon": "756"
+        },
+        {
+          "in": "774",
+          "out": "775",
+          "canon": "774"
+        },
+        {
+          "in": "776",
+          "out": "777",
+          "canon": "776"
+        },
+        {
+          "in": "804",
+          "out": "805",
+          "canon": "804"
+        },
+        {
+          "in": "805",
+          "out": "806",
+          "canon": "805"
+        },
+        {
+          "in": "815",
+          "out": "816",
+          "canon": "815"
+        },
+        {
+          "in": "830",
+          "out": "831",
+          "canon": "830"
+        },
+        {
+          "in": "840",
+          "out": "841",
+          "canon": "840"
+        },
+        {
+          "in": "852",
+          "out": "853",
+          "canon": "852"
+        },
+        {
+          "in": "854",
+          "out": "855",
+          "canon": "854"
+        },
+        {
+          "in": "857",
+          "out": "858",
+          "canon": "857"
+        },
+        {
+          "in": "877",
+          "out": "878",
+          "canon": "877"
+        },
+        {
+          "in": "902",
+          "out": "903",
+          "canon": "902"
+        },
+        {
+          "in": "909",
+          "out": "910",
+          "canon": "909"
+        },
+        {
+          "in": "915",
+          "out": "916",
+          "canon": "915"
+        },
+        {
+          "in": "917",
+          "out": "918",
+          "canon": "917"
+        },
+        {
+          "in": "921",
+          "out": "922",
+          "canon": "921"
+        },
+        {
+          "in": "922",
+          "out": "923",
+          "canon": "922"
+        },
+        {
+          "in": "927",
+          "out": "928",
+          "canon": "927"
+        },
+        {
+          "in": "938",
+          "out": "939",
+          "canon": "938"
+        },
+        {
+          "in": "943",
+          "out": "944",
+          "canon": "943"
+        },
+        {
+          "in": "965",
+          "out": "966",
+          "canon": "965"
+        },
+        {
+          "in": "980",
+          "out": "981",
+          "canon": "980"
+        },
+        {
+          "in": "990",
+          "out": "991",
+          "canon": "990"
+        },
+        {
+          "in": "998",
+          "out": "999",
+          "canon": "998"
+        },
+        {
+          "in": "999",
+          "out": "1000",
+          "canon": "999"
+        },
+        {
+          "in": "003",
+          "out": "4",
+          "canon": "003"
+        },
+        {
+          "in": "004",
+          "out": "5",
+          "canon": "004"
+        },
+        {
+          "in": "005",
+          "out": "6",
+          "canon": "005"
+        },
+        {
+          "in": "006",
+          "out": "7",
+          "canon": "006"
+        },
+        {
+          "in": "007",
+          "out": "8",
+          "canon": "007"
+        },
+        {
+          "in": "008",
+          "out": "9",
+          "canon": "008"
+        },
+        {
+          "in": "009",
+          "out": "10",
+          "canon": "009"
+        },
+        {
+          "in": "010",
+          "out": "11",
+          "canon": "010"
+        },
+        {
+          "in": "011",
+          "out": "12",
+          "canon": "011"
+        },
+        {
+          "in": "012",
+          "out": "13",
+          "canon": "012"
+        },
+        {
+          "in": "013",
+          "out": "14",
+          "canon": "013"
+        },
+        {
+          "in": "014",
+          "out": "15",
+          "canon": "014"
+        },
+        {
+          "in": "016",
+          "out": "17",
+          "canon": "016"
+        },
+        {
+          "in": "017",
+          "out": "18",
+          "canon": "017"
+        },
+        {
+          "in": "018",
+          "out": "19",
+          "canon": "018"
+        },
+        {
+          "in": "019",
+          "out": "20",
+          "canon": "019"
+        },
+        {
+          "in": "020",
+          "out": "21",
+          "canon": "020"
+        },
+        {
+          "in": "021",
+          "out": "22",
+          "canon": "021"
+        },
+        {
+          "in": "022",
+          "out": "23",
+          "canon": "022"
+        },
+        {
+          "in": "023",
+          "out": "24",
+          "canon": "023"
+        },
+        {
+          "in": "024",
+          "out": "25",
+          "canon": "024"
+        },
+        {
+          "in": "025",
+          "out": "26",
+          "canon": "025"
+        },
+        {
+          "in": "026",
+          "out": "27",
+          "canon": "026"
+        },
+        {
+          "in": "027",
+          "out": "28",
+          "canon": "027"
+        },
+        {
+          "in": "028",
+          "out": "29",
+          "canon": "028"
+        },
+        {
+          "in": "029",
+          "out": "30",
+          "canon": "029"
+        },
+        {
+          "in": "030",
+          "out": "31",
+          "canon": "030"
+        },
+        {
+          "in": "031",
+          "out": "32",
+          "canon": "031"
+        },
+        {
+          "in": "032",
+          "out": "33",
+          "canon": "032"
+        },
+        {
+          "in": "033",
+          "out": "34",
+          "canon": "033"
+        },
+        {
+          "in": "034",
+          "out": "35",
+          "canon": "034"
+        },
+        {
+          "in": "035",
+          "out": "36",
+          "canon": "035"
+        },
+        {
+          "in": "036",
+          "out": "37",
+          "canon": "036"
+        },
+        {
+          "in": "037",
+          "out": "38",
+          "canon": "037"
+        },
+        {
+          "in": "038",
+          "out": "39",
+          "canon": "038"
+        },
+        {
+          "in": "039",
+          "out": "40",
+          "canon": "039"
+        },
+        {
+          "in": "040",
+          "out": "41",
+          "canon": "040"
+        },
+        {
+          "in": "042",
+          "out": "43",
+          "canon": "042"
+        },
+        {
+          "in": "043",
+          "out": "44",
+          "canon": "043"
+        },
+        {
+          "in": "044",
+          "out": "45",
+          "canon": "044"
+        },
+        {
+          "in": "045",
+          "out": "46",
+          "canon": "045"
+        },
+        {
+          "in": "047",
+          "out": "48",
+          "canon": "047"
+        },
+        {
+          "in": "048",
+          "out": "49",
+          "canon": "048"
+        },
+        {
+          "in": "049",
+          "out": "50",
+          "canon": "049"
+        },
+        {
+          "in": "050",
+          "out": "51",
+          "canon": "050"
+        },
+        {
+          "in": "051",
+          "out": "52",
+          "canon": "051"
+        },
+        {
+          "in": "052",
+          "out": "53",
+          "canon": "052"
+        },
+        {
+          "in": "053",
+          "out": "54",
+          "canon": "053"
+        },
+        {
+          "in": "055",
+          "out": "56",
+          "canon": "055"
+        },
+        {
+          "in": "056",
+          "out": "57",
+          "canon": "056"
+        },
+        {
+          "in": "057",
+          "out": "58",
+          "canon": "057"
+        },
+        {
+          "in": "058",
+          "out": "59",
+          "canon": "058"
+        },
+        {
+          "in": "059",
+          "out": "60",
+          "canon": "059"
+        },
+        {
+          "in": "060",
+          "out": "61",
+          "canon": "060"
+        },
+        {
+          "in": "061",
+          "out": "62",
+          "canon": "061"
+        },
+        {
+          "in": "062",
+          "out": "63",
+          "canon": "062"
+        },
+        {
+          "in": "064",
+          "out": "65",
+          "canon": "064"
+        },
+        {
+          "in": "066",
+          "out": "67",
+          "canon": "066"
+        },
+        {
+          "in": "067",
+          "out": "68",
+          "canon": "067"
+        },
+        {
+          "in": "069",
+          "out": "70",
+          "canon": "069"
+        },
+        {
+          "in": "070",
+          "out": "71",
+          "canon": "070"
+        },
+        {
+          "in": "071",
+          "out": "72",
+          "canon": "071"
+        },
+        {
+          "in": "072",
+          "out": "73",
+          "canon": "072"
+        },
+        {
+          "in": "073",
+          "out": "74",
+          "canon": "073"
+        },
+        {
+          "in": "075",
+          "out": "76",
+          "canon": "075"
+        },
+        {
+          "in": "076",
+          "out": "77",
+          "canon": "076"
+        },
+        {
+          "in": "077",
+          "out": "78",
+          "canon": "077"
+        },
+        {
+          "in": "078",
+          "out": "79",
+          "canon": "078"
+        },
+        {
+          "in": "079",
+          "out": "80",
+          "canon": "079"
+        },
+        {
+          "in": "080",
+          "out": "81",
+          "canon": "080"
+        },
+        {
+          "in": "081",
+          "out": "82",
+          "canon": "081"
+        },
+        {
+          "in": "082",
+          "out": "83",
+          "canon": "082"
+        },
+        {
+          "in": "083",
+          "out": "84",
+          "canon": "083"
+        },
+        {
+          "in": "084",
+          "out": "85",
+          "canon": "084"
+        },
+        {
+          "in": "085",
+          "out": "86",
+          "canon": "085"
+        },
+        {
+          "in": "086",
+          "out": "87",
+          "canon": "086"
+        },
+        {
+          "in": "087",
+          "out": "88",
+          "canon": "087"
+        },
+        {
+          "in": "089",
+          "out": "90",
+          "canon": "089"
+        },
+        {
+          "in": "090",
+          "out": "91",
+          "canon": "090"
+        },
+        {
+          "in": "091",
+          "out": "92",
+          "canon": "091"
+        },
+        {
+          "in": "092",
+          "out": "93",
+          "canon": "092"
+        },
+        {
+          "in": "093",
+          "out": "94",
+          "canon": "093"
+        },
+        {
+          "in": "094",
+          "out": "95",
+          "canon": "094"
+        },
+        {
+          "in": "095",
+          "out": "96",
+          "canon": "095"
+        },
+        {
+          "in": "096",
+          "out": "97",
+          "canon": "096"
+        },
+        {
+          "in": "097",
+          "out": "98",
+          "canon": "097"
+        },
+        {
+          "in": "098",
+          "out": "99",
+          "canon": "098"
+        },
+        {
+          "in": "099",
+          "out": "100",
+          "canon": "099"
+        },
+        {
+          "in": "100",
+          "out": "101",
+          "canon": "100"
+        },
+        {
+          "in": "101",
+          "out": "102",
+          "canon": "101"
+        },
+        {
+          "in": "102",
+          "out": "103",
+          "canon": "102"
+        },
+        {
+          "in": "104",
+          "out": "105",
+          "canon": "104"
+        },
+        {
+          "in": "105",
+          "out": "106",
+          "canon": "105"
+        },
+        {
+          "in": "106",
+          "out": "107",
+          "canon": "106"
+        },
+        {
+          "in": "107",
+          "out": "108",
+          "canon": "107"
+        },
+        {
+          "in": "108",
+          "out": "109",
+          "canon": "108"
+        },
+        {
+          "in": "109",
+          "out": "110",
+          "canon": "109"
+        },
+        {
+          "in": "110",
+          "out": "111",
+          "canon": "110"
+        },
+        {
+          "in": "111",
+          "out": "112",
+          "canon": "111"
+        },
+        {
+          "in": "112",
+          "out": "113",
+          "canon": "112"
+        },
+        {
+          "in": "113",
+          "out": "114",
+          "canon": "113"
+        },
+        {
+          "in": "114",
+          "out": "115",
+          "canon": "114"
+        },
+        {
+          "in": "116",
+          "out": "117",
+          "canon": "116"
+        },
+        {
+          "in": "117",
+          "out": "118",
+          "canon": "117"
+        },
+        {
+          "in": "118",
+          "out": "119",
+          "canon": "118"
+        },
+        {
+          "in": "119",
+          "out": "120",
+          "canon": "119"
+        },
+        {
+          "in": "120",
+          "out": "121",
+          "canon": "120"
+        },
+        {
+          "in": "121",
+          "out": "122",
+          "canon": "121"
+        },
+        {
+          "in": "122",
+          "out": "123",
+          "canon": "122"
+        },
+        {
+          "in": "123",
+          "out": "124",
+          "canon": "123"
+        },
+        {
+          "in": "124",
+          "out": "125",
+          "canon": "124"
+        },
+        {
+          "in": "125",
+          "out": "126",
+          "canon": "125"
+        },
+        {
+          "in": "126",
+          "out": "127",
+          "canon": "126"
+        },
+        {
+          "in": "127",
+          "out": "128",
+          "canon": "127"
+        },
+        {
+          "in": "129",
+          "out": "130",
+          "canon": "129"
+        },
+        {
+          "in": "130",
+          "out": "131",
+          "canon": "130"
+        },
+        {
+          "in": "131",
+          "out": "132",
+          "canon": "131"
+        },
+        {
+          "in": "132",
+          "out": "133",
+          "canon": "132"
+        },
+        {
+          "in": "133",
+          "out": "134",
+          "canon": "133"
+        },
+        {
+          "in": "134",
+          "out": "135",
+          "canon": "134"
+        },
+        {
+          "in": "135",
+          "out": "136",
+          "canon": "135"
+        },
+        {
+          "in": "136",
+          "out": "137",
+          "canon": "136"
+        },
+        {
+          "in": "137",
+          "out": "138",
+          "canon": "137"
+        },
+        {
+          "in": "138",
+          "out": "139",
+          "canon": "138"
+        },
+        {
+          "in": "139",
+          "out": "140",
+          "canon": "139"
+        },
+        {
+          "in": "140",
+          "out": "141",
+          "canon": "140"
+        },
+        {
+          "in": "141",
+          "out": "142",
+          "canon": "141"
+        },
+        {
+          "in": "142",
+          "out": "143",
+          "canon": "142"
+        },
+        {
+          "in": "143",
+          "out": "144",
+          "canon": "143"
+        },
+        {
+          "in": "144",
+          "out": "145",
+          "canon": "144"
+        },
+        {
+          "in": "145",
+          "out": "146",
+          "canon": "145"
+        },
+        {
+          "in": "146",
+          "out": "147",
+          "canon": "146"
+        },
+        {
+          "in": "147",
+          "out": "148",
+          "canon": "147"
+        },
+        {
+          "in": "148",
+          "out": "149",
+          "canon": "148"
+        },
+        {
+          "in": "149",
+          "out": "150",
+          "canon": "149"
+        },
+        {
+          "in": "150",
+          "out": "151",
+          "canon": "150"
+        },
+        {
+          "in": "151",
+          "out": "152",
+          "canon": "151"
+        },
+        {
+          "in": "152",
+          "out": "153",
+          "canon": "152"
+        },
+        {
+          "in": "153",
+          "out": "154",
+          "canon": "153"
+        },
+        {
+          "in": "154",
+          "out": "155",
+          "canon": "154"
+        },
+        {
+          "in": "156",
+          "out": "157",
+          "canon": "156"
+        },
+        {
+          "in": "157",
+          "out": "158",
+          "canon": "157"
+        },
+        {
+          "in": "158",
+          "out": "159",
+          "canon": "158"
+        },
+        {
+          "in": "160",
+          "out": "161",
+          "canon": "160"
+        },
+        {
+          "in": "161",
+          "out": "162",
+          "canon": "161"
+        },
+        {
+          "in": "162",
+          "out": "163",
+          "canon": "162"
+        },
+        {
+          "in": "163",
+          "out": "164",
+          "canon": "163"
+        },
+        {
+          "in": "164",
+          "out": "165",
+          "canon": "164"
+        },
+        {
+          "in": "165",
+          "out": "166",
+          "canon": "165"
+        },
+        {
+          "in": "166",
+          "out": "167",
+          "canon": "166"
+        },
+        {
+          "in": "167",
+          "out": "168",
+          "canon": "167"
+        },
+        {
+          "in": "168",
+          "out": "169",
+          "canon": "168"
+        },
+        {
+          "in": "169",
+          "out": "170",
+          "canon": "169"
+        },
+        {
+          "in": "170",
+          "out": "171",
+          "canon": "170"
+        },
+        {
+          "in": "171",
+          "out": "172",
+          "canon": "171"
+        },
+        {
+          "in": "172",
+          "out": "173",
+          "canon": "172"
+        },
+        {
+          "in": "173",
+          "out": "174",
+          "canon": "173"
+        },
+        {
+          "in": "175",
+          "out": "176",
+          "canon": "175"
+        },
+        {
+          "in": "176",
+          "out": "177",
+          "canon": "176"
+        },
+        {
+          "in": "177",
+          "out": "178",
+          "canon": "177"
+        },
+        {
+          "in": "179",
+          "out": "180",
+          "canon": "179"
+        },
+        {
+          "in": "180",
+          "out": "181",
+          "canon": "180"
+        },
+        {
+          "in": "182",
+          "out": "183",
+          "canon": "182"
+        },
+        {
+          "in": "185",
+          "out": "186",
+          "canon": "185"
+        },
+        {
+          "in": "187",
+          "out": "188",
+          "canon": "187"
+        },
+        {
+          "in": "189",
+          "out": "190",
+          "canon": "189"
+        },
+        {
+          "in": "190",
+          "out": "191",
+          "canon": "190"
+        },
+        {
+          "in": "191",
+          "out": "192",
+          "canon": "191"
+        },
+        {
+          "in": "193",
+          "out": "194",
+          "canon": "193"
+        },
+        {
+          "in": "194",
+          "out": "195",
+          "canon": "194"
+        },
+        {
+          "in": "195",
+          "out": "196",
+          "canon": "195"
+        },
+        {
+          "in": "196",
+          "out": "197",
+          "canon": "196"
+        },
+        {
+          "in": "197",
+          "out": "198",
+          "canon": "197"
+        },
+        {
+          "in": "198",
+          "out": "199",
+          "canon": "198"
+        },
+        {
+          "in": "199",
+          "out": "200",
+          "canon": "199"
+        },
+        {
+          "in": "200",
+          "out": "201",
+          "canon": "200"
+        },
+        {
+          "in": "201",
+          "out": "202",
+          "canon": "201"
+        },
+        {
+          "in": "202",
+          "out": "203",
+          "canon": "202"
+        },
+        {
+          "in": "203",
+          "out": "204",
+          "canon": "203"
+        },
+        {
+          "in": "204",
+          "out": "205",
+          "canon": "204"
+        },
+        {
+          "in": "205",
+          "out": "206",
+          "canon": "205"
+        },
+        {
+          "in": "206",
+          "out": "207",
+          "canon": "206"
+        },
+        {
+          "in": "208",
+          "out": "209",
+          "canon": "208"
+        },
+        {
+          "in": "209",
+          "out": "210",
+          "canon": "209"
+        },
+        {
+          "in": "210",
+          "out": "211",
+          "canon": "210"
+        },
+        {
+          "in": "211",
+          "out": "212",
+          "canon": "211"
+        },
+        {
+          "in": "212",
+          "out": "213",
+          "canon": "212"
+        },
+        {
+          "in": "213",
+          "out": "214",
+          "canon": "213"
+        },
+        {
+          "in": "214",
+          "out": "215",
+          "canon": "214"
+        },
+        {
+          "in": "215",
+          "out": "216",
+          "canon": "215"
+        },
+        {
+          "in": "216",
+          "out": "217",
+          "canon": "216"
+        },
+        {
+          "in": "217",
+          "out": "218",
+          "canon": "217"
+        },
+        {
+          "in": "218",
+          "out": "219",
+          "canon": "218"
+        },
+        {
+          "in": "219",
+          "out": "220",
+          "canon": "219"
+        },
+        {
+          "in": "220",
+          "out": "221",
+          "canon": "220"
+        },
+        {
+          "in": "221",
+          "out": "222",
+          "canon": "221"
+        },
+        {
+          "in": "222",
+          "out": "223",
+          "canon": "222"
+        },
+        {
+          "in": "223",
+          "out": "224",
+          "canon": "223"
+        },
+        {
+          "in": "224",
+          "out": "225",
+          "canon": "224"
+        },
+        {
+          "in": "225",
+          "out": "226",
+          "canon": "225"
+        },
+        {
+          "in": "226",
+          "out": "227",
+          "canon": "226"
+        },
+        {
+          "in": "227",
+          "out": "228",
+          "canon": "227"
+        },
+        {
+          "in": "228",
+          "out": "229",
+          "canon": "228"
+        },
+        {
+          "in": "229",
+          "out": "230",
+          "canon": "229"
+        },
+        {
+          "in": "230",
+          "out": "231",
+          "canon": "230"
+        },
+        {
+          "in": "231",
+          "out": "232",
+          "canon": "231"
+        },
+        {
+          "in": "232",
+          "out": "233",
+          "canon": "232"
+        },
+        {
+          "in": "233",
+          "out": "234",
+          "canon": "233"
+        },
+        {
+          "in": "234",
+          "out": "235",
+          "canon": "234"
+        },
+        {
+          "in": "235",
+          "out": "236",
+          "canon": "235"
+        },
+        {
+          "in": "237",
+          "out": "238",
+          "canon": "237"
+        },
+        {
+          "in": "238",
+          "out": "239",
+          "canon": "238"
+        },
+        {
+          "in": "239",
+          "out": "240",
+          "canon": "239"
+        },
+        {
+          "in": "240",
+          "out": "241",
+          "canon": "240"
+        },
+        {
+          "in": "241",
+          "out": "242",
+          "canon": "241"
+        },
+        {
+          "in": "242",
+          "out": "243",
+          "canon": "242"
+        },
+        {
+          "in": "243",
+          "out": "244",
+          "canon": "243"
+        },
+        {
+          "in": "244",
+          "out": "245",
+          "canon": "244"
+        },
+        {
+          "in": "245",
+          "out": "246",
+          "canon": "245"
+        },
+        {
+          "in": "247",
+          "out": "248",
+          "canon": "247"
+        },
+        {
+          "in": "248",
+          "out": "249",
+          "canon": "248"
+        },
+        {
+          "in": "249",
+          "out": "250",
+          "canon": "249"
+        },
+        {
+          "in": "250",
+          "out": "251",
+          "canon": "250"
+        },
+        {
+          "in": "251",
+          "out": "252",
+          "canon": "251"
+        },
+        {
+          "in": "252",
+          "out": "253",
+          "canon": "252"
+        },
+        {
+          "in": "253",
+          "out": "254",
+          "canon": "253"
+        },
+        {
+          "in": "254",
+          "out": "255",
+          "canon": "254"
+        },
+        {
+          "in": "255",
+          "out": "256",
+          "canon": "255"
+        },
+        {
+          "in": "256",
+          "out": "257",
+          "canon": "256"
+        },
+        {
+          "in": "257",
+          "out": "258",
+          "canon": "257"
+        },
+        {
+          "in": "258",
+          "out": "259",
+          "canon": "258"
+        },
+        {
+          "in": "259",
+          "out": "260",
+          "canon": "259"
+        },
+        {
+          "in": "260",
+          "out": "261",
+          "canon": "260"
+        },
+        {
+          "in": "261",
+          "out": "262",
+          "canon": "261"
+        },
+        {
+          "in": "263",
+          "out": "264",
+          "canon": "263"
+        },
+        {
+          "in": "264",
+          "out": "265",
+          "canon": "264"
+        },
+        {
+          "in": "265",
+          "out": "266",
+          "canon": "265"
+        },
+        {
+          "in": "266",
+          "out": "267",
+          "canon": "266"
+        },
+        {
+          "in": "267",
+          "out": "268",
+          "canon": "267"
+        },
+        {
+          "in": "268",
+          "out": "269",
+          "canon": "268"
+        },
+        {
+          "in": "269",
+          "out": "270",
+          "canon": "269"
+        },
+        {
+          "in": "270",
+          "out": "271",
+          "canon": "270"
+        },
+        {
+          "in": "271",
+          "out": "272",
+          "canon": "271"
+        },
+        {
+          "in": "273",
+          "out": "274",
+          "canon": "273"
+        },
+        {
+          "in": "275",
+          "out": "276",
+          "canon": "275"
+        },
+        {
+          "in": "276",
+          "out": "277",
+          "canon": "276"
+        },
+        {
+          "in": "277",
+          "out": "278",
+          "canon": "277"
+        },
+        {
+          "in": "278",
+          "out": "279",
+          "canon": "278"
+        },
+        {
+          "in": "279",
+          "out": "280",
+          "canon": "279"
+        },
+        {
+          "in": "280",
+          "out": "281",
+          "canon": "280"
+        },
+        {
+          "in": "281",
+          "out": "282",
+          "canon": "281"
+        },
+        {
+          "in": "282",
+          "out": "283",
+          "canon": "282"
+        },
+        {
+          "in": "283",
+          "out": "284",
+          "canon": "283"
+        },
+        {
+          "in": "284",
+          "out": "285",
+          "canon": "284"
+        },
+        {
+          "in": "285",
+          "out": "286",
+          "canon": "285"
+        },
+        {
+          "in": "286",
+          "out": "287",
+          "canon": "286"
+        },
+        {
+          "in": "287",
+          "out": "288",
+          "canon": "287"
+        },
+        {
+          "in": "288",
+          "out": "289",
+          "canon": "288"
+        },
+        {
+          "in": "290",
+          "out": "291",
+          "canon": "290"
+        },
+        {
+          "in": "291",
+          "out": "292",
+          "canon": "291"
+        },
+        {
+          "in": "292",
+          "out": "293",
+          "canon": "292"
+        },
+        {
+          "in": "293",
+          "out": "294",
+          "canon": "293"
+        },
+        {
+          "in": "294",
+          "out": "295",
+          "canon": "294"
+        },
+        {
+          "in": "295",
+          "out": "296",
+          "canon": "295"
+        },
+        {
+          "in": "296",
+          "out": "297",
+          "canon": "296"
+        },
+        {
+          "in": "297",
+          "out": "298",
+          "canon": "297"
+        },
+        {
+          "in": "298",
+          "out": "299",
+          "canon": "298"
+        },
+        {
+          "in": "299",
+          "out": "300",
+          "canon": "299"
+        },
+        {
+          "in": "301",
+          "out": "302",
+          "canon": "301"
+        },
+        {
+          "in": "302",
+          "out": "303",
+          "canon": "302"
+        },
+        {
+          "in": "305",
+          "out": "306",
+          "canon": "305"
+        },
+        {
+          "in": "306",
+          "out": "307",
+          "canon": "306"
+        },
+        {
+          "in": "307",
+          "out": "308",
+          "canon": "307"
+        },
+        {
+          "in": "308",
+          "out": "309",
+          "canon": "308"
+        },
+        {
+          "in": "309",
+          "out": "310",
+          "canon": "309"
+        },
+        {
+          "in": "310",
+          "out": "311",
+          "canon": "310"
+        },
+        {
+          "in": "311",
+          "out": "312",
+          "canon": "311"
+        },
+        {
+          "in": "312",
+          "out": "313",
+          "canon": "312"
+        },
+        {
+          "in": "314",
+          "out": "315",
+          "canon": "314"
+        },
+        {
+          "in": "315",
+          "out": "316",
+          "canon": "315"
+        },
+        {
+          "in": "316",
+          "out": "317",
+          "canon": "316"
+        },
+        {
+          "in": "317",
+          "out": "318",
+          "canon": "317"
+        },
+        {
+          "in": "318",
+          "out": "319",
+          "canon": "318"
+        },
+        {
+          "in": "319",
+          "out": "320",
+          "canon": "319"
+        },
+        {
+          "in": "320",
+          "out": "321",
+          "canon": "320"
+        },
+        {
+          "in": "321",
+          "out": "322",
+          "canon": "321"
+        },
+        {
+          "in": "322",
+          "out": "323",
+          "canon": "322"
+        },
+        {
+          "in": "323",
+          "out": "324",
+          "canon": "323"
+        },
+        {
+          "in": "324",
+          "out": "325",
+          "canon": "324"
+        },
+        {
+          "in": "325",
+          "out": "326",
+          "canon": "325"
+        },
+        {
+          "in": "326",
+          "out": "327",
+          "canon": "326"
+        },
+        {
+          "in": "327",
+          "out": "328",
+          "canon": "327"
+        },
+        {
+          "in": "328",
+          "out": "329",
+          "canon": "328"
+        },
+        {
+          "in": "329",
+          "out": "330",
+          "canon": "329"
+        },
+        {
+          "in": "330",
+          "out": "331",
+          "canon": "330"
+        },
+        {
+          "in": "331",
+          "out": "332",
+          "canon": "331"
+        },
+        {
+          "in": "333",
+          "out": "334",
+          "canon": "333"
+        },
+        {
+          "in": "334",
+          "out": "335",
+          "canon": "334"
+        },
+        {
+          "in": "335",
+          "out": "336",
+          "canon": "335"
+        },
+        {
+          "in": "336",
+          "out": "337",
+          "canon": "336"
+        },
+        {
+          "in": "337",
+          "out": "338",
+          "canon": "337"
+        },
+        {
+          "in": "340",
+          "out": "341",
+          "canon": "340"
+        },
+        {
+          "in": "341",
+          "out": "342",
+          "canon": "341"
+        },
+        {
+          "in": "342",
+          "out": "343",
+          "canon": "342"
+        },
+        {
+          "in": "343",
+          "out": "344",
+          "canon": "343"
+        },
+        {
+          "in": "344",
+          "out": "345",
+          "canon": "344"
+        },
+        {
+          "in": "345",
+          "out": "346",
+          "canon": "345"
+        },
+        {
+          "in": "346",
+          "out": "347",
+          "canon": "346"
+        },
+        {
+          "in": "347",
+          "out": "348",
+          "canon": "347"
+        },
+        {
+          "in": "349",
+          "out": "350",
+          "canon": "349"
+        },
+        {
+          "in": "350",
+          "out": "351",
+          "canon": "350"
+        },
+        {
+          "in": "351",
+          "out": "352",
+          "canon": "351"
+        },
+        {
+          "in": "354",
+          "out": "355",
+          "canon": "354"
+        },
+        {
+          "in": "355",
+          "out": "356",
+          "canon": "355"
+        },
+        {
+          "in": "356",
+          "out": "357",
+          "canon": "356"
+        },
+        {
+          "in": "357",
+          "out": "358",
+          "canon": "357"
+        },
+        {
+          "in": "359",
+          "out": "360",
+          "canon": "359"
+        },
+        {
+          "in": "360",
+          "out": "361",
+          "canon": "360"
+        },
+        {
+          "in": "361",
+          "out": "362",
+          "canon": "361"
+        },
+        {
+          "in": "362",
+          "out": "363",
+          "canon": "362"
+        },
+        {
+          "in": "363",
+          "out": "364",
+          "canon": "363"
+        },
+        {
+          "in": "364",
+          "out": "365",
+          "canon": "364"
+        },
+        {
+          "in": "365",
+          "out": "366",
+          "canon": "365"
+        },
+        {
+          "in": "369",
+          "out": "370",
+          "canon": "369"
+        },
+        {
+          "in": "370",
+          "out": "371",
+          "canon": "370"
+        },
+        {
+          "in": "371",
+          "out": "372",
+          "canon": "371"
+        },
+        {
+          "in": "372",
+          "out": "373",
+          "canon": "372"
+        },
+        {
+          "in": "374",
+          "out": "375",
+          "canon": "374"
+        },
+        {
+          "in": "375",
+          "out": "376",
+          "canon": "375"
+        },
+        {
+          "in": "378",
+          "out": "379",
+          "canon": "378"
+        },
+        {
+          "in": "379",
+          "out": "380",
+          "canon": "379"
+        },
+        {
+          "in": "381",
+          "out": "382",
+          "canon": "381"
+        },
+        {
+          "in": "382",
+          "out": "383",
+          "canon": "382"
+        },
+        {
+          "in": "384",
+          "out": "385",
+          "canon": "384"
+        },
+        {
+          "in": "385",
+          "out": "386",
+          "canon": "385"
+        },
+        {
+          "in": "387",
+          "out": "388",
+          "canon": "387"
+        },
+        {
+          "in": "388",
+          "out": "389",
+          "canon": "388"
+        },
+        {
+          "in": "389",
+          "out": "390",
+          "canon": "389"
+        },
+        {
+          "in": "390",
+          "out": "391",
+          "canon": "390"
+        },
+        {
+          "in": "391",
+          "out": "392",
+          "canon": "391"
+        },
+        {
+          "in": "392",
+          "out": "393",
+          "canon": "392"
+        },
+        {
+          "in": "393",
+          "out": "394",
+          "canon": "393"
+        },
+        {
+          "in": "394",
+          "out": "395",
+          "canon": "394"
+        },
+        {
+          "in": "395",
+          "out": "396",
+          "canon": "395"
+        },
+        {
+          "in": "396",
+          "out": "397",
+          "canon": "396"
+        },
+        {
+          "in": "397",
+          "out": "398",
+          "canon": "397"
+        },
+        {
+          "in": "398",
+          "out": "399",
+          "canon": "398"
+        },
+        {
+          "in": "399",
+          "out": "400",
+          "canon": "399"
+        },
+        {
+          "in": "400",
+          "out": "401",
+          "canon": "400"
+        },
+        {
+          "in": "401",
+          "out": "402",
+          "canon": "401"
+        },
+        {
+          "in": "402",
+          "out": "403",
+          "canon": "402"
+        },
+        {
+          "in": "403",
+          "out": "404",
+          "canon": "403"
+        },
+        {
+          "in": "404",
+          "out": "405",
+          "canon": "404"
+        },
+        {
+          "in": "405",
+          "out": "406",
+          "canon": "405"
+        },
+        {
+          "in": "406",
+          "out": "407",
+          "canon": "406"
+        },
+        {
+          "in": "407",
+          "out": "408",
+          "canon": "407"
+        },
+        {
+          "in": "408",
+          "out": "409",
+          "canon": "408"
+        },
+        {
+          "in": "409",
+          "out": "410",
+          "canon": "409"
+        },
+        {
+          "in": "410",
+          "out": "411",
+          "canon": "410"
+        },
+        {
+          "in": "411",
+          "out": "412",
+          "canon": "411"
+        },
+        {
+          "in": "412",
+          "out": "413",
+          "canon": "412"
+        },
+        {
+          "in": "413",
+          "out": "414",
+          "canon": "413"
+        },
+        {
+          "in": "414",
+          "out": "415",
+          "canon": "414"
+        },
+        {
+          "in": "415",
+          "out": "416",
+          "canon": "415"
+        },
+        {
+          "in": "416",
+          "out": "417",
+          "canon": "416"
+        },
+        {
+          "in": "418",
+          "out": "419",
+          "canon": "418"
+        },
+        {
+          "in": "419",
+          "out": "420",
+          "canon": "419"
+        },
+        {
+          "in": "420",
+          "out": "421",
+          "canon": "420"
+        },
+        {
+          "in": "421",
+          "out": "422",
+          "canon": "421"
+        },
+        {
+          "in": "422",
+          "out": "423",
+          "canon": "422"
+        },
+        {
+          "in": "424",
+          "out": "425",
+          "canon": "424"
+        },
+        {
+          "in": "425",
+          "out": "426",
+          "canon": "425"
+        },
+        {
+          "in": "427",
+          "out": "428",
+          "canon": "427"
+        },
+        {
+          "in": "429",
+          "out": "430",
+          "canon": "429"
+        },
+        {
+          "in": "430",
+          "out": "431",
+          "canon": "430"
+        },
+        {
+          "in": "431",
+          "out": "432",
+          "canon": "431"
+        },
+        {
+          "in": "432",
+          "out": "433",
+          "canon": "432"
+        },
+        {
+          "in": "433",
+          "out": "434",
+          "canon": "433"
+        },
+        {
+          "in": "434",
+          "out": "435",
+          "canon": "434"
+        },
+        {
+          "in": "435",
+          "out": "436",
+          "canon": "435"
+        },
+        {
+          "in": "436",
+          "out": "437",
+          "canon": "436"
+        },
+        {
+          "in": "437",
+          "out": "438",
+          "canon": "437"
+        },
+        {
+          "in": "438",
+          "out": "439",
+          "canon": "438"
+        },
+        {
+          "in": "439",
+          "out": "440",
+          "canon": "439"
+        },
+        {
+          "in": "440",
+          "out": "441",
+          "canon": "440"
+        },
+        {
+          "in": "441",
+          "out": "442",
+          "canon": "441"
+        },
+        {
+          "in": "442",
+          "out": "443",
+          "canon": "442"
+        },
+        {
+          "in": "444",
+          "out": "445",
+          "canon": "444"
+        },
+        {
+          "in": "446",
+          "out": "447",
+          "canon": "446"
+        },
+        {
+          "in": "447",
+          "out": "448",
+          "canon": "447"
+        },
+        {
+          "in": "448",
+          "out": "449",
+          "canon": "448"
+        },
+        {
+          "in": "449",
+          "out": "450",
+          "canon": "449"
+        },
+        {
+          "in": "450",
+          "out": "451",
+          "canon": "450"
+        },
+        {
+          "in": "451",
+          "out": "452",
+          "canon": "451"
+        },
+        {
+          "in": "452",
+          "out": "453",
+          "canon": "452"
+        },
+        {
+          "in": "453",
+          "out": "454",
+          "canon": "453"
+        },
+        {
+          "in": "454",
+          "out": "455",
+          "canon": "454"
+        },
+        {
+          "in": "456",
+          "out": "457",
+          "canon": "456"
+        },
+        {
+          "in": "457",
+          "out": "458",
+          "canon": "457"
+        },
+        {
+          "in": "458",
+          "out": "459",
+          "canon": "458"
+        },
+        {
+          "in": "459",
+          "out": "460",
+          "canon": "459"
+        },
+        {
+          "in": "460",
+          "out": "461",
+          "canon": "460"
+        },
+        {
+          "in": "461",
+          "out": "462",
+          "canon": "461"
+        },
+        {
+          "in": "462",
+          "out": "463",
+          "canon": "462"
+        },
+        {
+          "in": "464",
+          "out": "465",
+          "canon": "464"
+        },
+        {
+          "in": "465",
+          "out": "466",
+          "canon": "465"
+        },
+        {
+          "in": "466",
+          "out": "467",
+          "canon": "466"
+        },
+        {
+          "in": "467",
+          "out": "468",
+          "canon": "467"
+        },
+        {
+          "in": "468",
+          "out": "469",
+          "canon": "468"
+        },
+        {
+          "in": "469",
+          "out": "470",
+          "canon": "469"
+        },
+        {
+          "in": "470",
+          "out": "471",
+          "canon": "470"
+        },
+        {
+          "in": "471",
+          "out": "472",
+          "canon": "471"
+        },
+        {
+          "in": "474",
+          "out": "475",
+          "canon": "474"
+        },
+        {
+          "in": "476",
+          "out": "477",
+          "canon": "476"
+        },
+        {
+          "in": "479",
+          "out": "480",
+          "canon": "479"
+        },
+        {
+          "in": "480",
+          "out": "481",
+          "canon": "480"
+        },
+        {
+          "in": "481",
+          "out": "482",
+          "canon": "481"
+        },
+        {
+          "in": "482",
+          "out": "483",
+          "canon": "482"
+        },
+        {
+          "in": "484",
+          "out": "485",
+          "canon": "484"
+        },
+        {
+          "in": "485",
+          "out": "486",
+          "canon": "485"
+        },
+        {
+          "in": "486",
+          "out": "487",
+          "canon": "486"
+        },
+        {
+          "in": "487",
+          "out": "488",
+          "canon": "487"
+        },
+        {
+          "in": "489",
+          "out": "490",
+          "canon": "489"
+        },
+        {
+          "in": "490",
+          "out": "491",
+          "canon": "490"
+        },
+        {
+          "in": "491",
+          "out": "492",
+          "canon": "491"
+        },
+        {
+          "in": "492",
+          "out": "493",
+          "canon": "492"
+        },
+        {
+          "in": "494",
+          "out": "495",
+          "canon": "494"
+        },
+        {
+          "in": "495",
+          "out": "496",
+          "canon": "495"
+        },
+        {
+          "in": "496",
+          "out": "497",
+          "canon": "496"
+        },
+        {
+          "in": "497",
+          "out": "498",
+          "canon": "497"
+        },
+        {
+          "in": "498",
+          "out": "499",
+          "canon": "498"
+        },
+        {
+          "in": "500",
+          "out": "501",
+          "canon": "500"
+        },
+        {
+          "in": "501",
+          "out": "502",
+          "canon": "501"
+        },
+        {
+          "in": "502",
+          "out": "503",
+          "canon": "502"
+        },
+        {
+          "in": "503",
+          "out": "504",
+          "canon": "503"
+        },
+        {
+          "in": "506",
+          "out": "507",
+          "canon": "506"
+        },
+        {
+          "in": "507",
+          "out": "508",
+          "canon": "507"
+        },
+        {
+          "in": "508",
+          "out": "509",
+          "canon": "508"
+        },
+        {
+          "in": "509",
+          "out": "510",
+          "canon": "509"
+        },
+        {
+          "in": "510",
+          "out": "511",
+          "canon": "510"
+        },
+        {
+          "in": "511",
+          "out": "512",
+          "canon": "511"
+        },
+        {
+          "in": "513",
+          "out": "514",
+          "canon": "513"
+        },
+        {
+          "in": "514",
+          "out": "515",
+          "canon": "514"
+        },
+        {
+          "in": "515",
+          "out": "516",
+          "canon": "515"
+        },
+        {
+          "in": "516",
+          "out": "517",
+          "canon": "516"
+        },
+        {
+          "in": "517",
+          "out": "518",
+          "canon": "517"
+        },
+        {
+          "in": "518",
+          "out": "519",
+          "canon": "518"
+        },
+        {
+          "in": "519",
+          "out": "520",
+          "canon": "519"
+        },
+        {
+          "in": "520",
+          "out": "521",
+          "canon": "520"
+        },
+        {
+          "in": "521",
+          "out": "522",
+          "canon": "521"
+        },
+        {
+          "in": "522",
+          "out": "523",
+          "canon": "522"
+        },
+        {
+          "in": "523",
+          "out": "524",
+          "canon": "523"
+        },
+        {
+          "in": "524",
+          "out": "525",
+          "canon": "524"
+        },
+        {
+          "in": "525",
+          "out": "526",
+          "canon": "525"
+        },
+        {
+          "in": "526",
+          "out": "527",
+          "canon": "526"
+        },
+        {
+          "in": "527",
+          "out": "528",
+          "canon": "527"
+        },
+        {
+          "in": "528",
+          "out": "529",
+          "canon": "528"
+        },
+        {
+          "in": "529",
+          "out": "530",
+          "canon": "529"
+        },
+        {
+          "in": "530",
+          "out": "531",
+          "canon": "530"
+        },
+        {
+          "in": "531",
+          "out": "532",
+          "canon": "531"
+        },
+        {
+          "in": "532",
+          "out": "533",
+          "canon": "532"
+        },
+        {
+          "in": "533",
+          "out": "534",
+          "canon": "533"
+        },
+        {
+          "in": "535",
+          "out": "536",
+          "canon": "535"
+        },
+        {
+          "in": "536",
+          "out": "537",
+          "canon": "536"
+        },
+        {
+          "in": "538",
+          "out": "539",
+          "canon": "538"
+        },
+        {
+          "in": "539",
+          "out": "540",
+          "canon": "539"
+        },
+        {
+          "in": "540",
+          "out": "541",
+          "canon": "540"
+        },
+        {
+          "in": "541",
+          "out": "542",
+          "canon": "541"
+        },
+        {
+          "in": "542",
+          "out": "543",
+          "canon": "542"
+        },
+        {
+          "in": "543",
+          "out": "544",
+          "canon": "543"
+        },
+        {
+          "in": "545",
+          "out": "546",
+          "canon": "545"
+        },
+        {
+          "in": "546",
+          "out": "547",
+          "canon": "546"
+        },
+        {
+          "in": "547",
+          "out": "548",
+          "canon": "547"
+        },
+        {
+          "in": "548",
+          "out": "549",
+          "canon": "548"
+        },
+        {
+          "in": "549",
+          "out": "550",
+          "canon": "549"
+        },
+        {
+          "in": "550",
+          "out": "551",
+          "canon": "550"
+        },
+        {
+          "in": "551",
+          "out": "552",
+          "canon": "551"
+        },
+        {
+          "in": "552",
+          "out": "553",
+          "canon": "552"
+        },
+        {
+          "in": "553",
+          "out": "554",
+          "canon": "553"
+        },
+        {
+          "in": "554",
+          "out": "555",
+          "canon": "554"
+        },
+        {
+          "in": "555",
+          "out": "556",
+          "canon": "555"
+        },
+        {
+          "in": "557",
+          "out": "558",
+          "canon": "557"
+        },
+        {
+          "in": "558",
+          "out": "559",
+          "canon": "558"
+        },
+        {
+          "in": "559",
+          "out": "560",
+          "canon": "559"
+        },
+        {
+          "in": "560",
+          "out": "561",
+          "canon": "560"
+        },
+        {
+          "in": "562",
+          "out": "563",
+          "canon": "562"
+        },
+        {
+          "in": "563",
+          "out": "564",
+          "canon": "563"
+        },
+        {
+          "in": "564",
+          "out": "565",
+          "canon": "564"
+        },
+        {
+          "in": "565",
+          "out": "566",
+          "canon": "565"
+        },
+        {
+          "in": "566",
+          "out": "567",
+          "canon": "566"
+        },
+        {
+          "in": "567",
+          "out": "568",
+          "canon": "567"
+        },
+        {
+          "in": "569",
+          "out": "570",
+          "canon": "569"
+        },
+        {
+          "in": "570",
+          "out": "571",
+          "canon": "570"
+        },
+        {
+          "in": "571",
+          "out": "572",
+          "canon": "571"
+        },
+        {
+          "in": "572",
+          "out": "573",
+          "canon": "572"
+        },
+        {
+          "in": "573",
+          "out": "574",
+          "canon": "573"
+        },
+        {
+          "in": "574",
+          "out": "575",
+          "canon": "574"
+        },
+        {
+          "in": "575",
+          "out": "576",
+          "canon": "575"
+        },
+        {
+          "in": "576",
+          "out": "577",
+          "canon": "576"
+        },
+        {
+          "in": "577",
+          "out": "578",
+          "canon": "577"
+        },
+        {
+          "in": "578",
+          "out": "579",
+          "canon": "578"
+        },
+        {
+          "in": "579",
+          "out": "580",
+          "canon": "579"
+        },
+        {
+          "in": "580",
+          "out": "581",
+          "canon": "580"
+        },
+        {
+          "in": "581",
+          "out": "582",
+          "canon": "581"
+        },
+        {
+          "in": "582",
+          "out": "583",
+          "canon": "582"
+        },
+        {
+          "in": "583",
+          "out": "584",
+          "canon": "583"
+        },
+        {
+          "in": "584",
+          "out": "585",
+          "canon": "584"
+        },
+        {
+          "in": "585",
+          "out": "586",
+          "canon": "585"
+        },
+        {
+          "in": "586",
+          "out": "587",
+          "canon": "586"
+        },
+        {
+          "in": "587",
+          "out": "588",
+          "canon": "587"
+        },
+        {
+          "in": "588",
+          "out": "589",
+          "canon": "588"
+        },
+        {
+          "in": "589",
+          "out": "590",
+          "canon": "589"
+        },
+        {
+          "in": "590",
+          "out": "591",
+          "canon": "590"
+        },
+        {
+          "in": "591",
+          "out": "592",
+          "canon": "591"
+        },
+        {
+          "in": "593",
+          "out": "594",
+          "canon": "593"
+        },
+        {
+          "in": "594",
+          "out": "595",
+          "canon": "594"
+        },
+        {
+          "in": "595",
+          "out": "596",
+          "canon": "595"
+        },
+        {
+          "in": "596",
+          "out": "597",
+          "canon": "596"
+        },
+        {
+          "in": "598",
+          "out": "599",
+          "canon": "598"
+        },
+        {
+          "in": "599",
+          "out": "600",
+          "canon": "599"
+        },
+        {
+          "in": "600",
+          "out": "601",
+          "canon": "600"
+        },
+        {
+          "in": "601",
+          "out": "602",
+          "canon": "601"
+        },
+        {
+          "in": "603",
+          "out": "604",
+          "canon": "603"
+        },
+        {
+          "in": "604",
+          "out": "605",
+          "canon": "604"
+        },
+        {
+          "in": "605",
+          "out": "606",
+          "canon": "605"
+        },
+        {
+          "in": "606",
+          "out": "607",
+          "canon": "606"
+        },
+        {
+          "in": "607",
+          "out": "608",
+          "canon": "607"
+        },
+        {
+          "in": "609",
+          "out": "610",
+          "canon": "609"
+        },
+        {
+          "in": "610",
+          "out": "611",
+          "canon": "610"
+        },
+        {
+          "in": "611",
+          "out": "612",
+          "canon": "611"
+        },
+        {
+          "in": "614",
+          "out": "615",
+          "canon": "614"
+        },
+        {
+          "in": "615",
+          "out": "616",
+          "canon": "615"
+        },
+        {
+          "in": "616",
+          "out": "617",
+          "canon": "616"
+        },
+        {
+          "in": "617",
+          "out": "618",
+          "canon": "617"
+        },
+        {
+          "in": "618",
+          "out": "619",
+          "canon": "618"
+        },
+        {
+          "in": "619",
+          "out": "620",
+          "canon": "619"
+        },
+        {
+          "in": "620",
+          "out": "621",
+          "canon": "620"
+        },
+        {
+          "in": "622",
+          "out": "623",
+          "canon": "622"
+        },
+        {
+          "in": "623",
+          "out": "624",
+          "canon": "623"
+        },
+        {
+          "in": "624",
+          "out": "625",
+          "canon": "624"
+        },
+        {
+          "in": "625",
+          "out": "626",
+          "canon": "625"
+        },
+        {
+          "in": "627",
+          "out": "628",
+          "canon": "627"
+        },
+        {
+          "in": "628",
+          "out": "629",
+          "canon": "628"
+        },
+        {
+          "in": "629",
+          "out": "630",
+          "canon": "629"
+        },
+        {
+          "in": "630",
+          "out": "631",
+          "canon": "630"
+        },
+        {
+          "in": "631",
+          "out": "632",
+          "canon": "631"
+        },
+        {
+          "in": "633",
+          "out": "634",
+          "canon": "633"
+        },
+        {
+          "in": "634",
+          "out": "635",
+          "canon": "634"
+        },
+        {
+          "in": "635",
+          "out": "636",
+          "canon": "635"
+        },
+        {
+          "in": "636",
+          "out": "637",
+          "canon": "636"
+        },
+        {
+          "in": "637",
+          "out": "638",
+          "canon": "637"
+        },
+        {
+          "in": "638",
+          "out": "639",
+          "canon": "638"
+        },
+        {
+          "in": "639",
+          "out": "640",
+          "canon": "639"
+        },
+        {
+          "in": "640",
+          "out": "641",
+          "canon": "640"
+        },
+        {
+          "in": "641",
+          "out": "642",
+          "canon": "641"
+        },
+        {
+          "in": "642",
+          "out": "643",
+          "canon": "642"
+        },
+        {
+          "in": "644",
+          "out": "645",
+          "canon": "644"
+        },
+        {
+          "in": "645",
+          "out": "646",
+          "canon": "645"
+        },
+        {
+          "in": "646",
+          "out": "647",
+          "canon": "646"
+        },
+        {
+          "in": "647",
+          "out": "648",
+          "canon": "647"
+        },
+        {
+          "in": "649",
+          "out": "650",
+          "canon": "649"
+        },
+        {
+          "in": "650",
+          "out": "651",
+          "canon": "650"
+        },
+        {
+          "in": "651",
+          "out": "652",
+          "canon": "651"
+        },
+        {
+          "in": "652",
+          "out": "653",
+          "canon": "652"
+        },
+        {
+          "in": "654",
+          "out": "655",
+          "canon": "654"
+        },
+        {
+          "in": "655",
+          "out": "656",
+          "canon": "655"
+        },
+        {
+          "in": "656",
+          "out": "657",
+          "canon": "656"
+        },
+        {
+          "in": "657",
+          "out": "658",
+          "canon": "657"
+        },
+        {
+          "in": "658",
+          "out": "659",
+          "canon": "658"
+        },
+        {
+          "in": "659",
+          "out": "660",
+          "canon": "659"
+        },
+        {
+          "in": "660",
+          "out": "661",
+          "canon": "660"
+        },
+        {
+          "in": "661",
+          "out": "662",
+          "canon": "661"
+        },
+        {
+          "in": "662",
+          "out": "663",
+          "canon": "662"
+        },
+        {
+          "in": "663",
+          "out": "664",
+          "canon": "663"
+        },
+        {
+          "in": "664",
+          "out": "665",
+          "canon": "664"
+        },
+        {
+          "in": "665",
+          "out": "666",
+          "canon": "665"
+        },
+        {
+          "in": "666",
+          "out": "667",
+          "canon": "666"
+        },
+        {
+          "in": "667",
+          "out": "668",
+          "canon": "667"
+        },
+        {
+          "in": "668",
+          "out": "669",
+          "canon": "668"
+        },
+        {
+          "in": "669",
+          "out": "670",
+          "canon": "669"
+        },
+        {
+          "in": "670",
+          "out": "671",
+          "canon": "670"
+        },
+        {
+          "in": "671",
+          "out": "672",
+          "canon": "671"
+        },
+        {
+          "in": "672",
+          "out": "673",
+          "canon": "672"
+        },
+        {
+          "in": "673",
+          "out": "674",
+          "canon": "673"
+        },
+        {
+          "in": "674",
+          "out": "675",
+          "canon": "674"
+        },
+        {
+          "in": "675",
+          "out": "676",
+          "canon": "675"
+        },
+        {
+          "in": "676",
+          "out": "677",
+          "canon": "676"
+        },
+        {
+          "in": "677",
+          "out": "678",
+          "canon": "677"
+        },
+        {
+          "in": "678",
+          "out": "679",
+          "canon": "678"
+        },
+        {
+          "in": "679",
+          "out": "680",
+          "canon": "679"
+        },
+        {
+          "in": "680",
+          "out": "681",
+          "canon": "680"
+        },
+        {
+          "in": "681",
+          "out": "682",
+          "canon": "681"
+        },
+        {
+          "in": "682",
+          "out": "683",
+          "canon": "682"
+        },
+        {
+          "in": "683",
+          "out": "684",
+          "canon": "683"
+        },
+        {
+          "in": "684",
+          "out": "685",
+          "canon": "684"
+        },
+        {
+          "in": "685",
+          "out": "686",
+          "canon": "685"
+        },
+        {
+          "in": "687",
+          "out": "688",
+          "canon": "687"
+        },
+        {
+          "in": "688",
+          "out": "689",
+          "canon": "688"
+        },
+        {
+          "in": "689",
+          "out": "690",
+          "canon": "689"
+        },
+        {
+          "in": "690",
+          "out": "691",
+          "canon": "690"
+        },
+        {
+          "in": "691",
+          "out": "692",
+          "canon": "691"
+        },
+        {
+          "in": "692",
+          "out": "693",
+          "canon": "692"
+        },
+        {
+          "in": "693",
+          "out": "694",
+          "canon": "693"
+        },
+        {
+          "in": "695",
+          "out": "696",
+          "canon": "695"
+        },
+        {
+          "in": "696",
+          "out": "697",
+          "canon": "696"
+        },
+        {
+          "in": "697",
+          "out": "698",
+          "canon": "697"
+        },
+        {
+          "in": "698",
+          "out": "699",
+          "canon": "698"
+        },
+        {
+          "in": "699",
+          "out": "700",
+          "canon": "699"
+        },
+        {
+          "in": "700",
+          "out": "701",
+          "canon": "700"
+        },
+        {
+          "in": "701",
+          "out": "702",
+          "canon": "701"
+        },
+        {
+          "in": "703",
+          "out": "704",
+          "canon": "703"
+        },
+        {
+          "in": "704",
+          "out": "705",
+          "canon": "704"
+        },
+        {
+          "in": "705",
+          "out": "706",
+          "canon": "705"
+        },
+        {
+          "in": "706",
+          "out": "707",
+          "canon": "706"
+        },
+        {
+          "in": "707",
+          "out": "708",
+          "canon": "707"
+        },
+        {
+          "in": "708",
+          "out": "709",
+          "canon": "708"
+        },
+        {
+          "in": "709",
+          "out": "710",
+          "canon": "709"
+        },
+        {
+          "in": "711",
+          "out": "712",
+          "canon": "711"
+        },
+        {
+          "in": "712",
+          "out": "713",
+          "canon": "712"
+        },
+        {
+          "in": "714",
+          "out": "715",
+          "canon": "714"
+        },
+        {
+          "in": "715",
+          "out": "716",
+          "canon": "715"
+        },
+        {
+          "in": "716",
+          "out": "717",
+          "canon": "716"
+        },
+        {
+          "in": "717",
+          "out": "718",
+          "canon": "717"
+        },
+        {
+          "in": "718",
+          "out": "719",
+          "canon": "718"
+        },
+        {
+          "in": "720",
+          "out": "721",
+          "canon": "720"
+        },
+        {
+          "in": "721",
+          "out": "722",
+          "canon": "721"
+        },
+        {
+          "in": "722",
+          "out": "723",
+          "canon": "722"
+        },
+        {
+          "in": "724",
+          "out": "725",
+          "canon": "724"
+        },
+        {
+          "in": "726",
+          "out": "727",
+          "canon": "726"
+        },
+        {
+          "in": "727",
+          "out": "728",
+          "canon": "727"
+        },
+        {
+          "in": "728",
+          "out": "729",
+          "canon": "728"
+        },
+        {
+          "in": "729",
+          "out": "730",
+          "canon": "729"
+        },
+        {
+          "in": "730",
+          "out": "731",
+          "canon": "730"
+        },
+        {
+          "in": "731",
+          "out": "732",
+          "canon": "731"
+        },
+        {
+          "in": "732",
+          "out": "733",
+          "canon": "732"
+        },
+        {
+          "in": "733",
+          "out": "734",
+          "canon": "733"
+        },
+        {
+          "in": "735",
+          "out": "736",
+          "canon": "735"
+        },
+        {
+          "in": "736",
+          "out": "737",
+          "canon": "736"
+        },
+        {
+          "in": "737",
+          "out": "738",
+          "canon": "737"
+        },
+        {
+          "in": "738",
+          "out": "739",
+          "canon": "738"
+        },
+        {
+          "in": "739",
+          "out": "740",
+          "canon": "739"
+        },
+        {
+          "in": "740",
+          "out": "741",
+          "canon": "740"
+        },
+        {
+          "in": "742",
+          "out": "743",
+          "canon": "742"
+        },
+        {
+          "in": "743",
+          "out": "744",
+          "canon": "743"
+        },
+        {
+          "in": "744",
+          "out": "745",
+          "canon": "744"
+        },
+        {
+          "in": "745",
+          "out": "746",
+          "canon": "745"
+        },
+        {
+          "in": "746",
+          "out": "747",
+          "canon": "746"
+        },
+        {
+          "in": "747",
+          "out": "748",
+          "canon": "747"
+        },
+        {
+          "in": "749",
+          "out": "750",
+          "canon": "749"
+        },
+        {
+          "in": "750",
+          "out": "751",
+          "canon": "750"
+        },
+        {
+          "in": "751",
+          "out": "752",
+          "canon": "751"
+        },
+        {
+          "in": "753",
+          "out": "754",
+          "canon": "753"
+        },
+        {
+          "in": "754",
+          "out": "755",
+          "canon": "754"
+        },
+        {
+          "in": "755",
+          "out": "756",
+          "canon": "755"
+        },
+        {
+          "in": "757",
+          "out": "758",
+          "canon": "757"
+        },
+        {
+          "in": "758",
+          "out": "759",
+          "canon": "758"
+        },
+        {
+          "in": "759",
+          "out": "760",
+          "canon": "759"
+        },
+        {
+          "in": "760",
+          "out": "761",
+          "canon": "760"
+        },
+        {
+          "in": "761",
+          "out": "762",
+          "canon": "761"
+        },
+        {
+          "in": "762",
+          "out": "763",
+          "canon": "762"
+        },
+        {
+          "in": "763",
+          "out": "764",
+          "canon": "763"
+        },
+        {
+          "in": "764",
+          "out": "765",
+          "canon": "764"
+        },
+        {
+          "in": "765",
+          "out": "766",
+          "canon": "765"
+        },
+        {
+          "in": "766",
+          "out": "767",
+          "canon": "766"
+        },
+        {
+          "in": "767",
+          "out": "768",
+          "canon": "767"
+        },
+        {
+          "in": "768",
+          "out": "769",
+          "canon": "768"
+        },
+        {
+          "in": "769",
+          "out": "770",
+          "canon": "769"
+        },
+        {
+          "in": "770",
+          "out": "771",
+          "canon": "770"
+        },
+        {
+          "in": "771",
+          "out": "772",
+          "canon": "771"
+        },
+        {
+          "in": "772",
+          "out": "773",
+          "canon": "772"
+        },
+        {
+          "in": "773",
+          "out": "774",
+          "canon": "773"
+        },
+        {
+          "in": "775",
+          "out": "776",
+          "canon": "775"
+        },
+        {
+          "in": "777",
+          "out": "778",
+          "canon": "777"
+        },
+        {
+          "in": "778",
+          "out": "779",
+          "canon": "778"
+        },
+        {
+          "in": "779",
+          "out": "780",
+          "canon": "779"
+        },
+        {
+          "in": "780",
+          "out": "781",
+          "canon": "780"
+        },
+        {
+          "in": "781",
+          "out": "782",
+          "canon": "781"
+        },
+        {
+          "in": "782",
+          "out": "783",
+          "canon": "782"
+        },
+        {
+          "in": "783",
+          "out": "784",
+          "canon": "783"
+        },
+        {
+          "in": "784",
+          "out": "785",
+          "canon": "784"
+        },
+        {
+          "in": "785",
+          "out": "786",
+          "canon": "785"
+        },
+        {
+          "in": "786",
+          "out": "787",
+          "canon": "786"
+        },
+        {
+          "in": "787",
+          "out": "788",
+          "canon": "787"
+        },
+        {
+          "in": "788",
+          "out": "789",
+          "canon": "788"
+        },
+        {
+          "in": "789",
+          "out": "790",
+          "canon": "789"
+        },
+        {
+          "in": "790",
+          "out": "791",
+          "canon": "790"
+        },
+        {
+          "in": "791",
+          "out": "792",
+          "canon": "791"
+        },
+        {
+          "in": "792",
+          "out": "793",
+          "canon": "792"
+        },
+        {
+          "in": "793",
+          "out": "794",
+          "canon": "793"
+        },
+        {
+          "in": "794",
+          "out": "795",
+          "canon": "794"
+        },
+        {
+          "in": "795",
+          "out": "796",
+          "canon": "795"
+        },
+        {
+          "in": "796",
+          "out": "797",
+          "canon": "796"
+        },
+        {
+          "in": "797",
+          "out": "798",
+          "canon": "797"
+        },
+        {
+          "in": "798",
+          "out": "799",
+          "canon": "798"
+        },
+        {
+          "in": "799",
+          "out": "800",
+          "canon": "799"
+        },
+        {
+          "in": "800",
+          "out": "801",
+          "canon": "800"
+        },
+        {
+          "in": "801",
+          "out": "802",
+          "canon": "801"
+        },
+        {
+          "in": "802",
+          "out": "803",
+          "canon": "802"
+        },
+        {
+          "in": "803",
+          "out": "804",
+          "canon": "803"
+        },
+        {
+          "in": "806",
+          "out": "807",
+          "canon": "806"
+        },
+        {
+          "in": "807",
+          "out": "808",
+          "canon": "807"
+        },
+        {
+          "in": "808",
+          "out": "809",
+          "canon": "808"
+        },
+        {
+          "in": "809",
+          "out": "810",
+          "canon": "809"
+        },
+        {
+          "in": "810",
+          "out": "811",
+          "canon": "810"
+        },
+        {
+          "in": "811",
+          "out": "812",
+          "canon": "811"
+        },
+        {
+          "in": "812",
+          "out": "813",
+          "canon": "812"
+        },
+        {
+          "in": "813",
+          "out": "814",
+          "canon": "813"
+        },
+        {
+          "in": "814",
+          "out": "815",
+          "canon": "814"
+        },
+        {
+          "in": "816",
+          "out": "817",
+          "canon": "816"
+        },
+        {
+          "in": "817",
+          "out": "818",
+          "canon": "817"
+        },
+        {
+          "in": "818",
+          "out": "819",
+          "canon": "818"
+        },
+        {
+          "in": "819",
+          "out": "820",
+          "canon": "819"
+        },
+        {
+          "in": "820",
+          "out": "821",
+          "canon": "820"
+        },
+        {
+          "in": "821",
+          "out": "822",
+          "canon": "821"
+        },
+        {
+          "in": "822",
+          "out": "823",
+          "canon": "822"
+        },
+        {
+          "in": "823",
+          "out": "824",
+          "canon": "823"
+        },
+        {
+          "in": "824",
+          "out": "825",
+          "canon": "824"
+        },
+        {
+          "in": "825",
+          "out": "826",
+          "canon": "825"
+        },
+        {
+          "in": "826",
+          "out": "827",
+          "canon": "826"
+        },
+        {
+          "in": "827",
+          "out": "828",
+          "canon": "827"
+        },
+        {
+          "in": "828",
+          "out": "829",
+          "canon": "828"
+        },
+        {
+          "in": "829",
+          "out": "830",
+          "canon": "829"
+        },
+        {
+          "in": "831",
+          "out": "832",
+          "canon": "831"
+        },
+        {
+          "in": "832",
+          "out": "833",
+          "canon": "832"
+        },
+        {
+          "in": "833",
+          "out": "834",
+          "canon": "833"
+        },
+        {
+          "in": "834",
+          "out": "835",
+          "canon": "834"
+        },
+        {
+          "in": "835",
+          "out": "836",
+          "canon": "835"
+        },
+        {
+          "in": "836",
+          "out": "837",
+          "canon": "836"
+        },
+        {
+          "in": "837",
+          "out": "838",
+          "canon": "837"
+        },
+        {
+          "in": "838",
+          "out": "839",
+          "canon": "838"
+        },
+        {
+          "in": "839",
+          "out": "840",
+          "canon": "839"
+        },
+        {
+          "in": "841",
+          "out": "842",
+          "canon": "841"
+        },
+        {
+          "in": "842",
+          "out": "843",
+          "canon": "842"
+        },
+        {
+          "in": "843",
+          "out": "844",
+          "canon": "843"
+        },
+        {
+          "in": "844",
+          "out": "845",
+          "canon": "844"
+        },
+        {
+          "in": "845",
+          "out": "846",
+          "canon": "845"
+        },
+        {
+          "in": "846",
+          "out": "847",
+          "canon": "846"
+        },
+        {
+          "in": "847",
+          "out": "848",
+          "canon": "847"
+        },
+        {
+          "in": "848",
+          "out": "849",
+          "canon": "848"
+        },
+        {
+          "in": "849",
+          "out": "850",
+          "canon": "849"
+        },
+        {
+          "in": "850",
+          "out": "851",
+          "canon": "850"
+        },
+        {
+          "in": "851",
+          "out": "852",
+          "canon": "851"
+        },
+        {
+          "in": "853",
+          "out": "854",
+          "canon": "853"
+        },
+        {
+          "in": "855",
+          "out": "856",
+          "canon": "855"
+        },
+        {
+          "in": "856",
+          "out": "857",
+          "canon": "856"
+        },
+        {
+          "in": "858",
+          "out": "859",
+          "canon": "858"
+        },
+        {
+          "in": "859",
+          "out": "860",
+          "canon": "859"
+        },
+        {
+          "in": "860",
+          "out": "861",
+          "canon": "860"
+        },
+        {
+          "in": "861",
+          "out": "862",
+          "canon": "861"
+        },
+        {
+          "in": "862",
+          "out": "863",
+          "canon": "862"
+        },
+        {
+          "in": "863",
+          "out": "864",
+          "canon": "863"
+        },
+        {
+          "in": "864",
+          "out": "865",
+          "canon": "864"
+        },
+        {
+          "in": "865",
+          "out": "866",
+          "canon": "865"
+        },
+        {
+          "in": "866",
+          "out": "867",
+          "canon": "866"
+        },
+        {
+          "in": "867",
+          "out": "868",
+          "canon": "867"
+        },
+        {
+          "in": "868",
+          "out": "869",
+          "canon": "868"
+        },
+        {
+          "in": "869",
+          "out": "870",
+          "canon": "869"
+        },
+        {
+          "in": "870",
+          "out": "871",
+          "canon": "870"
+        },
+        {
+          "in": "871",
+          "out": "872",
+          "canon": "871"
+        },
+        {
+          "in": "872",
+          "out": "873",
+          "canon": "872"
+        },
+        {
+          "in": "873",
+          "out": "874",
+          "canon": "873"
+        },
+        {
+          "in": "874",
+          "out": "875",
+          "canon": "874"
+        },
+        {
+          "in": "875",
+          "out": "876",
+          "canon": "875"
+        },
+        {
+          "in": "876",
+          "out": "877",
+          "canon": "876"
+        },
+        {
+          "in": "878",
+          "out": "879",
+          "canon": "878"
+        },
+        {
+          "in": "879",
+          "out": "880",
+          "canon": "879"
+        },
+        {
+          "in": "880",
+          "out": "881",
+          "canon": "880"
+        },
+        {
+          "in": "881",
+          "out": "882",
+          "canon": "881"
+        },
+        {
+          "in": "882",
+          "out": "883",
+          "canon": "882"
+        },
+        {
+          "in": "883",
+          "out": "884",
+          "canon": "883"
+        },
+        {
+          "in": "884",
+          "out": "885",
+          "canon": "884"
+        },
+        {
+          "in": "885",
+          "out": "886",
+          "canon": "885"
+        },
+        {
+          "in": "886",
+          "out": "887",
+          "canon": "886"
+        },
+        {
+          "in": "887",
+          "out": "888",
+          "canon": "887"
+        },
+        {
+          "in": "888",
+          "out": "889",
+          "canon": "888"
+        },
+        {
+          "in": "889",
+          "out": "890",
+          "canon": "889"
+        },
+        {
+          "in": "890",
+          "out": "891",
+          "canon": "890"
+        },
+        {
+          "in": "891",
+          "out": "892",
+          "canon": "891"
+        },
+        {
+          "in": "892",
+          "out": "893",
+          "canon": "892"
+        },
+        {
+          "in": "893",
+          "out": "894",
+          "canon": "893"
+        },
+        {
+          "in": "894",
+          "out": "895",
+          "canon": "894"
+        },
+        {
+          "in": "895",
+          "out": "896",
+          "canon": "895"
+        },
+        {
+          "in": "896",
+          "out": "897",
+          "canon": "896"
+        },
+        {
+          "in": "897",
+          "out": "898",
+          "canon": "897"
+        },
+        {
+          "in": "898",
+          "out": "899",
+          "canon": "898"
+        },
+        {
+          "in": "899",
+          "out": "900",
+          "canon": "899"
+        },
+        {
+          "in": "900",
+          "out": "901",
+          "canon": "900"
+        },
+        {
+          "in": "901",
+          "out": "902",
+          "canon": "901"
+        },
+        {
+          "in": "903",
+          "out": "904",
+          "canon": "903"
+        },
+        {
+          "in": "904",
+          "out": "905",
+          "canon": "904"
+        },
+        {
+          "in": "905",
+          "out": "906",
+          "canon": "905"
+        },
+        {
+          "in": "906",
+          "out": "907",
+          "canon": "906"
+        },
+        {
+          "in": "907",
+          "out": "908",
+          "canon": "907"
+        },
+        {
+          "in": "908",
+          "out": "909",
+          "canon": "908"
+        },
+        {
+          "in": "910",
+          "out": "911",
+          "canon": "910"
+        },
+        {
+          "in": "911",
+          "out": "912",
+          "canon": "911"
+        },
+        {
+          "in": "912",
+          "out": "913",
+          "canon": "912"
+        },
+        {
+          "in": "913",
+          "out": "914",
+          "canon": "913"
+        },
+        {
+          "in": "914",
+          "out": "915",
+          "canon": "914"
+        },
+        {
+          "in": "916",
+          "out": "917",
+          "canon": "916"
+        },
+        {
+          "in": "918",
+          "out": "919",
+          "canon": "918"
+        },
+        {
+          "in": "919",
+          "out": "920",
+          "canon": "919"
+        },
+        {
+          "in": "920",
+          "out": "921",
+          "canon": "920"
+        },
+        {
+          "in": "923",
+          "out": "924",
+          "canon": "923"
+        },
+        {
+          "in": "924",
+          "out": "925",
+          "canon": "924"
+        },
+        {
+          "in": "925",
+          "out": "926",
+          "canon": "925"
+        },
+        {
+          "in": "926",
+          "out": "927",
+          "canon": "926"
+        },
+        {
+          "in": "928",
+          "out": "929",
+          "canon": "928"
+        },
+        {
+          "in": "929",
+          "out": "930",
+          "canon": "929"
+        },
+        {
+          "in": "930",
+          "out": "931",
+          "canon": "930"
+        },
+        {
+          "in": "931",
+          "out": "932",
+          "canon": "931"
+        },
+        {
+          "in": "932",
+          "out": "933",
+          "canon": "932"
+        },
+        {
+          "in": "933",
+          "out": "934",
+          "canon": "933"
+        },
+        {
+          "in": "934",
+          "out": "935",
+          "canon": "934"
+        },
+        {
+          "in": "935",
+          "out": "936",
+          "canon": "935"
+        },
+        {
+          "in": "936",
+          "out": "937",
+          "canon": "936"
+        },
+        {
+          "in": "937",
+          "out": "938",
+          "canon": "937"
+        },
+        {
+          "in": "939",
+          "out": "940",
+          "canon": "939"
+        },
+        {
+          "in": "940",
+          "out": "941",
+          "canon": "940"
+        },
+        {
+          "in": "941",
+          "out": "942",
+          "canon": "941"
+        },
+        {
+          "in": "942",
+          "out": "943",
+          "canon": "942"
+        },
+        {
+          "in": "944",
+          "out": "945",
+          "canon": "944"
+        },
+        {
+          "in": "945",
+          "out": "946",
+          "canon": "945"
+        },
+        {
+          "in": "946",
+          "out": "947",
+          "canon": "946"
+        },
+        {
+          "in": "947",
+          "out": "948",
+          "canon": "947"
+        },
+        {
+          "in": "948",
+          "out": "949",
+          "canon": "948"
+        },
+        {
+          "in": "949",
+          "out": "950",
+          "canon": "949"
+        },
+        {
+          "in": "950",
+          "out": "951",
+          "canon": "950"
+        },
+        {
+          "in": "951",
+          "out": "952",
+          "canon": "951"
+        },
+        {
+          "in": "952",
+          "out": "953",
+          "canon": "952"
+        },
+        {
+          "in": "953",
+          "out": "954",
+          "canon": "953"
+        },
+        {
+          "in": "954",
+          "out": "955",
+          "canon": "954"
+        },
+        {
+          "in": "955",
+          "out": "956",
+          "canon": "955"
+        },
+        {
+          "in": "956",
+          "out": "957",
+          "canon": "956"
+        },
+        {
+          "in": "957",
+          "out": "958",
+          "canon": "957"
+        },
+        {
+          "in": "958",
+          "out": "959",
+          "canon": "958"
+        },
+        {
+          "in": "959",
+          "out": "960",
+          "canon": "959"
+        },
+        {
+          "in": "960",
+          "out": "961",
+          "canon": "960"
+        },
+        {
+          "in": "961",
+          "out": "962",
+          "canon": "961"
+        },
+        {
+          "in": "962",
+          "out": "963",
+          "canon": "962"
+        },
+        {
+          "in": "963",
+          "out": "964",
+          "canon": "963"
+        },
+        {
+          "in": "964",
+          "out": "965",
+          "canon": "964"
+        },
+        {
+          "in": "966",
+          "out": "967",
+          "canon": "966"
+        },
+        {
+          "in": "967",
+          "out": "968",
+          "canon": "967"
+        },
+        {
+          "in": "968",
+          "out": "969",
+          "canon": "968"
+        },
+        {
+          "in": "969",
+          "out": "970",
+          "canon": "969"
+        },
+        {
+          "in": "970",
+          "out": "971",
+          "canon": "970"
+        },
+        {
+          "in": "971",
+          "out": "972",
+          "canon": "971"
+        },
+        {
+          "in": "972",
+          "out": "973",
+          "canon": "972"
+        },
+        {
+          "in": "973",
+          "out": "974",
+          "canon": "973"
+        },
+        {
+          "in": "974",
+          "out": "975",
+          "canon": "974"
+        },
+        {
+          "in": "975",
+          "out": "976",
+          "canon": "975"
+        },
+        {
+          "in": "976",
+          "out": "977",
+          "canon": "976"
+        },
+        {
+          "in": "977",
+          "out": "978",
+          "canon": "977"
+        },
+        {
+          "in": "978",
+          "out": "979",
+          "canon": "978"
+        },
+        {
+          "in": "979",
+          "out": "980",
+          "canon": "979"
+        },
+        {
+          "in": "981",
+          "out": "982",
+          "canon": "981"
+        },
+        {
+          "in": "982",
+          "out": "983",
+          "canon": "982"
+        },
+        {
+          "in": "983",
+          "out": "984",
+          "canon": "983"
+        },
+        {
+          "in": "984",
+          "out": "985",
+          "canon": "984"
+        },
+        {
+          "in": "985",
+          "out": "986",
+          "canon": "985"
+        },
+        {
+          "in": "986",
+          "out": "987",
+          "canon": "986"
+        },
+        {
+          "in": "987",
+          "out": "988",
+          "canon": "987"
+        },
+        {
+          "in": "988",
+          "out": "989",
+          "canon": "988"
+        },
+        {
+          "in": "989",
+          "out": "990",
+          "canon": "989"
+        },
+        {
+          "in": "991",
+          "out": "992",
+          "canon": "991"
+        },
+        {
+          "in": "992",
+          "out": "993",
+          "canon": "992"
+        },
+        {
+          "in": "993",
+          "out": "994",
+          "canon": "993"
+        },
+        {
+          "in": "994",
+          "out": "995",
+          "canon": "994"
+        },
+        {
+          "in": "995",
+          "out": "996",
+          "canon": "995"
+        },
+        {
+          "in": "996",
+          "out": "997",
+          "canon": "996"
+        },
+        {
+          "in": "997",
+          "out": "998",
+          "canon": "997"
+        }
+      ],
+      "notAccepted": [
+        "12",
+        "1234"
+      ]
+    },
+    {
+      "naxp": "[0-5]\\9",
+      "note": "independent digit sets of fixed width",
+      "valueCount": "60",
+      "acceptedCount": "60",
+      "complete": true,
+      "values": [
+        {
+          "in": "00",
+          "out": "1",
+          "canon": "00"
+        },
+        {
+          "in": "01",
+          "out": "2",
+          "canon": "01"
+        },
+        {
+          "in": "02",
+          "out": "3",
+          "canon": "02"
+        },
+        {
+          "in": "03",
+          "out": "4",
+          "canon": "03"
+        },
+        {
+          "in": "04",
+          "out": "5",
+          "canon": "04"
+        },
+        {
+          "in": "05",
+          "out": "6",
+          "canon": "05"
+        },
+        {
+          "in": "06",
+          "out": "7",
+          "canon": "06"
+        },
+        {
+          "in": "07",
+          "out": "8",
+          "canon": "07"
+        },
+        {
+          "in": "08",
+          "out": "9",
+          "canon": "08"
+        },
+        {
+          "in": "09",
+          "out": "10",
+          "canon": "09"
+        },
+        {
+          "in": "10",
+          "out": "11",
+          "canon": "10"
+        },
+        {
+          "in": "11",
+          "out": "12",
+          "canon": "11"
+        },
+        {
+          "in": "12",
+          "out": "13",
+          "canon": "12"
+        },
+        {
+          "in": "13",
+          "out": "14",
+          "canon": "13"
+        },
+        {
+          "in": "14",
+          "out": "15",
+          "canon": "14"
+        },
+        {
+          "in": "15",
+          "out": "16",
+          "canon": "15"
+        },
+        {
+          "in": "16",
+          "out": "17",
+          "canon": "16"
+        },
+        {
+          "in": "17",
+          "out": "18",
+          "canon": "17"
+        },
+        {
+          "in": "18",
+          "out": "19",
+          "canon": "18"
+        },
+        {
+          "in": "19",
+          "out": "20",
+          "canon": "19"
+        },
+        {
+          "in": "20",
+          "out": "21",
+          "canon": "20"
+        },
+        {
+          "in": "21",
+          "out": "22",
+          "canon": "21"
+        },
+        {
+          "in": "22",
+          "out": "23",
+          "canon": "22"
+        },
+        {
+          "in": "23",
+          "out": "24",
+          "canon": "23"
+        },
+        {
+          "in": "24",
+          "out": "25",
+          "canon": "24"
+        },
+        {
+          "in": "25",
+          "out": "26",
+          "canon": "25"
+        },
+        {
+          "in": "26",
+          "out": "27",
+          "canon": "26"
+        },
+        {
+          "in": "27",
+          "out": "28",
+          "canon": "27"
+        },
+        {
+          "in": "28",
+          "out": "29",
+          "canon": "28"
+        },
+        {
+          "in": "29",
+          "out": "30",
+          "canon": "29"
+        },
+        {
+          "in": "30",
+          "out": "31",
+          "canon": "30"
+        },
+        {
+          "in": "31",
+          "out": "32",
+          "canon": "31"
+        },
+        {
+          "in": "32",
+          "out": "33",
+          "canon": "32"
+        },
+        {
+          "in": "33",
+          "out": "34",
+          "canon": "33"
+        },
+        {
+          "in": "34",
+          "out": "35",
+          "canon": "34"
+        },
+        {
+          "in": "35",
+          "out": "36",
+          "canon": "35"
+        },
+        {
+          "in": "36",
+          "out": "37",
+          "canon": "36"
+        },
+        {
+          "in": "37",
+          "out": "38",
+          "canon": "37"
+        },
+        {
+          "in": "38",
+          "out": "39",
+          "canon": "38"
+        },
+        {
+          "in": "39",
+          "out": "40",
+          "canon": "39"
+        },
+        {
+          "in": "40",
+          "out": "41",
+          "canon": "40"
+        },
+        {
+          "in": "41",
+          "out": "42",
+          "canon": "41"
+        },
+        {
+          "in": "42",
+          "out": "43",
+          "canon": "42"
+        },
+        {
+          "in": "43",
+          "out": "44",
+          "canon": "43"
+        },
+        {
+          "in": "44",
+          "out": "45",
+          "canon": "44"
+        },
+        {
+          "in": "45",
+          "out": "46",
+          "canon": "45"
+        },
+        {
+          "in": "46",
+          "out": "47",
+          "canon": "46"
+        },
+        {
+          "in": "47",
+          "out": "48",
+          "canon": "47"
+        },
+        {
+          "in": "48",
+          "out": "49",
+          "canon": "48"
+        },
+        {
+          "in": "49",
+          "out": "50",
+          "canon": "49"
+        },
+        {
+          "in": "50",
+          "out": "51",
+          "canon": "50"
+        },
+        {
+          "in": "51",
+          "out": "52",
+          "canon": "51"
+        },
+        {
+          "in": "52",
+          "out": "53",
+          "canon": "52"
+        },
+        {
+          "in": "53",
+          "out": "54",
+          "canon": "53"
+        },
+        {
+          "in": "54",
+          "out": "55",
+          "canon": "54"
+        },
+        {
+          "in": "55",
+          "out": "56",
+          "canon": "55"
+        },
+        {
+          "in": "56",
+          "out": "57",
+          "canon": "56"
+        },
+        {
+          "in": "57",
+          "out": "58",
+          "canon": "57"
+        },
+        {
+          "in": "58",
+          "out": "59",
+          "canon": "58"
+        },
+        {
+          "in": "59",
+          "out": "60",
+          "canon": "59"
+        }
+      ],
+      "notAccepted": [
+        "60",
+        "6"
+      ]
+    },
+    {
+      "naxp": "(A|a)!A",
+      "note": "case folding: both cases encode alike and print the capital",
+      "valueCount": "1",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": "A",
+          "out": "1",
+          "canon": "A"
+        },
+        {
+          "in": "a",
+          "out": "1",
+          "canon": "A"
+        }
+      ],
+      "notAccepted": [
+        "B"
+      ]
+    },
+    {
+      "naxp": "\\A!?",
+      "note": "a capital or nothing, discarded and printed as nothing",
+      "valueCount": "1",
+      "acceptedCount": "27",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "A",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "B",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "C",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "D",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "E",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "F",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "G",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "H",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "I",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "J",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "K",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "L",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "M",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "N",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "O",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "P",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "Q",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "R",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "S",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "T",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "U",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "V",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "W",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "X",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "Y",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "Z",
+          "out": "1",
+          "canon": ""
+        }
+      ],
+      "notAccepted": [
+        "a"
+      ]
+    },
+    {
+      "naxp": "\\s!!X",
+      "note": "an optional space, reproduced on reconstitution",
+      "valueCount": "1",
+      "acceptedCount": "2",
+      "complete": true,
+      "values": [
+        {
+          "in": " X",
+          "out": "1",
+          "canon": " X"
+        },
+        {
+          "in": "X",
+          "out": "1",
+          "canon": " X"
+        }
+      ],
+      "notAccepted": [
+        "  X",
+        "x"
+      ]
+    },
+    {
+      "naxp": "[\\s\\-]?!\\-",
+      "note": "space, hyphen or nothing; prints a hyphen",
+      "valueCount": "1",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "-",
+          "out": "1",
+          "canon": "-"
+        },
+        {
+          "in": "",
+          "out": "1",
+          "canon": "-"
+        },
+        {
+          "in": " ",
+          "out": "1",
+          "canon": "-"
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "[\\s\\-]!?",
+      "note": "the same values as the previous case, different text",
+      "valueCount": "1",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": " ",
+          "out": "1",
+          "canon": ""
+        },
+        {
+          "in": "-",
+          "out": "1",
+          "canon": ""
+        }
+      ],
+      "notAccepted": [
+        "A"
+      ]
+    },
+    {
+      "naxp": "(A|b)!bX|BY",
+      "note": "the counterexample that pins reading (a)",
+      "valueCount": "2",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "BY",
+          "out": "1",
+          "canon": "BY"
+        },
+        {
+          "in": "bX",
+          "out": "2",
+          "canon": "bX"
+        },
+        {
+          "in": "AX",
+          "out": "2",
+          "canon": "bX"
+        }
+      ],
+      "notAccepted": [
+        "AY",
+        "bY"
+      ]
+    },
+    {
+      "naxp": "(A|b)!AX|BY",
+      "note": "differs from the previous case only in the rendering",
+      "valueCount": "2",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AX",
+          "out": "1",
+          "canon": "AX"
+        },
+        {
+          "in": "BY",
+          "out": "2",
+          "canon": "BY"
+        },
+        {
+          "in": "bX",
+          "out": "1",
+          "canon": "AX"
+        }
+      ],
+      "notAccepted": [
+        "AY"
+      ]
+    },
+    {
+      "naxp": "(a|A)!AX|AY",
+      "note": "one fibre leaves the start state by two transitions",
+      "valueCount": "2",
+      "acceptedCount": "3",
+      "complete": true,
+      "values": [
+        {
+          "in": "AX",
+          "out": "1",
+          "canon": "AX"
+        },
+        {
+          "in": "AY",
+          "out": "2",
+          "canon": "AY"
+        },
+        {
+          "in": "aX",
+          "out": "1",
+          "canon": "AX"
+        }
+      ],
+      "notAccepted": [
+        "aY"
+      ]
+    },
+    {
+      "naxp": "\\A \\A? \\9 \\X? \\s!! \\9 \\A \\A",
+      "note": "UK postcodes; the separating space is optional on input",
+      "valueCount": "1755842400",
+      "acceptedCount": "3511684800",
+      "complete": false,
+      "values": [
+        {
+          "in": "M1 1AA",
+          "out": "810639597",
+          "canon": "M1 1AA"
+        },
+        {
+          "in": "M11AA",
+          "out": "810639597",
+          "canon": "M1 1AA"
+        },
+        {
+          "in": "CR2 6XH",
+          "out": "180591302",
+          "canon": "CR2 6XH"
+        },
+        {
+          "in": "CR26XH",
+          "out": "180591302",
+          "canon": "CR2 6XH"
+        },
+        {
+          "in": "DN55 1PT",
+          "out": "238906246",
+          "canon": "DN55 1PT"
+        },
+        {
+          "in": "DN551PT",
+          "out": "238906246",
+          "canon": "DN55 1PT"
+        },
+        {
+          "in": "W1A 1AA",
+          "out": "1486037957",
+          "canon": "W1A 1AA"
+        },
+        {
+          "in": "W1A1AA",
+          "out": "1486037957",
+          "canon": "W1A 1AA"
+        },
+        {
+          "in": "EC1A 1BB",
+          "out": "277958384",
+          "canon": "EC1A 1BB"
+        },
+        {
+          "in": "EC1A1BB",
+          "out": "277958384",
+          "canon": "EC1A 1BB"
+        },
+        {
+          "in": "A0 0AA",
+          "out": "1",
+          "canon": "A0 0AA"
+        },
+        {
+          "in": "A0 0AB",
+          "out": "2",
+          "canon": "A0 0AB"
+        },
+        {
+          "in": "ZZ9Z 9ZY",
+          "out": "1755842399",
+          "canon": "ZZ9Z 9ZY"
+        },
+        {
+          "in": "ZZ9Z 9ZZ",
+          "out": "1755842400",
+          "canon": "ZZ9Z 9ZZ"
+        }
+      ],
+      "notAccepted": [
+        "1M1 1AA",
+        "M1  1AA",
+        "M1 1A",
+        ""
+      ]
+    },
+    {
+      "naxp": "\\9{19}",
+      "note": "nineteen digit positions; W5 admits the 10^19 values and refuses \\9{20}. The samples cross 2^53 and 2^63, so this is the case that needs unsigned arithmetic.",
+      "valueCount": "10000000000000000000",
+      "acceptedCount": "10000000000000000000",
+      "complete": false,
+      "values": [
+        {
+          "in": "0000000000000000000",
+          "out": "1",
+          "canon": "0000000000000000000"
+        },
+        {
+          "in": "0000000000000000001",
+          "out": "2",
+          "canon": "0000000000000000001"
+        },
+        {
+          "in": "0009007199254740990",
+          "out": "9007199254740991",
+          "canon": "0009007199254740990"
+        },
+        {
+          "in": "0009007199254740991",
+          "out": "9007199254740992",
+          "canon": "0009007199254740991"
+        },
+        {
+          "in": "1234567890123456789",
+          "out": "1234567890123456790",
+          "canon": "1234567890123456789"
+        },
+        {
+          "in": "9223372036854775806",
+          "out": "9223372036854775807",
+          "canon": "9223372036854775806"
+        },
+        {
+          "in": "9223372036854775807",
+          "out": "9223372036854775808",
+          "canon": "9223372036854775807"
+        },
+        {
+          "in": "9999999999999999998",
+          "out": "9999999999999999999",
+          "canon": "9999999999999999998"
+        },
+        {
+          "in": "9999999999999999999",
+          "out": "10000000000000000000",
+          "canon": "9999999999999999999"
+        }
+      ],
+      "notAccepted": [
+        "",
+        "999999999999999999",
+        "00000000000000000000",
+        "000000000000000000A"
+      ]
+    },
+    {
+      "naxp": "\\A{7}\\9{9}",
+      "note": "seven letters then nine digits, a mixed radix count above 2^53; the boundary itself is sampled.",
+      "valueCount": "8031810176000000000",
+      "acceptedCount": "8031810176000000000",
+      "complete": false,
+      "values": [
+        {
+          "in": "AAAAAAA000000000",
+          "out": "1",
+          "canon": "AAAAAAA000000000"
+        },
+        {
+          "in": "AAAAAAA000000001",
+          "out": "2",
+          "canon": "AAAAAAA000000001"
+        },
+        {
+          "in": "AATSMGT254740990",
+          "out": "9007199254740991",
+          "canon": "AATSMGT254740990"
+        },
+        {
+          "in": "AATSMGT254740991",
+          "out": "9007199254740992",
+          "canon": "AATSMGT254740991"
+        },
+        {
+          "in": "NAXPXYZ123456789",
+          "out": "4026695373123456790",
+          "canon": "NAXPXYZ123456789"
+        },
+        {
+          "in": "ZZZZZZZ999999998",
+          "out": "8031810175999999999",
+          "canon": "ZZZZZZZ999999998"
+        },
+        {
+          "in": "ZZZZZZZ999999999",
+          "out": "8031810176000000000",
+          "canon": "ZZZZZZZ999999999"
+        }
+      ],
+      "notAccepted": [
+        "",
+        "AAAAAAA00000000",
+        "AAAAAA0000000000",
+        "aaaaaaa000000000"
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "naxp": "A!",
+      "rule": "syntax",
+      "note": "there is deliberately no bare `x!`"
+    },
+    {
+      "naxp": "A??",
+      "rule": "syntax",
+      "note": "a base may take only one quantifier"
+    },
+    {
+      "naxp": "A{2}?",
+      "rule": "syntax",
+      "note": "a base may take only one quantifier"
+    },
+    {
+      "naxp": "A?{2}",
+      "rule": "syntax",
+      "note": "a base may take only one quantifier"
+    },
+    {
+      "naxp": "A?!!",
+      "rule": "syntax",
+      "note": "`!!` carries its own `?`"
+    },
+    {
+      "naxp": "A?!?",
+      "rule": "syntax",
+      "note": "`!?` carries its own `?`"
+    },
+    {
+      "naxp": "[]",
+      "rule": "syntax",
+      "note": "a character set must contain at least one character"
+    },
+    {
+      "naxp": "\\d",
+      "rule": "syntax",
+      "note": "undefined escape letter"
+    },
+    {
+      "naxp": "\\w",
+      "rule": "syntax",
+      "note": "undefined escape letter"
+    },
+    {
+      "naxp": "\\Z",
+      "rule": "syntax",
+      "note": "undefined escape letter"
+    },
+    {
+      "naxp": "\\x41",
+      "rule": "syntax",
+      "note": "the hex escape was removed in version 0.3"
+    },
+    {
+      "naxp": "\\ s",
+      "rule": "syntax",
+      "note": "whitespace may not split an escape"
+    },
+    {
+      "naxp": "A! !",
+      "rule": "syntax",
+      "note": "`!!` is one token"
+    },
+    {
+      "naxp": "A{2 5}",
+      "rule": "syntax",
+      "note": "whitespace may not split a run of digits"
+    },
+    {
+      "naxp": "# [0-10]",
+      "rule": "syntax",
+      "note": "`#[` is one token"
+    },
+    {
+      "naxp": "#[1 0-20]",
+      "rule": "syntax",
+      "note": "whitespace may not split a run of digits"
+    },
+    {
+      "naxp": "A{2,}",
+      "rule": "syntax",
+      "note": "there is no unbounded interval"
+    },
+    {
+      "naxp": "A{2-5}",
+      "rule": "syntax",
+      "note": "the interval separator is `-`, not a comma"
+    },
+    {
+      "naxp": "(A",
+      "rule": "syntax",
+      "note": "unclosed group"
+    },
+    {
+      "naxp": "[A-E",
+      "rule": "syntax",
+      "note": "unclosed character set"
+    },
+    {
+      "naxp": "[E-A]",
+      "rule": "syntax",
+      "note": "a range must be written lowest first"
+    },
+    {
+      "naxp": "!",
+      "rule": "syntax",
+      "note": "a bare reserved character"
+    },
+    {
+      "naxp": "A|",
+      "rule": "syntax",
+      "note": "an alternative must contain at least one element"
+    },
+    {
+      "naxp": "\\s!(B|C)",
+      "rule": "W1",
+      "note": "the rendering generates two strings"
+    },
+    {
+      "naxp": "\\s!\\-",
+      "rule": "W1",
+      "note": "the subject never accepts a hyphen"
+    },
+    {
+      "naxp": "\\s!()",
+      "rule": "W1",
+      "note": "`\\s` does not generate the empty string"
+    },
+    {
+      "naxp": "\\A!!",
+      "rule": "W1",
+      "note": "the subject of a `!!` must generate exactly one string"
+    },
+    {
+      "naxp": "[AB]!!",
+      "rule": "W1",
+      "note": "the subject of a `!!` must generate exactly one string"
+    },
+    {
+      "naxp": "(B|C)!!",
+      "rule": "W1",
+      "note": "the subject of a `!!` must generate exactly one string"
+    },
+    {
+      "naxp": "(\\s!?)!?",
+      "rule": "W2",
+      "note": "`!` in the subject"
+    },
+    {
+      "naxp": "(A|B)!(B!B)",
+      "rule": "W2",
+      "note": "`!` hidden in the rendering"
+    },
+    {
+      "naxp": "AB!!B?C",
+      "rule": "W3",
+      "note": "ABC has two canonical forms, ABC and ABBC"
+    },
+    {
+      "naxp": "#[10-5]",
+      "rule": "W4",
+      "note": "lo has more digits than hi"
+    },
+    {
+      "naxp": "#[00-5]",
+      "rule": "W4",
+      "note": "lo has more digits than hi"
+    },
+    {
+      "naxp": "#[0-05]",
+      "rule": "W4",
+      "note": "hi has a leading zero while wider than lo"
+    },
+    {
+      "naxp": "#[0000000000000000-1]",
+      "rule": "W4",
+      "note": "a bound of sixteen digits"
+    },
+    {
+      "naxp": "#[0-9999999999999999]",
+      "rule": "W4",
+      "note": "a bound of sixteen digits"
+    },
+    {
+      "naxp": "A{12345}",
+      "rule": "W4",
+      "note": "an interval count of five digits, where two is the most version 0.5 allows"
+    },
+    {
+      "naxp": "A{123}",
+      "rule": "W4",
+      "note": "an interval count of three digits, which version 0.4 allowed and version 0.5 does not"
+    },
+    {
+      "naxp": "A{5,2}",
+      "rule": "W4",
+      "note": "the first count exceeds the second"
+    },
+    {
+      "naxp": "\\9{20}",
+      "rule": "W5",
+      "note": "10^20 values, above 2^64 - 1"
+    }
+  ]
+}

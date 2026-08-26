@@ -1,0 +1,15 @@
+{
+  "name": "naxp-site",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The naxp.org website",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "eleventy --serve",
+    "build": "eleventy"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../../prior-work/NXOld/NXOld/NXOld.csproj" />
+  <Project Path="Naxp.Benchmarks/Naxp.Benchmarks.csproj" />
+  <Project Path="Naxp.Generator/Naxp.Generator.csproj" />
+  <Project Path="Naxp.UnitTests/Naxp.UnitTests.csproj" />
+  <Project Path="Naxp/Naxp.csproj" />
+</Solution>

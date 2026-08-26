@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+	This sample consumes the naxp package the way anybody else would, from a folder feed rather
+	than from the projects next door, so that it exercises what actually ships: the library in
+	lib/ and the source generator in analyzers/dotnet/cs.
+
+	It is deliberately *not* in src/cs/Naxp.slnx. Building the solution would then need a packed
+	naxp.0.5.0-alpha.nupkg to exist, and a fresh clone has none.
+
+	See README.md beside this file for the two commands.
+	-->
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<LangVersion>latestMajor</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<!-- Strict, so that the generated code has to compile cleanly rather than merely compile. -->
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<RootNamespace>TryNaxp</RootNamespace>
+		<IsPackable>False</IsPackable>
+		<!--
+		Writes the generator's output to obj\Debug\net8.0\generated\, which is the easiest way to
+		read it. In Visual Studio the same files are under Dependencies, Analyzers, Naxp.Generator.
+		-->
+		<EmitCompilerGeneratedFiles>True</EmitCompilerGeneratedFiles>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="naxp" Version="0.5.0-alpha" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NXOld.UnitTests/NXOld.UnitTests.csproj" />
+  <Project Path="NXOld/NXOld.csproj" />
+</Solution>

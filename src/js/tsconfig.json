@@ -1,0 +1,25 @@
+{
+	// Declarations only. The package ships the JavaScript it was written in, and TypeScript is
+	// here to describe it rather than to build it: `emitDeclarationOnly` means nothing in `lib`
+	// is ever rewritten or replaced.
+	//
+	// `checkJs` is off. Turning it on typechecks the library against its own JSDoc and reports
+	// eighty-four gaps, all of them inside `lib` and none of them reaching the declarations this
+	// emits: the public surface comes out with no `any` in it. They are worth closing, because an
+	// annotation nothing checks is a comment, but that is its own pass and not a condition of
+	// shipping.
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": "types",
+		"target": "es2022",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"strict": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["lib/**/*.js"]
+}
