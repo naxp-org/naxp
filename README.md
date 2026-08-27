@@ -10,8 +10,12 @@ Early draft. The specification is still being written, and **version 1 will be t
 
 ## Using it from JavaScript
 
+It is not on npm yet. The registry refuses the name `naxp` as too similar to
+existing packages, which is under appeal; until that resolves, install it from a
+clone of this repository:
+
 ```bash
-npm install naxp@0.5.0-alpha
+npm install ./src/js
 ```
 
 ```js
@@ -66,7 +70,7 @@ Both suites are held to the same file, `conformance/naxp-v0.5.json`. That is wha
 | `conformance/` | Test data generated from the specification |
 | `src/` | Implementations, one folder per language |
 | `src/cs/` | The reference implementation, in C#, with the source generator |
-| `src/js/` | The JavaScript implementation, published to npm as `naxp` |
+| `src/js/` | The JavaScript implementation, to be published to npm as `naxp` |
 | `encoding/` | The reasoning behind the hardest decisions, cited from the code |
 | `samples/` | `try-naxp`, which consumes the packed package as a stranger would |
 | `site/` | The source of [naxp.org](https://naxp.org) |
