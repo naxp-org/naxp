@@ -1,0 +1,30 @@
+{
+	"version": 6,
+	"configurePresets": [
+		{
+			"name": "gcc",
+			"displayName": "GCC (MSYS Makefiles)",
+			"generator": "MSYS Makefiles",
+			"binaryDir": "${sourceDir}/build/gcc",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++"
+			}
+		},
+		{
+			"name": "msvc",
+			"displayName": "Visual Studio 2022",
+			"generator": "Visual Studio 17 2022",
+			"binaryDir": "${sourceDir}/build/msvc"
+		}
+	],
+	"buildPresets": [
+		{ "name": "gcc", "configurePreset": "gcc" },
+		{ "name": "msvc", "configurePreset": "msvc", "configuration": "Debug" }
+	],
+	"testPresets": [
+		{ "name": "gcc", "configurePreset": "gcc", "output": { "outputOnFailure": true } },
+		{ "name": "msvc", "configurePreset": "msvc", "configuration": "Debug", "output": { "outputOnFailure": true } }
+	]
+}

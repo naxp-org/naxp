@@ -18,7 +18,7 @@
 		The generator stamps this into the code it writes, so keep it in step with the Version in
 		Naxp.csproj.
 		-->
-		<Version>0.5.0-alpha</Version>
+		<Version>0.10.0</Version>
 		<GenerateDocumentationFile>False</GenerateDocumentationFile>
 	</PropertyGroup>
 
@@ -53,14 +53,21 @@
 		Naxp.cs is left out. It holds the library's public facade, its only public type, and the
 		generator works below it through Compiler and CSharpEmitter. Compiling it in as well would
 		put a second public LogMu.Naxp in this assembly, which any project referencing both -
-		Naxp.UnitTests, for one - would then find ambiguous.
+		Naxp.UnitTests, for one - would then find ambiguous. The comparison types go with it:
+		SetRelationship is public and would be ambiguous the same way, and Relations is what
+		uses it. Add any further public type here as it arrives.
 
-		The emitters for other languages are left out too. The generator writes C# and nothing else,
-		and an analyzer that Visual Studio loads into every solution should carry no more than it
-		uses. Add each new emitter to the Exclude as it arrives.
+		The emitters for other languages are left out too, and OutputLanguage with them. The
+		generator writes C# and nothing else, and an analyzer that Visual Studio loads into every
+		solution should carry no more than it uses. Add each new emitter to the Exclude as it
+		arrives.
+
+		NaxpValueType is the one public type that has to stay: the generator maps the attribute's
+		type argument onto it. Naxp.UnitTests therefore aliases its reference to this project, so
+		that the two copies do not collide there.
 		-->
 		<Compile Include="..\Naxp\*.cs"
-			Exclude="..\Naxp\Naxp.cs;..\Naxp\JavaScriptEmitter.cs"
+			Exclude="..\Naxp\Naxp.cs;..\Naxp\JavaScriptEmitter.cs;..\Naxp\CFamilyEmitter.cs;..\Naxp\CEmitter.cs;..\Naxp\CppEmitter.cs;..\Naxp\OutputLanguage.cs;..\Naxp\SetRelationship.cs;..\Naxp\Relations.cs;..\Naxp\RankAgreement.cs;..\Naxp\ValueAgreement.cs;..\Naxp\NaxpComparison.cs"
 			Link="Naxp\%(Filename)%(Extension)" />
 	</ItemGroup>
 

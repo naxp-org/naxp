@@ -27,10 +27,10 @@
 		<IsPackable>true</IsPackable>
 		<PackageId>naxp</PackageId>
 		<!--
-		The version tracks the specification version this implements, which is 0.5.
-		The prerelease tag stays until the specification stops being an early draft.
+		The version tracks the specification version this implements, which is 0.10, the first
+		published one.
 		-->
-		<Version>0.5.0-alpha</Version>
+		<Version>0.10.0</Version>
 		<Description>naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.</Description>
 		<Authors>Tim Gordon</Authors>
 		<Copyright>Copyright 2026 Tim Gordon</Copyright>

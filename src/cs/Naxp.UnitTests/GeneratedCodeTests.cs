@@ -41,8 +41,8 @@ public class GeneratedCodeTests
 	/// <summary>Three literal runs, so the acceptor spills over one chunk of states.</summary>
 	const string ChunkedNaxp = "A{99}B{99}C{99}";
 
-	/// <summary>A replaceable ahead of literal runs, so the canonicalising machine spills too.</summary>
-	const string ChunkedReplaceableNaxp = "(B|b)!BA{99}C{99}D{99}";
+	/// <summary>A unified ahead of literal runs, so the canonicalising machine spills too.</summary>
+	const string ChunkedUnifiedNaxp = "(B|b)!BA{99}C{99}D{99}";
 
 	static readonly Lazy<IReadOnlyDictionary<string, GeneratedNaxp>> Compiled =
 		new(CompileAll);
@@ -57,9 +57,9 @@ public class GeneratedCodeTests
 		{
 			GeneratedNaxp generated = Compiled.Value[item.Naxp];
 
-			if (generated.ValueCount != item.ValueCount)
+			if (generated.MaxEncodedValue != item.MaxEncodedValue)
 			{
-				failures.Add($"{item.Naxp} generated ValueCount {generated.ValueCount}, and the test data says {item.ValueCount}.");
+				failures.Add($"{item.Naxp} generated MaxEncodedValue {generated.MaxEncodedValue}, and the test data says {item.MaxEncodedValue}.");
 			}
 		}
 
@@ -123,15 +123,15 @@ public class GeneratedCodeTests
 				}
 			}
 
-			foreach (string notAccepted in item.NotAccepted)
+			foreach (string invalidText in item.Invalid)
 			{
 				++checkCount;
 
-				if (generated.EncodeChars(notAccepted) != 0UL
-					|| generated.AcceptsChars(notAccepted)
-					|| generated.AcceptsBytes(AsciiBytes(notAccepted)))
+				if (generated.EncodeChars(invalidText) != 0UL
+					|| generated.AcceptsChars(invalidText)
+					|| generated.AcceptsBytes(AsciiBytes(invalidText)))
 				{
-					failures.Add($"{item.Naxp} accepts '{notAccepted}', and the test data lists it as not accepted.");
+					failures.Add($"{item.Naxp} accepts '{invalidText}', and the test data lists it as invalid.");
 				}
 			}
 		}
@@ -149,12 +149,12 @@ public class GeneratedCodeTests
 	{
 		var failures = new List<string>();
 
-		foreach (ConformanceCase item in TestData.Cases.Where(c => c.Complete && c.ValueCount <= 2000L))
+		foreach (ConformanceCase item in TestData.Cases.Where(c => c.Complete && c.MaxEncodedValue <= 2000L))
 		{
 			GeneratedNaxp generated = Compiled.Value[item.Naxp];
 			var seen = new HashSet<string>(StringComparer.Ordinal);
 
-			for (ulong value = 1UL; value <= (ulong)item.ValueCount; ++value)
+			for (ulong value = 1UL; value <= (ulong)item.MaxEncodedValue; ++value)
 			{
 				string decoded = generated.Decode(value);
 
@@ -171,7 +171,7 @@ public class GeneratedCodeTests
 				}
 			}
 
-			Assert.Throws<ArgumentOutOfRangeException>(() => Compiled.Value[item.Naxp].Decode((ulong)item.ValueCount + 1UL));
+			Assert.Throws<ArgumentOutOfRangeException>(() => Compiled.Value[item.Naxp].Decode((ulong)item.MaxEncodedValue + 1UL));
 			Assert.Throws<ArgumentOutOfRangeException>(() => Compiled.Value[item.Naxp].Decode(0UL));
 		}
 
@@ -199,7 +199,7 @@ public class GeneratedCodeTests
 				Assert.True(generated.TryDecodeChars(value.Out, exact, out charsWritten));
 				Assert.Equal(expected, new string(exact, 0, charsWritten));
 
-				// One shorter refuses without writing.
+				// One shorter fails without writing.
 				if (expected.Length > 0)
 				{
 					Assert.False(generated.TryDecodeChars(value.Out, new char[expected.Length - 1], out charsWritten));
@@ -213,9 +213,9 @@ public class GeneratedCodeTests
 				Assert.Equal(expected, new string(generated.DecodeToBytes(value.Out).Select(b => (char)b).ToArray()));
 			}
 
-			// Out of range values refuse rather than throw.
+			// Out of range values fail rather than throw.
 			Assert.False(generated.TryDecodeChars(0UL, new char[generated.MaxLength], out _));
-			Assert.False(generated.TryDecodeChars((ulong)item.ValueCount + 1UL, new char[generated.MaxLength], out _));
+			Assert.False(generated.TryDecodeChars((ulong)item.MaxEncodedValue + 1UL, new char[generated.MaxLength], out _));
 		}
 	}
 
@@ -229,7 +229,7 @@ public class GeneratedCodeTests
 		var literals = new string('A', 99) + new string('B', 99) + new string('C', 99);
 		GeneratedNaxp chunked = Compiled.Value[ChunkedNaxp];
 
-		Assert.Equal(1UL, chunked.ValueCount);
+		Assert.Equal(1UL, chunked.MaxEncodedValue);
 		Assert.Equal(297, chunked.MaxLength);
 		Assert.True(chunked.AcceptsChars(literals));
 		Assert.Equal(1UL, chunked.EncodeChars(literals));
@@ -237,13 +237,13 @@ public class GeneratedCodeTests
 		Assert.False(chunked.AcceptsChars(literals.Substring(1)));
 
 		var tail = new string('A', 99) + new string('C', 99) + new string('D', 99);
-		GeneratedNaxp replaceable = Compiled.Value[ChunkedReplaceableNaxp];
+		GeneratedNaxp unified = Compiled.Value[ChunkedUnifiedNaxp];
 
-		Assert.Equal(1UL, replaceable.ValueCount);
-		Assert.Equal(1UL, replaceable.EncodeChars("B" + tail));
-		Assert.Equal(1UL, replaceable.EncodeChars("b" + tail));
-		Assert.Equal(0UL, replaceable.EncodeChars("c" + tail));
-		Assert.Equal("B" + tail, replaceable.Decode(1UL));
+		Assert.Equal(1UL, unified.MaxEncodedValue);
+		Assert.Equal(1UL, unified.EncodeChars("B" + tail));
+		Assert.Equal(1UL, unified.EncodeChars("b" + tail));
+		Assert.Equal(0UL, unified.EncodeChars("c" + tail));
+		Assert.Equal("B" + tail, unified.Decode(1UL));
 	}
 	/// <summary>
 	/// A fragment emitted with a narrow value type compiles and round-trips. The type only
@@ -276,7 +276,7 @@ public class GeneratedCodeTests
 
 		Type type = Assembly.Load(stream.ToArray()).GetType("LogMu.Generated.Narrow")!;
 
-		Assert.Equal((byte)100, type.GetField("ValueCount")!.GetRawConstantValue());
+		Assert.Equal((byte)100, type.GetField("MaxEncodedValue")!.GetRawConstantValue());
 
 		var encode = type.GetMethod("Encode", new[] { typeof(ReadOnlySpan<char>) })!.CreateDelegate<GeneratedEncodeNarrow>();
 		var decode = type.GetMethod("Decode")!.CreateDelegate<GeneratedDecodeNarrow>();
@@ -298,7 +298,7 @@ public class GeneratedCodeTests
 	{
 		List<string> naxps = TestData.Cases
 			.Select(c => c.Naxp)
-			.Concat(new[] { ChunkedNaxp, ChunkedReplaceableNaxp })
+			.Concat(new[] { ChunkedNaxp, ChunkedUnifiedNaxp })
 			.Distinct(StringComparer.Ordinal)
 			.ToList();
 
@@ -370,7 +370,7 @@ public class GeneratedCodeTests
 
 	static GeneratedNaxp Bind(Type type)
 		=> new GeneratedNaxp(
-			(ulong)type.GetField("ValueCount")!.GetRawConstantValue()!,
+			(ulong)type.GetField("MaxEncodedValue")!.GetRawConstantValue()!,
 			(int)type.GetField("MaxLength")!.GetRawConstantValue()!,
 			type.GetMethod("Accepts", new[] { typeof(ReadOnlySpan<char>) })!.CreateDelegate<GeneratedAcceptsChars>(),
 			type.GetMethod("Accepts", new[] { typeof(ReadOnlySpan<byte>) })!.CreateDelegate<GeneratedAcceptsBytes>(),
@@ -400,7 +400,7 @@ public class GeneratedCodeTests
 	sealed class GeneratedNaxp
 	{
 		public GeneratedNaxp(
-			ulong valueCount,
+			ulong maxEncodedValue,
 			int maxLength,
 			GeneratedAcceptsChars acceptsChars,
 			GeneratedAcceptsBytes acceptsBytes,
@@ -411,7 +411,7 @@ public class GeneratedCodeTests
 			GeneratedTryDecodeChars tryDecodeChars,
 			GeneratedTryDecodeBytes tryDecodeBytes)
 		{
-			this.ValueCount = valueCount;
+			this.MaxEncodedValue = maxEncodedValue;
 			this.MaxLength = maxLength;
 			this.AcceptsChars = acceptsChars;
 			this.AcceptsBytes = acceptsBytes;
@@ -423,7 +423,7 @@ public class GeneratedCodeTests
 			this.TryDecodeBytes = tryDecodeBytes;
 		}
 
-		public ulong ValueCount { get; }
+		public ulong MaxEncodedValue { get; }
 
 		public int MaxLength { get; }
 

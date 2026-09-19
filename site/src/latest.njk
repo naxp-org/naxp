@@ -1,0 +1,19 @@
+---
+permalink: /spec/index.html
+eleventyExcludeFromCollections: true
+---
+{%- set newest = collections.spec[0] -%}
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>naxp spec</title>
+<link rel="canonical" href="https://naxp.org/spec/v{{ newest.data.version }}/">
+<meta http-equiv="refresh" content="0; url=/spec/v{{ newest.data.version }}/">
+<script>location.replace("/spec/v{{ newest.data.version }}/");</script>
+</head>
+<body>
+<p>The latest <strong>naxp</strong> specification is
+<a href="/spec/v{{ newest.data.version }}/">version {{ newest.data.version }}</a>.</p>
+</body>
+</html>

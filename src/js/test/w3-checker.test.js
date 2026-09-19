@@ -13,9 +13,9 @@ import { ruleOf } from './naxp-message-rules.js';
 /**
  * Parses, checks W1 and W2, then checks W3.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @param {number} [maxStates] The budget.
- * @returns {import('../lib/naxp-error.js').NaxpError | null} The refusal, or null.
+ * @returns {import('../lib/naxp-error.js').NaxpError | null} The fault, or null.
  */
 function w3(naxp, maxStates) {
 	const { ast, error } = tryParse(naxp);
@@ -42,7 +42,7 @@ function witnessOf(message) {
 
 // #region Violations
 
-test('replacement that is not single valued is refused', () => {
+test('unification that is not single valued is invalid', () => {
 	// The cases come from encoding/w3-functionality.md, which reviewed the procedure before it
 	// was written and supplied the naxps that break the obvious wrong versions of it.
 	const cases = [
@@ -80,7 +80,7 @@ test('a violation on the empty string is found before any character is read', ()
 
 test('a violation names the witness the specification names', () => {
 	// W3 in the specification works AB!!B?C through by hand and settles on ABC: read the B as the
-	// replaceable element with the optional one absent and the canonical form is ABC; read it the
+	// unified element with the optional one absent and the canonical form is ABC; read it the
 	// other way round and it is ABBC. The checker has to find that same string.
 	assert.equal(witnessOf(w3('AB!!B?C').text), 'ABC');
 
@@ -91,11 +91,11 @@ test('a violation names the witness the specification names', () => {
 // #endregion
 // #region Well formed
 
-test('near misses that a checker comparing the wrong thing would refuse are accepted', () => {
+test('near misses that a checker comparing the wrong thing would rule out are accepted', () => {
 	const cases = [
 		// Both alternatives map B and BA to BA, so two branches with pendings that differ still
 		// agree once what they emit at end of text is counted. A checker comparing pendings
-		// refuses this.
+		// rules this out.
 		'(B|BA)!(BA)|BA!!',
 		// The same shape with a tail, so the disagreement survives past a consumed character.
 		'(B|BA)!(BA)X|BA!!X',
@@ -113,7 +113,7 @@ test('near misses that a checker comparing the wrong thing would refuse are acce
 	];
 
 	for (const naxp of cases) {
-		assert.equal(w3(naxp), null, `${naxp} was refused`);
+		assert.equal(w3(naxp), null, `${naxp} was invalid`);
 	}
 });
 
@@ -124,11 +124,11 @@ test('A!!A? breaks W3 and A!!A does not', () => {
 	assert.equal(w3('A!!A'), null);
 });
 
-test('a naxp with no replaceable element is passed without building anything', () => {
+test('a naxp with no unified element is passed without building anything', () => {
 	// Without a '!' the transduction is the identity, which is single valued for nothing.
 	const { ast } = tryParse('\\A\\9{3}');
 
-	assert.equal(checkW3(ast, new RxFactory(), { hasReplaceable: false }), null);
+	assert.equal(checkW3(ast, new RxFactory(), { hasUnified: false }), null);
 });
 
 // #endregion
@@ -146,26 +146,25 @@ test('the ill formed blow-up family is diagnosed within a small budget', () => {
 
 test('the well formed blow-up family is accepted within a small budget', () => {
 	// This is the case that killed the subset construction: both machines have fewer than forty
-	// states, yet a determinisation needs 2^17, so a legal naxp would have been rejected.
+	// states, yet a determinisation needs 2^17, so a valid naxp would have been ruled out.
 	assert.equal(w3('[ab]{17}c|([ab]!a){17}d', 2000), null);
 });
 
-test('beyond the budget is an implementation limit, not a verdict', () => {
+test('beyond the budget is W6, not a verdict on the naxp', () => {
 	const error = w3('[ab]{17}c|([ab]!a){17}d', 8);
 
 	assert.ok(error !== null, 'accepted');
-	assert.equal(ruleOf(error.message), 'ImplementationLimit');
+	assert.equal(ruleOf(error.message), 'W6');
 	assert.ok(error.text.includes('pair states'), error.text);
-	assert.ok(error.text.includes('may well be legal'), error.text);
 });
 
-test('the two implementation limits say different things', () => {
+test('the two ways of exhausting W6 say different things', () => {
 	// Running out of pair states and abandoning an intermediate result are different failures,
 	// and neither message may claim to be the other.
 	const budget = w3('[ab]{17}c|([ab]!a){17}d', 8);
 
 	assert.ok(budget.text.includes('pair states'), budget.text);
-	assert.ok(!budget.text.includes('intermediate output'), budget.text);
+	assert.ok(!budget.text.includes('intermediate string'), budget.text);
 });
 
 // #endregion

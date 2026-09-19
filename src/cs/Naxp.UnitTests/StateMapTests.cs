@@ -26,7 +26,7 @@ public class StateMapTests
 	{
 		StateMap map = Canonical("#[0-10]");
 
-		Assert.Equal(11UL, map.ValueCount);
+		Assert.Equal(11UL, map.StringCount);
 
 		State start = map.Start;
 		Assert.Equal(2, start.Transitions.Length);
@@ -38,7 +38,7 @@ public class StateMapTests
 		Assert.Equal(Set("1"), start.Transitions[1].Set);
 
 		State afterOne = start.Transitions[1].Next;
-		Assert.Equal(2UL, afterOne.ValueCount);
+		Assert.Equal(2UL, afterOne.StringCount);
 		Assert.Equal(2, afterOne.Transitions.Length);
 
 		Assert.True(afterOne.Transitions[0].Set.IsEmpty);
@@ -52,11 +52,11 @@ public class StateMapTests
 	/// order is preserved.
 	/// </summary>
 	[Fact]
-	public void PaddedDigitsRange_HasOneWidth()
+	public void PaddedDecimalRange_HasOneWidth()
 	{
 		StateMap map = Canonical("#[00-10]");
 
-		Assert.Equal(11UL, map.ValueCount);
+		Assert.Equal(11UL, map.StringCount);
 		Assert.False(map.Start.AcceptsEndOfText);
 		Assert.Equal(Set("0"), map.Start.Transitions[0].Set);
 		Assert.Equal(Set("1"), map.Start.Transitions[1].Set);
@@ -75,7 +75,7 @@ public class StateMapTests
 	[InlineData("A{2,4}", "AAA?A?")]
 	[InlineData("A|A", "A")]
 	[InlineData("#[0-9]", "[0-9]")]
-	[InlineData("A{0}", "()")]
+	[InlineData("()?", "()")]
 	public void EquivalentNaxps_GiveTheSameMachine(string left, string right)
 		=> Assert.Equal(Describe(Canonical(left)), Describe(Canonical(right)));
 
@@ -99,8 +99,8 @@ public class StateMapTests
 	[Fact]
 	public void SameValuesDifferentText()
 	{
-		Assert.Equal(1UL, Canonical("[\\s\\-]!?").ValueCount);
-		Assert.Equal(1UL, Canonical("[\\s\\-]?!\\-").ValueCount);
+		Assert.Equal(1UL, Canonical("[\\s\\-]!?").StringCount);
+		Assert.Equal(1UL, Canonical("[\\s\\-]?!\\-").StringCount);
 		Assert.NotEqual(Describe(Canonical("[\\s\\-]!?")), Describe(Canonical("[\\s\\-]?!\\-")));
 	}
 	#endregion
@@ -110,14 +110,14 @@ public class StateMapTests
 	[InlineData("\\9{3}", 1000UL)]
 	[InlineData("[0-5]\\9", 60UL)]
 	[InlineData("#[0-105]", 106UL)]
-	public void ValueCounts(string naxp, ulong expected)
-		=> Assert.Equal(expected, Canonical(naxp).ValueCount);
+	public void StringCounts(string naxp, ulong expected)
+		=> Assert.Equal(expected, Canonical(naxp).StringCount);
 
 	/// <summary>
 	/// Nineteen digits fit inside W5's limit and twenty do not.
 	/// </summary>
 	[Fact]
-	public void W5_RefusesTwentyDigits()
+	public void W5_InvalidatesTwentyDigits()
 	{
 		Assert.True(Compiler.TryCompile("\\9{19}", out _, out _));
 
@@ -130,7 +130,7 @@ public class StateMapTests
 	/// so one multiplication can wrap from operands that were both legal.
 	/// </summary>
 	[Fact]
-	public void W5_RefusesAProductOfTwoLegalHalves()
+	public void W5_InvalidatesAProductOfTwoLegalHalves()
 	{
 		Assert.True(Compiler.TryCompile("\\9{19}", out _, out _));
 
@@ -143,7 +143,7 @@ public class StateMapTests
 	/// against.
 	/// </summary>
 	[Fact]
-	public void W5_RefusesASumOfTwoLegalAlternatives()
+	public void W5_InvalidatesASumOfTwoLegalAlternatives()
 	{
 		Assert.True(Compiler.TryCompile("\\9{19}", out _, out _));
 		Assert.True(Compiler.TryCompile("[A-J]\\9{17}[A-J]", out _, out _));
@@ -154,18 +154,18 @@ public class StateMapTests
 	#endregion
 	#region State budget
 	[Fact]
-	public void StateBudget_RefusesAMachineTooLargeToBuild()
+	public void StateBudget_InvalidatesAMachineTooLargeToBuild()
 	{
 		var factory = new RxFactory();
-		// (A{50}){10} is 500 copies, the same machine A{500} used to give before version 0.5
-		// cut interval counts to two digits.
-		Rx expression = RxConverter.Convert(ParseOnly("(A{50}){10}"), factory, NaxpLanguage.Canonical);
+		// (A{50}){10} is 500 copies, the machine A{500} would give if a count could have three
+		// digits.
+		Rx expression = RxConverter.Convert(ParseOnly("(A{50}){10}"), factory, isCanonical: true);
 
 		Assert.False(StateMapBuilder.TryBuild(expression, factory, out _, out NaxpError? error, maxStates: 100));
-		Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(error!.Value.Message));
+		Assert.Equal("W6", NaxpMessageRules.RuleOf(error!.Value.Message));
 
 		Assert.True(StateMapBuilder.TryBuild(expression, factory, out StateMap? map, out _, maxStates: 1000));
-		Assert.Equal(1UL, map!.ValueCount);
+		Assert.Equal(1UL, map!.StringCount);
 	}
 	#endregion
 	#region Minterms
@@ -203,14 +203,14 @@ public class StateMapTests
 
 	static Compilation Compile(string naxp)
 	{
-		Assert.True(Compiler.TryCompile(naxp, out Compilation? compilation, out NaxpError? error), $"{naxp} was refused: {error}");
+		Assert.True(Compiler.TryCompile(naxp, out Compilation? compilation, out NaxpError? error), $"{naxp} was invalid: {error}");
 
 		return compilation!;
 	}
 
 	static Ast ParseOnly(string naxp)
 	{
-		Assert.True(Parser.TryParse(naxp, out Ast? ast, out NaxpError? error), $"{naxp} was refused: {error}");
+		Assert.True(Parser.TryParse(naxp, out Ast? ast, out NaxpError? error), $"{naxp} was invalid: {error}");
 
 		return ast!;
 	}
@@ -239,7 +239,7 @@ public class StateMapTests
 		foreach (State state in order)
 		{
 			builder.Append(numbers[state].ToString(CultureInfo.InvariantCulture));
-			builder.Append(" count=").Append(state.ValueCount.ToString(CultureInfo.InvariantCulture));
+			builder.Append(" count=").Append(state.StringCount.ToString(CultureInfo.InvariantCulture));
 
 			foreach (Transition transition in state.Transitions)
 			{

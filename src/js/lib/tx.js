@@ -5,15 +5,15 @@ import { AsciiCharSet } from './ascii-char-set.js';
 import {
 	AstAlternation,
 	AstChars,
-	AstDigitsRange,
+	AstDecimalRange,
 	AstEmpty,
 	AstInterval,
 	AstOptional,
-	AstReplaceable,
+	AstUnified,
 	AstSequence,
 } from './ast.js';
-import { MAX_GENERATED_LENGTH, SingleStringOutcome, tryGetSingleString } from './matcher.js';
-import { NaxpLanguage, convert as convertRx } from './rx-converter.js';
+import { MAX_GENERATED_LENGTH, SingleStringOutcome, tryGetSingleString } from './treewalker.js';
+import { convert as convertRx } from './rx-converter.js';
 import { RxKind } from './rx.js';
 
 /**
@@ -175,9 +175,9 @@ const NOTHING = new TxDerivative([], false, false);
 /**
  * The most skipped copies of an interval this implementation will follow separately.
  *
- * Only reached where skipping a copy emits, which needs a replaceable element with a nullable
+ * Only reached where skipping a copy emits, which needs a unified element with a nullable
  * subject inside an interval whose count can vary. Nothing a naxp is for goes near it, and a naxp
- * that does is refused as an implementation limit rather than judged.
+ * that does breaks W6 rather than being judged either way.
  */
 const MAX_SKIPPED_COPIES = 64;
 
@@ -186,11 +186,11 @@ const NO_CHILDREN = Object.freeze([]);
 /**
  * The transduction ρ as an expression, so that derivatives of it can be taken.
  *
- * This is what the Rx converter throws away. There a replaceable element becomes either its
+ * This is what the Rx converter throws away. There a unified element becomes either its
  * subject or its rendering, depending on which language is being built, and W3 is exactly the
  * question of how the two behave together. `Repl` is the node that keeps them paired.
  *
- * Emission is deferred to the end of the element. A replaceable consumes its subject one
+ * Emission is deferred to the end of the element. A unified consumes its subject one
  * character at a time emitting nothing, then emits the whole rendering when it completes, which
  * is why the difference between two branches' outputs has to be carried as a delay rather than
  * compared character by character.
@@ -268,7 +268,7 @@ export class Tx {
 				return EOT_EMPTY;
 
 			case TxKind.Repl:
-				// Completing a replaceable emits its rendering even though nothing was consumed.
+				// Completing a unified element emits its rendering even though nothing was consumed.
 				return this.subject.isNullable ? Eot.single(this.rendering) : EOT_NONE;
 
 			case TxKind.Concat: {
@@ -376,7 +376,7 @@ export class TxFactory {
 		 * Every character code that appears in some rendering.
 		 *
 		 * Splitting these out as singleton blocks is what makes emission uniform over a block. A
-		 * character set emits the character read and a replaceable emits a fixed string, so
+		 * character set emits the character read and a unified element emits a fixed string, so
 		 * whether the two agree depends on which character of the block was read: in
 		 * `[ab]|[ab]!a` they agree on `a` and disagree on `b`. Refining costs transitions, never
 		 * states, and cannot change what is accepted, since the input side is already uniform
@@ -410,7 +410,7 @@ export class TxFactory {
 	}
 
 	/**
-	 * A replaceable element: consume any string of the subject, emit the rendering.
+	 * A unified element: consume any string of the subject, emit the rendering.
 	 *
 	 * @param {import('./rx.js').Rx} subject What is consumed.
 	 * @param {string} rendering What is emitted.
@@ -530,7 +530,7 @@ export class TxFactory {
 		if (maxCount === 0) { return this.epsilon; }
 		if (child.kind === TxKind.EmptySet) { return minCount === 0 ? this.epsilon : this.emptySet; }
 
-		// Unlike Rx, an epsilon child is not dropped here unless it emits nothing: a replaceable
+		// Unlike Rx, an epsilon child is not dropped here unless it emits nothing: a unified
 		// with a nullable subject consumes nothing and still emits, and how often that happens is
 		// what makes '(A!!){0,3}' ambiguous.
 		if (child.kind === TxKind.Epsilon) { return this.epsilon; }
@@ -778,10 +778,10 @@ export function convert(node, factory, rxFactory) {
 
 	if (node instanceof AstChars) { return factory.chars(node.charSet); }
 
-	if (node instanceof AstDigitsRange) {
-		// A digits range emits what it consumed, so its expansion needs no output of its own and
+	if (node instanceof AstDecimalRange) {
+		// A decimal range emits what it consumed, so its expansion needs no output of its own and
 		// the one the Rx converter already knows how to build can be lifted.
-		return lift(convertRx(node, rxFactory, NaxpLanguage.Accepted), factory);
+		return lift(convertRx(node, rxFactory, false), factory);
 	}
 
 	if (node instanceof AstSequence) {
@@ -803,16 +803,16 @@ export function convert(node, factory, rxFactory) {
 			node.maxCount);
 	}
 
-	if (node instanceof AstReplaceable) {
+	if (node instanceof AstUnified) {
 		// W1 has already established that the rendering generates exactly one string.
 		const { outcome, result } = tryGetSingleString(node.rendering);
 
 		if (outcome !== SingleStringOutcome.Single) {
-			throw new Error('A replaceable element passed W1 but has no single rendering.');
+			throw new Error('A unified element passed W1 but has no single rendering.');
 		}
 
 		return factory.repl(
-			convertRx(node.subject, rxFactory, NaxpLanguage.Accepted),
+			convertRx(node.subject, rxFactory, false),
 			result);
 	}
 
@@ -820,7 +820,7 @@ export function convert(node, factory, rxFactory) {
 }
 
 /**
- * Reads an expression with no replaceable elements as a transduction, which copies.
+ * Reads an expression with no unified elements as a transduction, which copies.
  *
  * @param {import('./rx.js').Rx} expression The expression.
  * @param {TxFactory} factory The factory to build with.

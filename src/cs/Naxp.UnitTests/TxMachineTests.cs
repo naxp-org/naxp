@@ -29,11 +29,11 @@ public class TxMachineTests
 {
 	#region Agreement with the tree walk
 	/// <summary>
-	/// Naxps holding a replaceable element, over which the machine must agree with the tree walk
+	/// Naxps holding a unified element, over which the machine must agree with the tree walk
 	/// on every string of the accepted language.
 	/// </summary>
 	[Theory]
-	// The conformance data's own replaceable cases.
+	// The conformance data's own unified cases.
 	[InlineData("(A|a)!A")]
 	[InlineData(@"\A!?")]
 	[InlineData(@"\s!!X")]
@@ -44,7 +44,7 @@ public class TxMachineTests
 	[InlineData("(A|b)!bX|BY")]
 	[InlineData("(A|b)!AX|BY")]
 	[InlineData("(a|A)!AX|AY")]
-	// A replaceable element under each of the other operators.
+	// A unified element under each of the other operators.
 	[InlineData("((A|a)!A){3}")]
 	[InlineData("((A|a)!A|B){2}")]
 	[InlineData("(AB|ab)!(AB)(C|c)!C")]
@@ -69,9 +69,9 @@ public class TxMachineTests
 	[InlineData("((()|A)!(A)){3}")]
 	[InlineData("(()|A)!(A)(()|B)!(B)")]
 	[InlineData("X(()|AAA)!(AAA)X")]
-	public void Canonicalise_OfEveryAcceptedString_AgreesWithTheTreeWalk(string source)
+	public void Canonicalise_OfEveryAcceptedString_AgreesWithTheTreeWalk(string pattern)
 	{
-		(Compilation compilation, TxMachine machine) = Build(source);
+		(Compilation compilation, TxMachine machine) = Build(pattern);
 
 		int checkedStrings = 0;
 
@@ -80,8 +80,8 @@ public class TxMachineTests
 			bool byTree = Canonicaliser.TryCanonicalise(compilation.Ast, input.AsSpan(), out string? viaTree);
 			bool byMachine = machine.TryCanonicalise(input.AsSpan(), out string? viaMachine);
 
-			Assert.True(byTree, $"The tree walk refused '{input}', which the accepted language holds.");
-			Assert.True(byMachine, $"The machine refused '{input}', which the accepted language holds.");
+			Assert.True(byTree, $"The tree walk invalid '{input}', which the accepted language holds.");
+			Assert.True(byMachine, $"The machine invalid '{input}', which the accepted language holds.");
 			Assert.Equal(viaTree, viaMachine);
 
 			// A canonical form that the canonical language does not hold could not be encoded.
@@ -96,7 +96,7 @@ public class TxMachineTests
 	}
 
 	/// <summary>
-	/// A string the naxp does not accept has no canonical form, so the machine refuses it rather
+	/// Invalid text has no canonical form, so the machine fails rather
 	/// than producing one.
 	/// </summary>
 	[Theory]
@@ -106,11 +106,11 @@ public class TxMachineTests
 	[InlineData("(A|BB|CCC)!(BB)", "CC")]
 	[InlineData("(()|AAAA)!(AAAA)", "AA")]
 	[InlineData(@"X(\s|\-)!\-Y", "XY")]
-	public void Canonicalise_OfAStringNotAccepted_Refuses(string source, string input)
+	public void Canonicalise_OfInvalidText_Fails(string pattern, string input)
 	{
-		(Compilation compilation, TxMachine machine) = Build(source);
+		(Compilation compilation, TxMachine machine) = Build(pattern);
 
-		Assert.False(compilation.Accepted.Accepts(input.AsSpan()), "The test case is not a rejection.");
+		Assert.False(compilation.Accepted.Accepts(input.AsSpan()), "The test case is not invalid text.");
 		Assert.False(machine.TryCanonicalise(input.AsSpan(), out string? canonical));
 		Assert.Null(canonical);
 	}
@@ -118,7 +118,7 @@ public class TxMachineTests
 
 	#region Against the conformance data
 	/// <summary>
-	/// Every value of every conformance case that holds a replaceable element, checked against
+	/// Every value of every conformance case that holds a unified element, checked against
 	/// the canonical form the specification states rather than against another implementation.
 	/// </summary>
 	[Fact]
@@ -133,7 +133,7 @@ public class TxMachineTests
 		{
 			if (!Compiler.TryCompile(testCase.Naxp.AsSpan(), out Compilation? compilation, out _)) { continue; }
 
-			// Without a replaceable element the canonicalisation is the identity and needs no
+			// Without a unified element the canonicalisation is the identity and needs no
 			// machine, which is what Compilation.CanonicalIsIdentity already reports.
 			if (compilation!.CanonicalIsIdentity) { continue; }
 
@@ -144,23 +144,23 @@ public class TxMachineTests
 			{
 				Assert.True(
 					machine.TryCanonicalise(value.In.AsSpan(), out string? canonical),
-					$"'{testCase.Naxp}' refused '{value.In}'.");
+					$"'{testCase.Naxp}' invalid '{value.In}'.");
 
 				Assert.Equal(value.Canon, canonical);
 				++valuesChecked;
 			}
 
-			foreach (string rejected in testCase.NotAccepted)
+			foreach (string invalid in testCase.Invalid)
 			{
 				Assert.False(
-					machine.TryCanonicalise(rejected.AsSpan(), out _),
-					$"'{testCase.Naxp}' accepted '{rejected}'.");
+					machine.TryCanonicalise(invalid.AsSpan(), out _),
+					$"'{testCase.Naxp}' accepted '{invalid}'.");
 			}
 		}
 
-		// The data carried nine replaceable cases when this was written. The guard is against the
+		// The data carried nine unified cases when this was written. The guard is against the
 		// loop silently checking nothing, not against the count changing.
-		Assert.True(casesChecked >= 9, $"Only {casesChecked} replaceable cases were checked.");
+		Assert.True(casesChecked >= 9, $"Only {casesChecked} unified cases were checked.");
 		Assert.True(valuesChecked >= 60, $"Only {valuesChecked} values were checked.");
 	}
 	#endregion
@@ -174,9 +174,9 @@ public class TxMachineTests
 	[InlineData("(A|a)!A")]
 	[InlineData(@"\A\A?\9\X? \s!! \9\A\A")]
 	[InlineData("(A|BB|CCC)!(BB)")]
-	public void Transitions_OfAState_AreDisjoint(string source)
+	public void Transitions_OfAState_AreDisjoint(string pattern)
 	{
-		(_, TxMachine machine) = Build(source);
+		(_, TxMachine machine) = Build(pattern);
 
 		foreach (TxState state in machine.States)
 		{
@@ -199,10 +199,10 @@ public class TxMachineTests
 	[Fact]
 	public void Build_OfTheSameNaxpTwice_GivesTheSameShape()
 	{
-		const string Source = @"\A\A?\9\X? \s!! \9\A\A";
+		const string Pattern = @"\A\A?\9\X? \s!! \9\A\A";
 
-		(_, TxMachine first) = Build(Source);
-		(_, TxMachine second) = Build(Source);
+		(_, TxMachine first) = Build(Pattern);
+		(_, TxMachine second) = Build(Pattern);
 
 		Assert.Equal(first.States.Count, second.States.Count);
 
@@ -224,7 +224,7 @@ public class TxMachineTests
 	}
 
 	/// <summary>
-	/// The UK postcode naxp from the landing page, which is the largest replaceable example the
+	/// The UK postcode naxp from the landing page, which is the largest unified example the
 	/// project actually uses.
 	/// </summary>
 	[Theory]
@@ -238,7 +238,7 @@ public class TxMachineTests
 	{
 		(_, TxMachine machine) = Build(@"\A\A?\9\X? \s!! \9\A\A");
 
-		Assert.True(machine.TryCanonicalise(input.AsSpan(), out string? canonical), $"'{input}' was refused.");
+		Assert.True(machine.TryCanonicalise(input.AsSpan(), out string? canonical), $"'{input}' was invalid.");
 		Assert.Equal(expected, canonical);
 	}
 	#endregion
@@ -255,34 +255,47 @@ public class TxMachineTests
 	/// reads, so no cleverer determinisation escapes this. Both language machines stay small.
 	/// </remarks>
 	[Theory]
-	[InlineData(2, 8)]
-	[InlineData(3, 16)]
-	[InlineData(4, 32)]
-	[InlineData(5, 64)]
-	[InlineData(6, 128)]
-	[InlineData(7, 256)]
-	[InlineData(8, 512)]
-	public void Build_OfTheExponentialFamily_HasTwoToTheKPlusOneStates(int k, int expected)
+	[InlineData(2, 4, 3)]
+	[InlineData(3, 5, 4)]
+	[InlineData(4, 6, 5)]
+	[InlineData(5, 7, 6)]
+	[InlineData(6, 8, 7)]
+	[InlineData(7, 9, 8)]
+	[InlineData(8, 10, 9)]
+	[InlineData(17, 19, 18)]
+	public void Build_OfTheFormerlyExponentialFamily_IsLinear(int k, int states, int depth)
 	{
-		(Compilation compilation, TxMachine machine) = Build($"[ab]{{{k}}}c|([ab]!a){{{k}}}d");
+		(Compilation _, TxMachine machine) = Build($"[ab]{{{k}}}c|([ab]!a){{{k}}}d");
 
-		Assert.Equal(expected, machine.States.Count);
-
-		// The point of the family: the acceptors stay linear while the transducer doubles.
-		Assert.True(
-			compilation.Accepted.States.Count < expected,
-			$"The accepted machine has {compilation.Accepted.States.Count} states, so the family is not showing what it is meant to.");
+		Assert.Equal(states, machine.States.Count);
+		Assert.Equal(depth, machine.RegisterDepth);
 	}
 
 	/// <summary>
-	/// A naxp can pass every rule, compile, and still have no machine. This is the one refusal
+	/// The register changes the machine and not the language, which is the whole of its claim.
+	/// </summary>
+	[Fact]
+	public void Build_OfTheFormerlyExponentialFamily_CanonicalisesAsBefore()
+	{
+		(Compilation _, TxMachine machine) = Build("[ab]{3}c|([ab]!a){3}d");
+
+		Assert.True(machine.TryCanonicalise("abac".AsSpan(), out string? kept));
+		Assert.Equal("abac", kept);
+
+		Assert.True(machine.TryCanonicalise("abad".AsSpan(), out string? rendered));
+		Assert.Equal("aaad", rendered);
+	}
+
+	/// <summary>
+	/// A naxp can pass every rule, compile, and still have no machine. This is the one fault
 	/// the builder makes that <see cref="W3Checker"/> does not already make.
 	/// </summary>
 	[Fact]
 	public void Build_OfALegalNaxpBeyondTheStateCap_Fails()
 	{
-		// Small k with a lowered budget, so the path is exercised without building 2^17 states.
-		// 2^7 states are wanted and 64 are allowed.
+		// A lowered budget, so the path is exercised without building a machine of any size. The
+		// family is linear now, so the budget has to be lowered further than it once did: eight
+		// states and a register of seven are wanted, and four are allowed.
 		Assert.True(Compiler.TryCompile("[ab]{6}c|([ab]!a){6}d".AsSpan(), out Compilation? compilation, out NaxpError? compileError));
 		Assert.Null(compileError);
 
@@ -290,12 +303,12 @@ public class TxMachineTests
 		var txFactory = new TxFactory(rxFactory);
 		Tx root = TxConverter.Convert(compilation!.Ast, txFactory, rxFactory);
 
-		Assert.False(TxMachineBuilder.TryBuild(root, txFactory, out TxMachine? machine, out NaxpError? error, maxStates: 64));
+		Assert.False(TxMachineBuilder.TryBuild(root, txFactory, out TxMachine? machine, out NaxpError? error, maxStates: 4));
 		Assert.Null(machine);
 		// The code, not the prose. The message names the budget this implementation ships with,
 		// which is not the lowered one a test builds against, and asserting on wording would
 		// break every time a message is reworded.
-		Assert.Equal(NaxpMessage.NAXP1050_TooManyCanonicalStates, error!.Value.Message);
+		Assert.Equal(NaxpMessage.NAXP1049_TooManyCanonicalStates, error!.Value.Message);
 	}
 
 	/// <summary>
@@ -306,16 +319,15 @@ public class TxMachineTests
 	/// hundred thousand states before giving up and so is the slowest test in the file.
 	/// </remarks>
 	[Theory]
-	// 2^10 states, inside the budget.
+	// Linear now, so both of these fit where the second once did not. Kept as the regression:
+	// the family that forced the register is the family that must stay cheap.
 	[InlineData(9, true)]
-	// 2^11 states, over it. The naxp breaks no rule of the language; this implementation is
-	// declining it, and says so with ImplementationLimit rather than a W rule.
-	[InlineData(10, false)]
-	public void Compile_OfANaxpWhoseCanonicalisationIsTooLarge_IsRefused(int width, bool expected)
+	[InlineData(10, true)]
+	public void Compile_OfANaxpWhoseCanonicalisationIsTooLarge_IsInvalid(int width, bool expected)
 	{
-		string source = $"[ab]{{{width}}}c|([ab]!a){{{width}}}d";
+		string pattern = $"[ab]{{{width}}}c|([ab]!a){{{width}}}d";
 
-		bool compiled = Compiler.TryCompile(source.AsSpan(), out Compilation? compilation, out NaxpError? error);
+		bool compiled = Compiler.TryCompile(pattern.AsSpan(), out Compilation? compilation, out NaxpError? error);
 
 		Assert.Equal(expected, compiled);
 
@@ -326,7 +338,7 @@ public class TxMachineTests
 		else
 		{
 			Assert.Null(compilation);
-			Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(error!.Value.Message));
+			Assert.Equal("W6", NaxpMessageRules.RuleOf(error!.Value.Message));
 		}
 	}
 
@@ -346,11 +358,11 @@ public class TxMachineTests
 	#region Defence in depth
 	/// <summary>
 	/// Naxps that break W3, built without running <see cref="W3Checker"/> first, so that the
-	/// builder's own refusals are exercised.
+	/// builder's own faults are exercised.
 	/// </summary>
 	/// <remarks>
 	/// These paths are unreachable in the compiler, which checks before it builds. They are kept
-	/// so that a machine built from an unchecked expression is refused rather than silently
+	/// so that a machine built from an unchecked expression is invalid rather than silently
 	/// wrong, and this is the only test that reaches them.
 	/// </remarks>
 	[Theory]
@@ -361,15 +373,15 @@ public class TxMachineTests
 	[InlineData("A!!|()")]
 	[InlineData("A!?|A!!")]
 	[InlineData("[ab]|[ab]!a")]
-	public void Build_WhenTheCheckerIsBypassed_StillRefusesAW3Violation(string source)
+	public void Build_WhenTheCheckerIsBypassed_StillFindsAW3Violation(string pattern)
 	{
-		Assert.True(Parser.TryParse(source.AsSpan(), out Ast? ast, out NaxpError? parseError), $"'{source}' did not parse: {parseError}");
-		Assert.True(WellFormedness.TryCheck(ast!, out NaxpError? formError), $"'{source}' failed an earlier rule: {formError}");
+		Assert.True(Parser.TryParse(pattern.AsSpan(), out Ast? ast, out NaxpError? parseError), $"'{pattern}' did not parse: {parseError}");
+		Assert.True(WellFormedness.TryCheck(ast!, out NaxpError? formError), $"'{pattern}' failed an earlier rule: {formError}");
 
 		// The compiler would stop here. The builder is run directly instead.
 		Assert.False(
 			W3Checker.TryCheck(ast!, new RxFactory(), out _),
-			$"'{source}' is not a W3 violation, so it does not belong in this theory.");
+			$"'{pattern}' is not a W3 violation, so it does not belong in this theory.");
 
 		var rxFactory = new RxFactory();
 		var txFactory = new TxFactory(rxFactory);
@@ -377,7 +389,7 @@ public class TxMachineTests
 
 		Assert.False(
 			TxMachineBuilder.TryBuild(root, txFactory, out TxMachine? machine, out NaxpError? error),
-			$"'{source}' built a machine even though it breaks W3.");
+			$"'{pattern}' built a machine even though it breaks W3.");
 
 		Assert.Null(machine);
 		Assert.Equal("W3", NaxpMessageRules.RuleOf(error!.Value.Message));
@@ -385,15 +397,15 @@ public class TxMachineTests
 	#endregion
 
 	#region Helpers
-	static (Compilation Compilation, TxMachine Machine) Build(string source)
+	static (Compilation Compilation, TxMachine Machine) Build(string pattern)
 	{
 		Assert.True(
-			Compiler.TryCompile(source.AsSpan(), out Compilation? compilation, out NaxpError? error),
-			$"'{source}' did not compile: {error}");
+			Compiler.TryCompile(pattern.AsSpan(), out Compilation? compilation, out NaxpError? error),
+			$"'{pattern}' did not compile: {error}");
 
 		Assert.False(
 			compilation!.CanonicalIsIdentity,
-			$"'{source}' has no replaceable element, so it needs no machine.");
+			$"'{pattern}' has no unified element, so it needs no machine.");
 
 		return (compilation, BuildMachine(compilation));
 	}
@@ -406,7 +418,7 @@ public class TxMachineTests
 
 		Assert.True(
 			TxMachineBuilder.TryBuild(root, txFactory, out TxMachine? machine, out NaxpError? error),
-			$"The machine for '{compilation.Source}' could not be built: {error}");
+			$"The machine for '{compilation.Pattern}' could not be built: {error}");
 
 		return machine!;
 	}

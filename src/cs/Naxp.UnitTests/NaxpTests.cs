@@ -20,12 +20,12 @@ public class NaxpTests
 	{
 		Naxp naxp = Naxp.Parse("AB|B");
 
-		Assert.Equal("AB|B", naxp.Source);
+		Assert.Equal("AB|B", naxp.Pattern);
 		Assert.Equal("AB|B", naxp.ToString());
 	}
 
 	/// <summary>
-	/// Whitespace between tokens is ignored, so it survives in the source without reaching the
+	/// Whitespace between tokens is ignored, so it survives in the pattern without reaching the
 	/// language.
 	/// </summary>
 	[Fact]
@@ -33,17 +33,17 @@ public class NaxpTests
 	{
 		Naxp naxp = Naxp.Parse("A | B");
 
-		Assert.Equal("A | B", naxp.Source);
-		Assert.Equal(2UL, naxp.ValueCount);
+		Assert.Equal("A | B", naxp.Pattern);
+		Assert.Equal(2UL, naxp.MaxEncodedValue);
 	}
 
 	[Fact]
 	public void Parse_TakesAStringWithoutCeremony()
 	{
 		// The point of the implicit conversion: a caller holding a string writes nothing extra.
-		string source = "[A-Z]";
+		string pattern = "[A-Z]";
 
-		Assert.Equal(26UL, Naxp.Parse(source).ValueCount);
+		Assert.Equal(26UL, Naxp.Parse(pattern).MaxEncodedValue);
 	}
 
 	[Fact]
@@ -51,13 +51,13 @@ public class NaxpTests
 	{
 		Naxp naxp = Naxp.Parse("xx[A-Z]yy".AsSpan(2, 5));
 
-		Assert.Equal("[A-Z]", naxp.Source);
-		Assert.Equal(26UL, naxp.ValueCount);
+		Assert.Equal("[A-Z]", naxp.Pattern);
+		Assert.Equal(26UL, naxp.MaxEncodedValue);
 	}
 
 	/// <summary>
-	/// One per rule, so a refusal that arrives for the wrong reason is caught here rather than
-	/// merely counted as a refusal. <c>A{2,5}</c> is a syntax error and not W4: the comma is the
+	/// One per rule, so a fault that arrives for the wrong reason is caught here rather than
+	/// merely counted as a fault. <c>A{2,5}</c> is a syntax error and not W4: the comma is the
 	/// near miss the parser has an error production for, so it never reaches a count to check.
 	/// </summary>
 	[Theory]
@@ -68,12 +68,12 @@ public class NaxpTests
 	[InlineData("AB!!B?C", "W3")]
 	[InlineData("A{5,2}", "W4")]
 	[InlineData("\\9{20}", "W5")]
-	public void Parse_RefusesAnIllFormedNaxp(string source, string expectedRule)
+	public void Parse_ThrowsOnAnIllFormedNaxp(string pattern, string expectedRule)
 	{
-		FormatException exception = Assert.Throws<FormatException>(() => Naxp.Parse(source));
+		FormatException exception = Assert.Throws<FormatException>(() => Naxp.Parse(pattern));
 
 		Assert.False(
-			Naxp.TryParse(source, out Naxp? naxp, out _, out _, out _, out string? errorCode));
+			Naxp.TryParse(pattern, out Naxp? naxp, out _, out _, out _, out string? errorCode));
 		Assert.Null(naxp);
 
 		// The thrown message leads with the code, so this also pins that the two ways of asking
@@ -89,14 +89,14 @@ public class NaxpTests
 	[Fact]
 	public void TryParse_ReportsTheReasonTheSpanAndTheCode()
 	{
-		const string Source = "A{5,2}";
+		const string Pattern = "A{5,2}";
 
 		Assert.False(Naxp.TryParse(
-			Source,
+			Pattern,
 			out Naxp? naxp,
 			out string? errorMessage,
-			out int errorTextOffset,
-			out int errorTextLength,
+			out int errorOffset,
+			out int errorLength,
 			out string? errorCode));
 
 		Assert.Null(naxp);
@@ -104,30 +104,30 @@ public class NaxpTests
 		Assert.Equal("The first count of an interval cannot exceed the second.", errorMessage);
 
 		// The span covers '{5,2}', which is the interval and not the whole naxp.
-		Assert.Equal("{5,2}", Source.Substring(errorTextOffset, errorTextLength));
+		Assert.Equal("{5,2}", Pattern.Substring(errorOffset, errorLength));
 	}
 
 	/// <summary>
-	/// A refusal that belongs to no one place in the naxp reports the whole of it, so that a
+	/// A fault that belongs to no one place in the naxp reports the whole of it, so that a
 	/// caller underlining the span never points at an innocent first character.
 	/// </summary>
 	[Fact]
 	public void TryParse_OfAFaultWithNoPosition_ReportsTheWholeNaxp()
 	{
-		const string Source = "\\9{20}";
+		const string Pattern = "\\9{20}";
 
 		Assert.False(Naxp.TryParse(
-			Source,
+			Pattern,
 			out Naxp? naxp,
 			out _,
-			out int errorTextOffset,
-			out int errorTextLength,
+			out int errorOffset,
+			out int errorLength,
 			out string? errorCode));
 
 		Assert.Null(naxp);
-		Assert.Equal("NAXP1047", errorCode);
-		Assert.Equal(0, errorTextOffset);
-		Assert.Equal(Source.Length, errorTextLength);
+		Assert.Equal("NAXP1046", errorCode);
+		Assert.Equal(0, errorOffset);
+		Assert.Equal(Pattern.Length, errorLength);
 	}
 
 	/// <summary>
@@ -156,16 +156,16 @@ public class NaxpTests
 	[Fact]
 	public void EveryReservedCharacter_HasAnEscapeThatMatchesIt()
 	{
-		// The thirteen of the specification's table, in its order.
-		const string Reserved = "!#(),-?[\\]{|}";
+		// The eighteen of the specification's table, in its order.
+		const string Reserved = "!#(),-?[\\]{|}*+.^$";
 
-		Assert.Equal(13, Reserved.Length);
+		Assert.Equal(18, Reserved.Length);
 
 		foreach (char c in Reserved)
 		{
 			var naxp = Naxp.Parse("\\" + c);
 
-			Assert.Equal(1UL, naxp.ValueCount);
+			Assert.Equal(1UL, naxp.MaxEncodedValue);
 			Assert.True(naxp.Accepts(c.ToString()), $"'\\{c}' does not match '{c}'.");
 		}
 	}
@@ -176,7 +176,7 @@ public class NaxpTests
 	[Fact]
 	public void ACharacterOutsideTheReservedSet_StandsForItself()
 	{
-		foreach (char c in "\"$%&'*+./:;<=>@^_`~")
+		foreach (char c in "\"%&'/:;<=>@_`~")
 		{
 			var naxp = Naxp.Parse(c.ToString());
 
@@ -193,12 +193,12 @@ public class NaxpTests
 	}
 
 	/// <summary>
-	/// The naxp is legal. It is this implementation's state budget that refuses it, and the
-	/// refusal has to arrive through the same door as any other.
+	/// The naxp breaks no other rule. It is W6 that rules it out, and the
+	/// fault has to arrive through the same door as any other.
 	/// </summary>
 	[Fact]
-	public void Parse_RefusesANaxpOverBudget()
-		// Legal under the grammar since version 0.5 caps a count at two digits; 9 802 states.
+	public void Parse_ThrowsOnANaxpOverBudget()
+		// Legal under the grammar, which caps a count at two digits; 9 802 states.
 		=> Assert.Throws<FormatException>(() => Naxp.Parse("(A{99}){99}"));
 	#endregion
 	#region Acceptance
@@ -229,7 +229,7 @@ public class NaxpTests
 		{
 			if (!Naxp.TryParse(item.Naxp, out Naxp? naxp, out string? errorMessage))
 			{
-				Assert.Fail($"{item.Naxp} was refused: {errorMessage}");
+				Assert.Fail($"{item.Naxp} was invalid: {errorMessage}");
 				continue;
 			}
 
@@ -239,7 +239,7 @@ public class NaxpTests
 				++checks;
 			}
 
-			foreach (string text in item.NotAccepted)
+			foreach (string text in item.Invalid)
 			{
 				Assert.False(naxp.Accepts(text), $"{item.Naxp} accepted {text}.");
 				++checks;
@@ -277,7 +277,7 @@ public class NaxpTests
 	{
 		Naxp naxp = Naxp.Parse("[A-Z]{2}");
 
-		for (ulong value = 1UL; value <= naxp.ValueCount; ++value)
+		for (ulong value = 1UL; value <= naxp.MaxEncodedValue; ++value)
 		{
 			Assert.Equal(value, naxp.Encode(naxp.Decode(value)));
 		}
@@ -288,7 +288,7 @@ public class NaxpTests
 	[InlineData(27UL)]
 	[InlineData((ulong)long.MaxValue)]
 	[InlineData(ulong.MaxValue)]
-	public void TryDecode_RefusesAValueOutsideTheRange(ulong value)
+	public void TryDecode_FailsForAValueOutsideTheRange(ulong value)
 	{
 		Assert.False(Naxp.Parse("[A-Z]").TryDecode(value, out string? text));
 		Assert.Null(text);
@@ -344,11 +344,11 @@ public class NaxpTests
 	}
 
 	/// <summary>
-	/// A byte above 0x7E cannot be named by any naxp, so it is refused rather than folded onto
+	/// A byte above 0x7E cannot be named by any naxp, so it is invalid rather than folded onto
 	/// some character that can.
 	/// </summary>
 	[Fact]
-	public void ByteOverloads_RefuseAnythingOutsideAscii()
+	public void ByteOverloads_TreatAnythingOutsideAsciiAsInvalid()
 	{
 		Naxp naxp = Naxp.Parse("[A-Z]{3}");
 
@@ -365,8 +365,8 @@ public class NaxpTests
 	[Fact]
 	public void ByteOverloads_HandleTextLongerThanTheStackBuffer()
 	{
-		// Not [A-Z], which at this length has 26^300 values and is refused by W5. The count is
-		// nested because version 0.5 caps an interval count at two digits.
+		// Not [A-Z], which at this length has 26^300 values and is found invalid by W5. The count is
+		// nested because an interval count is capped at two digits.
 		Naxp naxp = Naxp.Parse("(Q{50}){6}");
 		var text = new string('Q', 300);
 
@@ -377,7 +377,7 @@ public class NaxpTests
 	}
 
 	[Fact]
-	public void ByteOverloads_RefuseTextLongerThanAnyNaxpCanGenerate()
+	public void ByteOverloads_TreatTextTooLongAsInvalid()
 	{
 		Naxp naxp = Naxp.Parse("[A-Z]");
 		var text = new byte[NaxpLimits.MaxStringLength + 1];
@@ -408,7 +408,7 @@ public class NaxpTests
 		foreach (ConformanceCase item in data.Cases)
 		{
 			Assert.True(Naxp.TryParse(item.Naxp, out Naxp? naxp, out string? errorMessage), errorMessage);
-			Assert.Equal((ulong)item.ValueCount, naxp.ValueCount);
+			Assert.Equal((ulong)item.MaxEncodedValue, naxp.MaxEncodedValue);
 
 			foreach (ConformanceValue value in item.Values)
 			{
@@ -417,7 +417,7 @@ public class NaxpTests
 				Assert.Equal(value.Canon ?? value.In, naxp.Decode((ulong)value.Out));
 			}
 
-			foreach (string text in item.NotAccepted)
+			foreach (string text in item.Invalid)
 			{
 				Assert.Equal(0UL, naxp.Encode(text));
 			}
@@ -425,16 +425,83 @@ public class NaxpTests
 	}
 
 	[Fact]
-	public void PublicSurface_RefusesEveryRejection()
+	public void PublicSurface_ReportsEveryInvalidNaxp()
 	{
 		ConformanceTestData data = ConformanceTestData.Load();
 
-		foreach (ConformanceRejection item in data.Rejected)
+		foreach (ConformanceInvalidNaxp item in data.InvalidNaxps)
 		{
 			Assert.False(
 				Naxp.TryParse(item.Naxp, out _, out _),
-				$"{item.Naxp} should have been refused for {item.Rule}.");
+				$"{item.Naxp} should have been invalid for {item.Rule}.");
 		}
+	}
+	#endregion
+	#region Code generation
+	/// <summary>
+	/// The one entry point reaches every emitter, and the language decides nothing else: the same
+	/// naxp, the same prefix, two fragments in two languages.
+	/// </summary>
+	[Fact]
+	public void Emit_ReachesEachLanguage()
+	{
+		Naxp naxp = Naxp.Parse("\\A\\9");
+
+		Assert.Contains(
+			"public const ulong PostcodeMaxEncodedValue = 260UL;",
+			naxp.Emit(OutputLanguage.CSharp, "Postcode"),
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"const postcodeMaxEncodedValue = 260;",
+			naxp.Emit(OutputLanguage.JavaScript, "Postcode"),
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Emit_RejectsALanguageThatIsNotOne()
+	{
+		Naxp naxp = Naxp.Parse("A");
+
+		Assert.Throws<ArgumentException>(() => naxp.Emit((OutputLanguage)99));
+	}
+
+	/// <summary>
+	/// The line ending is the caller's, not the platform's, so one naxp gives the same fragment
+	/// on every machine.
+	/// </summary>
+	[Fact]
+	public void Emit_EndsLinesTheWayItIsAsked()
+	{
+		Naxp naxp = Naxp.Parse("A|B");
+
+		Assert.DoesNotContain("\r", naxp.Emit(OutputLanguage.CSharp), StringComparison.Ordinal);
+		Assert.DoesNotContain("\r", naxp.Emit(OutputLanguage.JavaScript), StringComparison.Ordinal);
+
+		string crlf = naxp.Emit(OutputLanguage.CSharp, newLine: "\r\n");
+
+		Assert.DoesNotContain("\n", crlf.Replace("\r\n", string.Empty), StringComparison.Ordinal);
+		Assert.Equal(
+			naxp.Emit(OutputLanguage.CSharp),
+			crlf.Replace("\r\n", "\n"));
+	}
+
+	[Fact]
+	public void Emit_IndentsTheWayItIsAsked()
+	{
+		string source = Naxp.Parse("A|B").Emit(OutputLanguage.CSharp, indent: "    ");
+
+		Assert.Contains("\n    int state = 0;", source, StringComparison.Ordinal);
+		Assert.DoesNotContain("\t", source, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Emit_ThrowsOnANullFormattingString()
+	{
+		Naxp naxp = Naxp.Parse("A");
+
+		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, newLine: null!));
+		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, indent: null!));
+		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, initialIndent: null!));
 	}
 	#endregion
 	#region Private helpers

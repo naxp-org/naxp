@@ -13,7 +13,7 @@ public class CodecTests
 {
 	#region Specification's worked values
 	/// <summary>
-	/// The case the Ordering section of version 0.4 warns about: <c>1</c> sorts
+	/// The case the Ordering section of the specification warns about: <c>1</c> sorts
 	/// above <c>9</c> because it is the only leading digit that can carry a second.
 	/// </summary>
 	[Theory]
@@ -21,7 +21,7 @@ public class CodecTests
 	[InlineData("9", 9UL)]
 	[InlineData("1", 10UL)]
 	[InlineData("10", 11UL)]
-	public void UnpaddedDigitsRange_PutsTheWiderMatchesLast(string text, ulong expected)
+	public void UnpaddedDecimalRange_PutsTheWiderMatchesLast(string text, ulong expected)
 		=> Assert.Equal(expected, Encode("#[0-10]", text));
 
 	/// <summary>
@@ -31,7 +31,7 @@ public class CodecTests
 	[InlineData("00", 1UL)]
 	[InlineData("09", 10UL)]
 	[InlineData("10", 11UL)]
-	public void PaddedDigitsRange_KeepsNumericOrder(string text, ulong expected)
+	public void PaddedDecimalRange_KeepsNumericOrder(string text, ulong expected)
 		=> Assert.Equal(expected, Encode("#[00-10]", text));
 
 	/// <summary>
@@ -46,7 +46,7 @@ public class CodecTests
 	}
 
 	[Fact]
-	public void NotAccepted_EncodesToZero()
+	public void InvalidText_EncodesToZero()
 	{
 		Assert.Equal(0UL, Encode("#[0-10]", "11"));
 		Assert.Equal(0UL, Encode("#[0-10]", string.Empty));
@@ -80,7 +80,7 @@ public class CodecTests
 	{
 		Compilation postcode = Compile(Postcode);
 
-		Assert.Equal(1755842400UL, postcode.ValueCount);
+		Assert.Equal(1755842400UL, postcode.MaxEncodedValue);
 		Assert.Equal(1UL, Encode(postcode, "A0 0AA"));
 		Assert.Equal(1755842400UL, Encode(postcode, "ZZ9Z 9ZZ"));
 
@@ -110,15 +110,15 @@ public class CodecTests
 	}
 
 	/// <summary>
-	/// Every string a replaceable element accepts takes the same value, since those strings
+	/// Every string a unified element accepts takes the same value, since those strings
 	/// share a canonical form.
 	/// </summary>
 	[Fact]
-	public void ReplaceableElement_GivesEveryMatchTheSameValue()
+	public void UnifiedElement_GivesEveryMatchTheSameValue()
 	{
 		Compilation compilation = Compile("(A|a)!A");
 
-		Assert.Equal(1UL, compilation.ValueCount);
+		Assert.Equal(1UL, compilation.MaxEncodedValue);
 		Assert.Equal(2UL, compilation.AcceptedCount);
 		Assert.Equal(1UL, Encode(compilation, "A"));
 		Assert.Equal(1UL, Encode(compilation, "a"));
@@ -136,7 +136,7 @@ public class CodecTests
 	}
 
 	[Fact]
-	public void NotAccepted_HasNoCanonicalForm()
+	public void InvalidText_HasNoCanonicalForm()
 	{
 		Compilation compilation = Compile("(A|a)!A");
 
@@ -146,13 +146,13 @@ public class CodecTests
 	#endregion
 	#region W3
 	/// <summary>
-	/// A naxp whose replacement is not single valued is refused when it is compiled, so encoding
-	/// never meets the case. Read the <c>B</c> of <c>AB!!B?C</c> as the replaceable element with
+	/// A naxp whose unification is not single valued is invalid when it is compiled, so encoding
+	/// never meets the case. Read the <c>B</c> of <c>AB!!B?C</c> as the unified element with
 	/// the optional one absent and <c>ABC</c> canonicalises to itself; read it the other way round
 	/// and it canonicalises to <c>ABBC</c>.
 	/// </summary>
 	[Fact]
-	public void AmbiguousReplacement_IsRefusedAtCompileTime()
+	public void AmbiguousUnification_IsInvalidAtCompileTime()
 	{
 		Assert.False(Compiler.TryCompile("AB!!B?C", out Compilation? compilation, out NaxpError? error));
 
@@ -183,18 +183,17 @@ public class CodecTests
 	public void CompetingBranches_CostOneOutputPerPosition()
 	{
 		const int Width = 17;
-		string source = $"[ab]{{{Width}}}c|([ab]!a){{{Width}}}d";
+		string pattern = $"[ab]{{{Width}}}c|([ab]!a){{{Width}}}d";
 
-		// This naxp no longer compiles, though it breaks no rule of the language. Canonicalising
-		// it as a machine wants 2^18 states, over NaxpLimits.MaxCanonicalStates, because nothing
-		// before the last character says which alternative was taken; see
-		// encoding/transducer-determinisation.md.
-		Assert.False(Compiler.TryCompile(source, out _, out NaxpError? refusal));
-		Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(refusal!.Value.Message));
+		// This naxp compiles again. Canonicalising it as a machine once wanted 2^18 states,
+		// because nothing before the last character says which alternative was taken; holding
+		// the characters read in a register rather than in the state space makes it linear.
+		Assert.True(Compiler.TryCompile(pattern, out _, out NaxpError? fault));
+		Assert.Null(fault);
 
-		// The property this test exists for belongs to the tree walk, which is unaffected by that
-		// budget, so it is exercised directly.
-		Assert.True(Parser.TryParse(source.AsSpan(), out Ast? ast, out _));
+		// The property this test exists for belongs to the tree walk, so it is exercised
+		// directly whatever the machine costs.
+		Assert.True(Parser.TryParse(pattern.AsSpan(), out Ast? ast, out _));
 		Assert.True(WellFormedness.TryCheck(ast!, out _));
 
 		var letters = new string('b', Width - 1) + "a";
@@ -211,7 +210,7 @@ public class CodecTests
 	#region Helpers
 	static Compilation Compile(string naxp)
 	{
-		Assert.True(Compiler.TryCompile(naxp, out Compilation? compilation, out NaxpError? error), $"{naxp} was refused: {error}");
+		Assert.True(Compiler.TryCompile(naxp, out Compilation? compilation, out NaxpError? error), $"{naxp} was invalid: {error}");
 
 		return compilation!;
 	}

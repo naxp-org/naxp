@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Harness for encoding/comparison-square-review.md, run 2026-09-03: nineteen pairs through
+    the rank product (RankProduct.cs), a two-root copy of W3Checker's square (TwoRootSquare.cs),
+    RankAgreement, and enumeration of the shared strings. Every rank product verdict matched
+    enumeration.
+
+    Compiles the library's own sources rather than referencing the project, so that the
+    internal types (Tx, TxFactory, StateMap, Compilation) are reachable without an
+    InternalsVisibleTo entry.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latestMajor</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS1591;CS1573;CS1587;CS1570;IDE0005</NoWarn>
+    <RootNamespace>Proto</RootNamespace>
+    <AssemblyName>ComparisonCheck</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\cs\Naxp\*.cs" />
+  </ItemGroup>
+
+</Project>

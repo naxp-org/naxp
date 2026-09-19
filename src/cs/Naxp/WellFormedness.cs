@@ -19,7 +19,7 @@ namespace LogMu;
 /// </para>
 /// <para>
 /// W1 asks whether a rendering is one of the strings its subject generates, which is
-/// <see cref="Matcher"/>'s business rather than this class's.
+/// <see cref="TreeWalker"/>'s business rather than this class's.
 /// </para>
 /// </remarks>
 static class WellFormedness
@@ -29,7 +29,7 @@ static class WellFormedness
 	/// Checks the rules that can be decided from the tree, which is W2 then W1.
 	/// </summary>
 	/// <param name="ast">The tree, as returned by <see cref="Parser.TryParse"/>.</param>
-	/// <param name="error">The refusal, or <see langword="null"/> if the tree passes.</param>
+	/// <param name="error">The fault, or <see langword="null"/> if the tree passes.</param>
 	/// <returns>Whether the tree passes.</returns>
 	public static bool TryCheck(Ast ast, out NaxpError? error)
 	{
@@ -45,11 +45,11 @@ static class WellFormedness
 	#region W2: '!' may not nest
 	static bool TryCheckW2(Ast node, out NaxpError? error)
 	{
-		if (node is AstReplaceable replaceable)
+		if (node is AstUnified unified)
 		{
-			if (Ast.ContainsReplaceable(replaceable.Subject) || Ast.ContainsReplaceable(replaceable.Rendering))
+			if (Ast.ContainsUnified(unified.Subject) || Ast.ContainsUnified(unified.Rendering))
 			{
-				error = new NaxpError(NaxpMessage.NAXP1040_ReplaceableNested);
+				error = new NaxpError(NaxpMessage.NAXP1039_UnifiedNested);
 				return false;
 			}
 		}
@@ -66,31 +66,31 @@ static class WellFormedness
 	#region W1: a rendering must be one of the strings it replaces
 	static bool TryCheckW1(Ast node, out NaxpError? error)
 	{
-		if (node is AstReplaceable replaceable)
+		if (node is AstUnified unified)
 		{
-			SingleStringOutcome outcome = Matcher.TryGetSingleString(replaceable.Rendering, out string? rendering);
+			SingleStringOutcome outcome = TreeWalker.TryGetSingleString(unified.Rendering, out string? rendering);
 
 			if (outcome == SingleStringOutcome.TooLong)
 			{
-				error = TooLongError(node.SourceOffset);
+				error = TooLongError(node.PatternOffset);
 				return false;
 			}
 
 			if (outcome == SingleStringOutcome.Multiple)
 			{
-				error = new NaxpError(replaceable.Form == ReplaceableForm.Reproduced ? NaxpMessage.NAXP1041_ReproducedSubjectNotSingle : NaxpMessage.NAXP1042_RenderingNotSingle);
+				error = new NaxpError(unified.Form == UnifiedForm.Reproduced ? NaxpMessage.NAXP1040_ReproducedSubjectNotSingle : NaxpMessage.NAXP1041_RenderingNotSingle);
 				return false;
 			}
 
-			if (!Matcher.Generates(replaceable.Subject, rendering!, out bool tooLong))
+			if (!TreeWalker.Generates(unified.Subject, rendering!, out bool tooLong))
 			{
 				if (tooLong)
 				{
-					error = TooLongError(node.SourceOffset);
+					error = TooLongError(node.PatternOffset);
 					return false;
 				}
 
-				error = new NaxpError(rendering!.Length == 0 ? NaxpMessage.NAXP1043_ElementNotDeletable : NaxpMessage.NAXP1044_RenderingNotGenerated, rendering!.Length == 0 ? null : rendering);
+				error = new NaxpError(rendering!.Length == 0 ? NaxpMessage.NAXP1042_ElementNotDeletable : NaxpMessage.NAXP1043_RenderingNotGenerated, rendering!.Length == 0 ? null : rendering);
 				return false;
 			}
 		}
@@ -105,7 +105,7 @@ static class WellFormedness
 	}
 
 	static NaxpError TooLongError(int offset)
-		=> new NaxpError(NaxpMessage.NAXP1048_ElementTooLong);
+		=> new NaxpError(NaxpMessage.NAXP1047_ElementTooLong);
 	#endregion
 	#region Tree walking
 	static IEnumerable<Ast> Children(Ast node)
@@ -124,8 +124,8 @@ static class WellFormedness
 			case AstInterval interval:
 				return new[] { interval.Child };
 
-			case AstReplaceable replaceable:
-				return new[] { replaceable.Subject, replaceable.Rendering };
+			case AstUnified unified:
+				return new[] { unified.Subject, unified.Rendering };
 
 			default:
 				return Array.Empty<Ast>();

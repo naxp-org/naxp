@@ -5,35 +5,19 @@ import { ALL_DIGITS, AsciiCharSet } from './ascii-char-set.js';
 import {
 	AstAlternation,
 	AstChars,
-	AstDigitsRange,
+	AstDecimalRange,
 	AstEmpty,
 	AstInterval,
 	AstOptional,
-	AstReplaceable,
+	AstUnified,
 	AstSequence,
 } from './ast.js';
 
 /**
- * Which of a naxp's two languages an expression is being built for.
- *
- * @enum {string}
- */
-export const NaxpLanguage = Object.freeze({
-	/** The accepted language *L*, the strings the naxp matches. */
-	Accepted: 'Accepted',
-
-	/**
-	 * The canonical language *C*, which is *L* with each replaceable element replaced by its
-	 * rendering. The encoding is a rank over this one.
-	 */
-	Canonical: 'Canonical',
-});
-
-/**
- * Powers of ten up to the fifteen digit cap on a digits range bound.
+ * Powers of ten up to the fifteen digit cap on a decimal range bound.
  *
  * Ordinary numbers, because 10^15 is below 2^53 and so is held exactly. That cap was chosen for
- * this reason, and it is why nothing in a digits range needs a BigInt.
+ * this reason, and it is why nothing in a decimal range needs a BigInt.
  */
 const POWERS_OF_TEN = buildPowersOfTen();
 
@@ -44,62 +28,64 @@ const POWERS_OF_TEN = buildPowersOfTen();
  * rows, `x!y` to `y`, `x!!` to `x` and `x!?` to `()`, but the parser already expanded the two
  * abbreviations into the general form, so all three collapse to taking the rendering.
  *
- * Digits ranges are expanded here, because a bound of fifteen digits expands to about fifteen
+ * Decimal ranges are expanded here, because a bound of fifteen digits expands to about fifteen
  * alternatives and costs nothing. Intervals are not, because their counts multiply when nested.
  *
  * @param {import('./ast.js').Ast} node The tree.
  * @param {import('./rx.js').RxFactory} factory The factory to build with.
- * @param {string} language One of {@link NaxpLanguage}.
+ * @param {boolean} isCanonical Which of a naxp's two languages the expression is for: the
+ * canonical language *C*, which is *L* with each unified element replaced by its rendering and
+ * which the encoding ranks over, or the accepted language *L*, the strings the naxp matches.
  * @returns {import('./rx.js').Rx} The expression.
  */
-export function convert(node, factory, language) {
+export function convert(node, factory, isCanonical) {
 	if (node instanceof AstEmpty) { return factory.epsilon; }
 
 	if (node instanceof AstChars) { return factory.chars(node.charSet); }
 
-	if (node instanceof AstDigitsRange) { return convertDigitsRange(node, factory); }
+	if (node instanceof AstDecimalRange) { return convertDecimalRange(node, factory); }
 
 	if (node instanceof AstSequence) {
-		return factory.concat(node.children.map(child => convert(child, factory, language)));
+		return factory.concat(node.children.map(child => convert(child, factory, isCanonical)));
 	}
 
 	if (node instanceof AstAlternation) {
-		return factory.union(node.children.map(child => convert(child, factory, language)));
+		return factory.union(node.children.map(child => convert(child, factory, isCanonical)));
 	}
 
 	if (node instanceof AstOptional) {
-		return factory.unionTwo(factory.epsilon, convert(node.child, factory, language));
+		return factory.unionTwo(factory.epsilon, convert(node.child, factory, isCanonical));
 	}
 
 	if (node instanceof AstInterval) {
 		return factory.interval(
-			convert(node.child, factory, language),
+			convert(node.child, factory, isCanonical),
 			node.minCount,
 			node.maxCount);
 	}
 
-	if (node instanceof AstReplaceable) {
+	if (node instanceof AstUnified) {
 		return convert(
-			language === NaxpLanguage.Canonical ? node.rendering : node.subject,
+			isCanonical ? node.rendering : node.subject,
 			factory,
-			language);
+			isCanonical);
 	}
 
 	throw new Error(`Unhandled node type ${node.constructor.name}.`);
 }
 
 /**
- * Expands a digits range into an ordinary expression.
+ * Expands a decimal range into an ordinary expression.
  *
  * One alternative per width. The lower width admits the leading zeros the lower bound was written
  * with; every width above it does not, which is what makes `#[0-105]` stand for
  * `[0-9] | [1-9][0-9] | 10[0-5]` rather than admitting `07`.
  *
- * @param {AstDigitsRange} range The digits range.
+ * @param {AstDecimalRange} range The decimal range.
  * @param {import('./rx.js').RxFactory} factory The factory to build with.
  * @returns {import('./rx.js').Rx} The expression.
  */
-function convertDigitsRange(range, factory) {
+function convertDecimalRange(range, factory) {
 	const widths = [];
 
 	for (let width = range.lowDigitCount; width <= range.highDigitCount; ++width) {

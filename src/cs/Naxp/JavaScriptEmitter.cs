@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
@@ -26,9 +26,9 @@ namespace LogMu;
 /// serves both the string and the <c>Uint8Array</c> forms, where the C# emitter needs a cast.
 /// </para>
 /// <para>
-/// JavaScript has one number type, exact to 2^53 - 1, so the emitter reads the naxp's value count
+/// JavaScript has one number type, exact to 2^53 - 1, so the emitter reads the naxp's largest encoded value
 /// and picks: ordinary numbers where every value and every intermediate rank fits, BigInt above
-/// that. Ranks are bounded by the value count, so in the number case the arithmetic is exact.
+/// that. Ranks are bounded by that, so in the number case the arithmetic is exact.
 /// The BigInt case needs ES2020; everything else needs ES2015.
 /// </para>
 /// </remarks>
@@ -45,7 +45,7 @@ sealed class JavaScriptEmitter : Emitter
 	/// writes its own braces and takes only the indenting from <see cref="CodeWriter"/>.
 	/// </summary>
 	JavaScriptEmitter()
-		: base("\t", blockOpen: null, blockClose: null)
+		: base(blockOpen: null, blockClose: null)
 	{
 	}
 
@@ -76,12 +76,10 @@ sealed class JavaScriptEmitter : Emitter
 	/// <inheritdoc/>
 	protected override void CloseDispatch(CodeWriter writer, string result)
 	{
-		writer.Line("default:");
-		writer.Indent();
-		writer.Line($"return {result};");
-		writer.Outdent();
 		writer.Outdent();
 		writer.Line("}");
+		writer.Line();
+		writer.Line($"return {result};");
 	}
 
 	/// <inheritdoc/>
@@ -108,7 +106,7 @@ sealed class JavaScriptEmitter : Emitter
 		readonly Context context;
 
 		// The generated names, each the prefix plus the bare member name, camel cased.
-		readonly string valueCountName;
+		readonly string maxEncodedValueName;
 		readonly string maxLengthName;
 		readonly string acceptsName;
 		readonly string acceptsBytesName;
@@ -136,12 +134,12 @@ sealed class JavaScriptEmitter : Emitter
 		{
 			this.emitter = emitter;
 			this.context = context;
-			this.big = context.Compilation.ValueCount > MaxSafeInteger;
+			this.big = context.Compilation.MaxEncodedValue > MaxSafeInteger;
 			this.zero = this.big ? "0n" : "0";
 			this.one = this.big ? "1n" : "1";
 
 			string prefix = context.Prefix;
-			this.valueCountName = Camel(prefix, "ValueCount");
+			this.maxEncodedValueName = Camel(prefix, "MaxEncodedValue");
 			this.maxLengthName = Camel(prefix, "MaxLength");
 			this.acceptsName = Camel(prefix, "Accepts");
 			this.acceptsBytesName = Camel(prefix, "AcceptsBytes");
@@ -170,6 +168,13 @@ sealed class JavaScriptEmitter : Emitter
 
 		int MaxLength => this.context.MaxLength;
 
+		int RegisterDepth => this.context.RegisterDepth;
+
+		bool NeedsRegister => this.context.NeedsRegister;
+
+		/// <summary>The name the generated code keeps the code points it has read under.</summary>
+		const string HeldName = "held";
+
 		bool Canonicalises => !this.TransducerStates.IsDefault;
 
 		public void Emit()
@@ -185,8 +190,8 @@ sealed class JavaScriptEmitter : Emitter
 
 		void EmitConstants()
 		{
-			this.Writer.Line("/** The count of values this naxp encodes, which is the largest value it can produce. */");
-			this.Writer.Line($"const {this.valueCountName} = {this.Value(this.context.Compilation.ValueCount)};");
+			this.Writer.Line("/** The largest encoded value this naxp produces, which is also how many it has. */");
+			this.Writer.Line($"const {this.maxEncodedValueName} = {this.Value(this.context.Compilation.MaxEncodedValue)};");
 			this.Writer.Line();
 			this.Writer.Line("/** The length of the longest string this naxp can decode a value to. */");
 			this.Writer.Line($"const {this.maxLengthName} = {this.MaxLength.ToString(CultureInfo.InvariantCulture)};");
@@ -219,8 +224,8 @@ sealed class JavaScriptEmitter : Emitter
 		void EmitEncode(bool bytes)
 		{
 			this.Writer.Line(bytes
-				? "/** The value of the ASCII text in a Uint8Array, from 1 to the value count, or zero where this naxp does not accept it."
-				: "/** The value of a string, from 1 to the value count, or zero where this naxp does not accept it.");
+				? "/** The encoded value of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where the text is invalid."
+				: "/** The encoded value of a string, from 1 to the largest encoded value, or zero where the string is invalid.");
 			this.Writer.Line(bytes
 				? " * @param {Uint8Array} bytes"
 				: " * @param {string} text");
@@ -234,9 +239,21 @@ sealed class JavaScriptEmitter : Emitter
 				this.Writer.Line("const canonical = [];");
 				this.Writer.Line("let state = 0;");
 				this.Writer.Line();
-				this.EmitReadLoop(bytes, code => $"state = {this.canonicalStepName}(state, {code}, canonical);", $"return {this.zero};");
+				if (this.NeedsRegister)
+				{
+					// The code points read, oldest first, so a reference of depth d is the one at
+					// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+					this.Writer.Line($"const {HeldName} = new Array({this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}).fill(0);");
+					this.Writer.Line();
+				}
+
+				this.EmitReadLoop(
+					bytes,
+					code => $"state = {this.canonicalStepName}(state, {code}, {this.StepArguments()});",
+					$"return {this.zero};",
+					this.NeedsRegister ? code => $"{HeldName}.shift(); {HeldName}.push({code});" : null);
 				this.Writer.Line();
-				this.Writer.Line($"return {this.finishCanonicalName}(state, canonical) ? {this.rankName}(canonical) : {this.zero};");
+				this.Writer.Line($"return {this.finishCanonicalName}(state, {this.FinishArguments()}) ? {this.rankName}(canonical) : {this.zero};");
 			}
 			else
 			{
@@ -257,23 +274,26 @@ sealed class JavaScriptEmitter : Emitter
 		/// The loop both entry points read their input with. A byte is already the code point, and
 		/// anything above ASCII fits no transition, so one stepper serves both forms.
 		/// </summary>
-		void EmitReadLoop(bool bytes, Func<string, string> step, string onRefusal)
+		void EmitReadLoop(bool bytes, Func<string, string> step, string onFault, Func<string, string>? before = null)
 		{
 			string source = bytes ? "bytes" : "text";
 			string code = bytes ? "bytes[i]" : "text.charCodeAt(i)";
 
 			this.Writer.Line($"for (let i = 0; i < {source}.length; i++) {{");
 			this.Writer.Indent();
+
+			if (before is not null) { this.Writer.Line(before(code)); }
+
 			this.Writer.Line(step(code));
 			this.Writer.Line();
-			this.Writer.Line($"if (state < 0) {{ {onRefusal} }}");
+			this.Writer.Line($"if (state < 0) {{ {onFault} }}");
 			this.Writer.Outdent();
 			this.Writer.Line("}");
 		}
 
 		void EmitDecodePublics()
 		{
-			string countDigits = this.context.Compilation.ValueCount.ToString(CultureInfo.InvariantCulture);
+			string countDigits = this.context.Compilation.MaxEncodedValue.ToString(CultureInfo.InvariantCulture);
 			string message = $"'This naxp encodes the values 1 to {countDigits}.'";
 
 			this.Writer.Line("/** The string a value stands for, which is in canonical form.");
@@ -305,7 +325,7 @@ sealed class JavaScriptEmitter : Emitter
 
 		void EmitRangeCheck(string message)
 		{
-			this.Writer.Line($"if (value < {this.one} || value > {this.valueCountName}) {{");
+			this.Writer.Line($"if (value < {this.one} || value > {this.maxEncodedValueName}) {{");
 			this.Writer.Indent();
 			this.Writer.Line($"throw new RangeError({message});");
 			this.Writer.Outdent();
@@ -338,7 +358,7 @@ sealed class JavaScriptEmitter : Emitter
 				this.Writer.Line();
 			}
 
-			this.Writer.Line("/** The code points of a value that was already checked against the value count. */");
+			this.Writer.Line("/** The code points of an encoded value already checked against the largest one. */");
 			this.Writer.Line($"function {this.decodeCoreName}(value) {{");
 			this.Writer.Indent();
 			this.Writer.Line("const codes = [];");
@@ -403,8 +423,8 @@ sealed class JavaScriptEmitter : Emitter
 				this.emitter.EmitStepFunctions(
 					this.Writer,
 					this.canonicalStepName,
-					"state, c, canonical",
-					"state, c, canonical",
+					$"state, c, {this.StepArguments()}",
+					$"state, c, {this.StepArguments()}",
 					this.TransducerStates.Length,
 					this.EmitCanonicalCase);
 				this.Writer.Line();
@@ -413,11 +433,12 @@ sealed class JavaScriptEmitter : Emitter
 				this.emitter.EmitStepFunctions(
 					this.Writer,
 					this.finishCanonicalName,
-					"state, canonical",
-					"state, canonical",
+					$"state, {this.FinishArguments()}",
+					$"state, {this.FinishArguments()}",
 					this.TransducerStates.Length,
 					this.EmitFinishCase,
-					defaultResult: "false");
+					defaultResult: "false",
+					caseNeeded: id => this.TransducerStates[id].EndOutput is not null);
 			}
 		}
 
@@ -434,7 +455,7 @@ sealed class JavaScriptEmitter : Emitter
 				this.Writer.Line($"if ({this.emitter.SetCondition(arc.Set)}) {{ return {arc.Next.ToString(CultureInfo.InvariantCulture)}; }}");
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -466,7 +487,7 @@ sealed class JavaScriptEmitter : Emitter
 				}
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -566,22 +587,24 @@ sealed class JavaScriptEmitter : Emitter
 				string condition = this.emitter.SetCondition(arc.Set);
 				string next = arc.Next.ToString(CultureInfo.InvariantCulture);
 
+				List<string> outputs = this.OutputExpressions(arc.Output, forFinish: false);
+
 				if (arc.Output.Length == 0)
 				{
 					this.Writer.Line($"if ({condition}) {{ return {next}; }}");
 				}
 				else if (arc.Output.Length == 1)
 				{
-					this.Writer.Line($"if ({condition}) {{ canonical.push({OutputExpression(arc.Output[0])}); return {next}; }}");
+					this.Writer.Line($"if ({condition}) {{ canonical.push({outputs[0]}); return {next}; }}");
 				}
 				else
 				{
 					this.Writer.Line($"if ({condition}) {{");
 					this.Writer.Indent();
 
-					foreach (char output in arc.Output)
+					foreach (string expression in outputs)
 					{
-						this.Writer.Line($"canonical.push({OutputExpression(output)});");
+						this.Writer.Line($"canonical.push({expression});");
 					}
 
 					this.Writer.Line($"return {next};");
@@ -590,7 +613,7 @@ sealed class JavaScriptEmitter : Emitter
 				}
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -604,13 +627,57 @@ sealed class JavaScriptEmitter : Emitter
 			this.Writer.Line($"case {id.ToString(CultureInfo.InvariantCulture)}:");
 			this.Writer.Indent();
 
-			foreach (char output in state.EndOutput)
+			foreach (string expression in this.OutputExpressions(state.EndOutput, forFinish: true))
 			{
-				this.Writer.Line($"canonical.push({CodeLiteral(output)});");
+				this.Writer.Line($"canonical.push({expression});");
 			}
 
 			this.Writer.Line("return true;");
 			this.Writer.Outdent();
+		}
+
+		/// <summary>The arguments the canonicalising step takes after its code point.</summary>
+		string StepArguments() => this.NeedsRegister ? $"{HeldName}, canonical" : "canonical";
+
+		/// <summary>The arguments the finishing step takes after its state.</summary>
+		string FinishArguments() => this.NeedsRegister ? $"{HeldName}, canonical" : "canonical";
+
+		/// <summary>
+		/// One expression per code point an output emits, with each reference resolved against
+		/// the code points kept.
+		/// </summary>
+		/// <param name="output">The output, over literals and references.</param>
+		/// <param name="forFinish">Whether this is an end output, which has no code point in hand.</param>
+		List<string> OutputExpressions(string output, bool forFinish)
+		{
+			var expressions = new List<string>();
+
+			for (int i = 0; i < output.Length; ++i)
+			{
+				if (output[i] != Tx.CopyMarker)
+				{
+					expressions.Add(CodeLiteral(output[i]));
+					continue;
+				}
+
+				int depth = output[i + 1] - TxReference.DepthBase;
+
+				++i;
+
+				// A step already holds the code point it is reading, so depth zero needs no
+				// buffer there. The finish function has none, so it reads even that one back.
+				if (depth == 0 && !forFinish)
+				{
+					expressions.Add("c");
+					continue;
+				}
+
+				int at = this.RegisterDepth - 1 - depth;
+
+				expressions.Add($"{HeldName}[{at.ToString(CultureInfo.InvariantCulture)}]");
+			}
+
+			return expressions;
 		}
 
 		void EmitAcceptingPredicate(string name, ImmutableArray<StateModel> states)
@@ -700,9 +767,6 @@ sealed class JavaScriptEmitter : Emitter
 	}
 
 	#region Text helpers
-	/// <summary>A transducer output code point: the copy marker stands for the one just read.</summary>
-	static string OutputExpression(char output) => output == Tx.CopyMarker ? "c" : CodeLiteral(output);
-
 	/// <summary>
 	/// An ASCII code point, in hexadecimal. Bare, with no comment naming the character: the
 	/// comparisons sit two or three to a line, and the annotations cost more in noise than they

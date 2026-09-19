@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 
 /**
- * `conformance/naxp-v0.5.json`, which was generated from the specification rather than from any
+ * `conformance/naxp-v0.10.json`, which was generated from the specification rather than from any
  * implementation. It is the oracle: the parser is not allowed to define its own truth.
  *
  * The counts and encoded values are carried as decimal strings, because a naxp may hold up to
@@ -14,14 +14,14 @@ import { readFileSync } from 'node:fs';
  * @returns {{
  *   naxpVersion: string,
  *   testDataVersion: number,
- *   cases: Array<{naxp: string, note?: string, valueCount: string, acceptedCount: string,
+ *   cases: Array<{naxp: string, note?: string, stringCount: string, acceptedCount: string,
  *     complete: boolean, values: Array<{in: string, out: string, canon?: string}>,
- *     notAccepted: string[]}>,
- *   rejected: Array<{naxp: string, rule: string, note?: string}>,
+ *     invalid: string[]}>,
+ *   invalidNaxps: Array<{naxp: string, rule: string, note?: string}>,
  * }} The test data.
  */
 export function loadConformanceData() {
-	const path = new URL('../../../conformance/naxp-v0.5.json', import.meta.url);
+	const path = new URL('../../../conformance/naxp-v0.10.json', import.meta.url);
 
 	return JSON.parse(readFileSync(path, 'utf8'));
 }

@@ -35,7 +35,7 @@ public class JavaScriptEmitterTests
 	{
 		string source = Emit(@"\A\9", "Postcode");
 
-		Assert.Contains("const postcodeValueCount = 260;", source, StringComparison.Ordinal);
+		Assert.Contains("const postcodeMaxEncodedValue = 260;", source, StringComparison.Ordinal);
 		Assert.Contains("const postcodeMaxLength = 2;", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeAccepts(text) {", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeAcceptsBytes(bytes) {", source, StringComparison.Ordinal);
@@ -51,7 +51,7 @@ public class JavaScriptEmitterTests
 		string source = Emit(@"\A\9");
 
 		Assert.Contains("function accepts(text) {", source, StringComparison.Ordinal);
-		Assert.Contains("const valueCount = 260;", source, StringComparison.Ordinal);
+		Assert.Contains("const maxEncodedValue = 260;", source, StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -87,7 +87,7 @@ public class JavaScriptEmitterTests
 	{
 		string source = Emit(@"\A{12}");
 
-		Assert.Contains("const valueCount = 95_428_956_661_682_176n;", source, StringComparison.Ordinal);
+		Assert.Contains("const maxEncodedValue = 95_428_956_661_682_176n;", source, StringComparison.Ordinal);
 		Assert.Contains("@returns {bigint}", source, StringComparison.Ordinal);
 		Assert.Contains("acc.total += ", source, StringComparison.Ordinal);
 		Assert.Contains("BigInt(c - 0x41)", source, StringComparison.Ordinal);
@@ -107,7 +107,7 @@ public class JavaScriptEmitterTests
 	[InlineData("1Bad")]
 	[InlineData("Bad.Name")]
 	[InlineData("Bad Name")]
-	public void Emit_RefusesABadPrefix(string prefix)
+	public void Emit_ThrowsOnABadPrefix(string prefix)
 	{
 		Compilation compilation = Compile("A");
 
@@ -212,8 +212,8 @@ public class JavaScriptEmitterTests
 
 			builder.AppendLine("\t{");
 			builder.AppendLine($"\t\tnaxp: {JsString(item.Naxp)},");
-			builder.AppendLine($"\t\tvalueCount: {prefix}ValueCount,");
-			builder.AppendLine($"\t\tvalueCountText: {JsString(item.ValueCount.ToString(CultureInfo.InvariantCulture))},");
+			builder.AppendLine($"\t\tmaxEncodedValue: {prefix}MaxEncodedValue,");
+			builder.AppendLine($"\t\tmaxEncodedValueText: {JsString(item.MaxEncodedValue.ToString(CultureInfo.InvariantCulture))},");
 			builder.AppendLine($"\t\taccepts: {prefix}Accepts,");
 			builder.AppendLine($"\t\tacceptsBytes: {prefix}AcceptsBytes,");
 			builder.AppendLine($"\t\tencode: {prefix}Encode,");
@@ -228,11 +228,11 @@ public class JavaScriptEmitterTests
 			}
 
 			builder.AppendLine("],");
-			builder.Append("\t\tnotAccepted: [");
+			builder.Append("\t\tinvalid: [");
 
-			foreach (string refused in item.NotAccepted)
+			foreach (string invalid in item.Invalid)
 			{
-				builder.Append($"{JsString(refused)}, ");
+				builder.Append($"{JsString(invalid)}, ");
 			}
 
 			builder.AppendLine("],");
@@ -273,8 +273,8 @@ public class JavaScriptEmitterTests
 		}
 
 		for (const c of cases) {
-			check(String(c.valueCount) === c.valueCountText,
-				`${c.naxp}: valueCount is ${c.valueCount}, the test data says ${c.valueCountText}`);
+			check(String(c.maxEncodedValue) === c.maxEncodedValueText,
+				`${c.naxp}: maxEncodedValue is ${c.maxEncodedValue}, the test data says ${c.maxEncodedValueText}`);
 
 			for (const [text, expected, canon] of c.values) {
 				const encoded = c.encode(text);
@@ -300,11 +300,11 @@ public class JavaScriptEmitterTests
 				}
 			}
 
-			for (const refused of c.notAccepted) {
-				check(!c.accepts(refused),
-					`${c.naxp}: accepts('${refused}'), which the test data says it must not`);
-				check(String(c.encode(refused)) === '0',
-					`${c.naxp}: encode('${refused}') is ${c.encode(refused)} rather than zero`);
+			for (const invalid of c.invalid) {
+				check(!c.accepts(invalid),
+					`${c.naxp}: accepts('${invalid}'), which the test data says it must not`);
+				check(String(c.encode(invalid)) === '0',
+					`${c.naxp}: encode('${invalid}') is ${c.encode(invalid)} rather than zero`);
 			}
 
 			let threw = false;

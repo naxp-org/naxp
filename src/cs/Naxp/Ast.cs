@@ -11,46 +11,46 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The tree keeps the structure the source was written in. Intervals and digits ranges are
+/// The tree keeps the structure the pattern was written in. Intervals and decimal ranges are
 /// deliberately <em>not</em> expanded here. The cap on an interval count exists so
-/// that an implementation can reject a naxp before expanding it, and expanding at parse time
-/// would throw that away: <c>(A{99}){99}</c> is eleven characters of source and nearly ten
+/// that an implementation can find a naxp invalid before expanding it, and expanding at parse time
+/// would throw that away: <c>(A{99}){99}</c> is eleven characters of pattern and nearly ten
 /// thousand characters of expansion.
 /// </para>
 /// <para>
 /// Groups do not survive parsing. <c>(A)</c> and <c>A</c> give the same tree, and the two
-/// abbreviated replaceable forms are expanded into the general one, since version 0.4 defines
-/// them structurally rather than textually.
+/// abbreviated unified forms are expanded into the general one, since the specification
+/// defines them structurally rather than textually.
 /// </para>
 /// </remarks>
 abstract class Ast
 {
 	/// <summary>
-	/// The offset in the source at which this node starts. Diagnostics only.
+	/// The offset in the pattern at which this node starts. Diagnostics only.
 	/// </summary>
-	public int SourceOffset { get; set; }
+	public int PatternOffset { get; set; }
 
 	/// <summary>
-	/// Whether the tree holds a replaceable element anywhere.
+	/// Whether the tree holds a unified element anywhere.
 	/// </summary>
 	/// <remarks>
 	/// This decides two things at once, which is why it lives here rather than with either of
-	/// them. Without a replaceable element &#961; is the identity, so W3 holds for nothing and the
+	/// them. Without a unified element &#961; is the identity, so W3 holds for nothing and the
 	/// canonical language is the accepted one.
 	/// </remarks>
 	/// <param name="node">The node to search from.</param>
 	/// <returns>Whether one was found.</returns>
-	public static bool ContainsReplaceable(Ast node)
+	public static bool ContainsUnified(Ast node)
 	{
 		switch (node)
 		{
-			case AstReplaceable:
+			case AstUnified:
 				return true;
 
 			case AstSequence sequence:
 				foreach (Ast child in sequence.Children)
 				{
-					if (ContainsReplaceable(child)) { return true; }
+					if (ContainsUnified(child)) { return true; }
 				}
 
 				return false;
@@ -58,16 +58,16 @@ abstract class Ast
 			case AstAlternation alternation:
 				foreach (Ast child in alternation.Children)
 				{
-					if (ContainsReplaceable(child)) { return true; }
+					if (ContainsUnified(child)) { return true; }
 				}
 
 				return false;
 
 			case AstOptional optional:
-				return ContainsReplaceable(optional.Child);
+				return ContainsUnified(optional.Child);
 
 			case AstInterval interval:
-				return ContainsReplaceable(interval.Child);
+				return ContainsUnified(interval.Child);
 
 			default:
 				return false;
@@ -91,14 +91,14 @@ sealed class AstChars : Ast
 	public AsciiCharSet CharSet { get; }
 }
 
-/// <summary>A digits range, written <c>#[</c><i>lo</i><c>-</c><i>hi</i><c>]</c>.</summary>
+/// <summary>A decimal range, written <c>#[</c><i>lo</i><c>-</c><i>hi</i><c>]</c>.</summary>
 /// <remarks>
 /// The digit counts are the counts <em>as written</em>, which is what fixes the widths
 /// generated: <c>#[00-105]</c> does not match <c>7</c> while <c>#[0-105]</c> does.
 /// </remarks>
-sealed class AstDigitsRange : Ast
+sealed class AstDecimalRange : Ast
 {
-	public AstDigitsRange(ulong low, int lowDigitCount, ulong high, int highDigitCount)
+	public AstDecimalRange(ulong low, int lowDigitCount, ulong high, int highDigitCount)
 	{
 		this.Low = low;
 		this.LowDigitCount = lowDigitCount;
@@ -161,10 +161,10 @@ sealed class AstInterval : Ast
 }
 
 /// <summary>
-/// How a replaceable element was written, which is needed only so that a well-formedness
+/// How a unified element was written, which is needed only so that a well-formedness
 /// message can name the form the author used rather than the form it expands to.
 /// </summary>
-enum ReplaceableForm
+enum UnifiedForm
 {
 	/// <summary><c>x!y</c>.</summary>
 	Explicit,
@@ -172,10 +172,19 @@ enum ReplaceableForm
 	Reproduced,
 	/// <summary><c>x!?</c>, which expands to <c>x?!()</c>.</summary>
 	Dropped,
+	/// <summary>
+	/// One branch of a case fold, such as the <c>[Aa]!A</c> that <c>\CA</c> expands to.
+	/// </summary>
+	/// <remarks>
+	/// The form records where the branch came from and changes no rule. An outer fold reaches a
+	/// fold branch like any other unified element, so where two folds meet the outer governs and
+	/// <c>\C(AB\cC)</c> prints <c>ABC</c>.
+	/// </remarks>
+	Fold,
 }
 
 /// <summary>
-/// A replaceable element, written <c>x!y</c>. Which of the strings the subject accepts was
+/// A unified element, written <c>x!y</c>. Which of the strings the subject accepts was
 /// matched is not part of the encoding, and the rendering is printed in its place.
 /// </summary>
 /// <remarks>
@@ -184,9 +193,9 @@ enum ReplaceableForm
 /// The <c>x!!</c> form shares one subtree between <see cref="Subject"/> and
 /// <see cref="Rendering"/>; nothing in the tree is mutated after parsing, so that is safe.
 /// </remarks>
-sealed class AstReplaceable : Ast
+sealed class AstUnified : Ast
 {
-	public AstReplaceable(Ast subject, Ast rendering, ReplaceableForm form)
+	public AstUnified(Ast subject, Ast rendering, UnifiedForm form)
 	{
 		this.Subject = subject;
 		this.Rendering = rendering;
@@ -195,5 +204,5 @@ sealed class AstReplaceable : Ast
 
 	public Ast Subject { get; }
 	public Ast Rendering { get; }
-	public ReplaceableForm Form { get; }
+	public UnifiedForm Form { get; }
 }

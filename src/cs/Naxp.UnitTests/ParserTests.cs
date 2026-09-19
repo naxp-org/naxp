@@ -34,11 +34,11 @@ public class ParserTests
 	[Fact]
 	public void DoubleBang_ExpandsToAnOptionalSubjectRenderedAsItself()
 	{
-		AstReplaceable replaceable = Assert.IsType<AstReplaceable>(Parse("\\s!!"));
+		AstUnified unified = Assert.IsType<AstUnified>(Parse("\\s!!"));
 
-		Assert.Equal(ReplaceableForm.Reproduced, replaceable.Form);
-		AstOptional subject = Assert.IsType<AstOptional>(replaceable.Subject);
-		Assert.Same(subject.Child, replaceable.Rendering);
+		Assert.Equal(UnifiedForm.Reproduced, unified.Form);
+		AstOptional subject = Assert.IsType<AstOptional>(unified.Subject);
+		Assert.Same(subject.Child, unified.Rendering);
 	}
 
 	/// <summary>
@@ -47,11 +47,11 @@ public class ParserTests
 	[Fact]
 	public void BangQuery_ExpandsToAnOptionalSubjectRenderedAsNothing()
 	{
-		AstReplaceable replaceable = Assert.IsType<AstReplaceable>(Parse("\\A!?"));
+		AstUnified unified = Assert.IsType<AstUnified>(Parse("\\A!?"));
 
-		Assert.Equal(ReplaceableForm.Dropped, replaceable.Form);
-		Assert.IsType<AstOptional>(replaceable.Subject);
-		Assert.IsType<AstEmpty>(replaceable.Rendering);
+		Assert.Equal(UnifiedForm.Dropped, unified.Form);
+		Assert.IsType<AstOptional>(unified.Subject);
+		Assert.IsType<AstEmpty>(unified.Rendering);
 	}
 
 	/// <summary>
@@ -86,9 +86,9 @@ public class ParserTests
 	}
 
 	[Fact]
-	public void DigitsRange_KeepsTheWidthsAsWritten()
+	public void DecimalRange_KeepsTheWidthsAsWritten()
 	{
-		AstDigitsRange padded = Assert.IsType<AstDigitsRange>(Parse("#[00-105]"));
+		AstDecimalRange padded = Assert.IsType<AstDecimalRange>(Parse("#[00-105]"));
 
 		Assert.Equal(0UL, padded.Low);
 		Assert.Equal(2, padded.LowDigitCount);
@@ -117,8 +117,8 @@ public class ParserTests
 		foreach (string text in new[] { "A", "C", "E", "2", "10", "AAAAA", " ", "" })
 		{
 			Assert.Equal(
-				Matcher.Generates(withoutSpaces, text, out _),
-				Matcher.Generates(withSpaces, text, out _));
+				TreeWalker.Generates(withoutSpaces, text, out _),
+				TreeWalker.Generates(withSpaces, text, out _));
 		}
 	}
 	#endregion
@@ -130,7 +130,7 @@ public class ParserTests
 	[Fact]
 	public void Interval_WithAHyphen_NamesTheSeparator()
 	{
-		NaxpError error = Refuse("A{2-5}");
+		NaxpError error = FaultOf("A{2-5}");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(3, error.Offset);
@@ -140,7 +140,7 @@ public class ParserTests
 	[Fact]
 	public void Interval_Unbounded_SaysThereIsNone()
 	{
-		NaxpError error = Refuse("A{2,}");
+		NaxpError error = FaultOf("A{2,}");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Contains("no unbounded interval", error.Text, StringComparison.Ordinal);
@@ -149,7 +149,7 @@ public class ParserTests
 	[Fact]
 	public void BareBang_NamesTheThreeForms()
 	{
-		NaxpError error = Refuse("A!");
+		NaxpError error = FaultOf("A!");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(1, error.Offset);
@@ -157,35 +157,57 @@ public class ParserTests
 	}
 
 	/// <summary>
-	/// Version 0.3 removed the hex escape, so anyone who knows regex or an earlier draft will
-	/// write this and deserves to be told why it has gone.
+	/// The regex hex escape reads as the block escape <c>\x</c> followed by two literal digits.
+	/// Anyone expecting <c>A</c> out of it gets a naxp that accepts <c>a41</c> and refuses <c>A</c>.
 	/// </summary>
 	[Fact]
-	public void HexEscape_SaysItWasRemoved()
+	public void LowerCaseX_IsADigitOrALowerCaseLetter()
 	{
-		NaxpError error = Refuse("\\x41");
+		Naxp naxp = Naxp.Parse("\\x41");
 
-		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
-		Assert.Equal(0, error.Offset);
-		Assert.Contains("removed in version 0.3", error.Text, StringComparison.Ordinal);
+		Assert.Equal(36UL, naxp.MaxEncodedValue);
+		Assert.True(naxp.Accepts("a41"));
+		Assert.True(naxp.Accepts("741"));
+		Assert.False(naxp.Accepts("A41"));
+		Assert.False(naxp.Accepts("A"));
 	}
 
 	[Fact]
 	public void UndefinedEscape_ListsTheEscapeLetters()
 	{
-		NaxpError error = Refuse("\\d");
+		NaxpError error = FaultOf("\\d");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
-		Assert.Contains("'s', '9', 'A', 'a' and 'X'", error.Text, StringComparison.Ordinal);
+		Assert.Contains("'s', '9', 'A', 'a', 'X', 'x', 'C' and 'c'", error.Text, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void RangeWrittenBackwards_SaysLowestFirst()
 	{
-		NaxpError error = Refuse("[E-A]");
+		NaxpError error = FaultOf("[E-A]");
 
-		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
+		Assert.Equal("W4", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Contains("lowest first", error.Text, StringComparison.Ordinal);
+		Assert.Contains("'A-E'", error.Text, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The message quotes its argument, so the argument must not quote itself. It also has to be
+	/// the pattern of the range rather than a description of its bounds: a space is written
+	/// <c>\s</c> and cannot be typed as itself, and a reserved bound has to keep its backslash.
+	/// </summary>
+	[Theory]
+	[InlineData("[E-A]", "A-E")]
+	[InlineData("[~-\\s]", "\\s-~")]
+	[InlineData("[a-\\]]", "\\]-a")]
+	public void RangeWrittenBackwards_SuggestsSomethingThatCanBeTyped(string text, string suggestion)
+	{
+		NaxpError error = FaultOf(text);
+
+		Assert.Contains($"Write '{suggestion}'.", error.Text, StringComparison.Ordinal);
+
+		// A suggestion that is not itself a naxp is not a suggestion.
+		Parse($"[{suggestion}]");
 	}
 
 	[Theory]
@@ -196,14 +218,14 @@ public class ParserTests
 	[InlineData("#[1 0-20]", 3, "cannot be separated by whitespace")]
 	public void WhitespaceSplittingAToken_PointsAtTheWhitespace(string text, int offset, string fragment)
 	{
-		NaxpError error = Refuse(text);
+		NaxpError error = FaultOf(text);
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(offset, error.Offset);
 		Assert.Contains(fragment, error.Text, StringComparison.Ordinal);
 	}
 	/// <summary>
-	/// Refusals the test data does not cover, kept here so the parser cannot quietly grow lax.
+	/// Faults the test data does not cover, kept here so the parser cannot quietly grow lax.
 	/// </summary>
 	[Theory]
 	[InlineData("A)", "syntax")]
@@ -214,30 +236,60 @@ public class ParserTests
 	[InlineData("A{2,1}", "W4")]
 	[InlineData("#[5-4]", "W4")]
 	[InlineData("(A|B)!(A|B)", "W1")]
-	public void FurtherRefusals(string text, string rule)
-		=> Assert.Equal(rule, NaxpMessageRules.RuleOf(Refuse(text).Message));
-	#endregion
-	#region Source repertoire
+	public void FurtherFaults(string text, string rule)
+		=> Assert.Equal(rule, NaxpMessageRules.RuleOf(FaultOf(text).Message));
+
 	/// <summary>
-	/// The source may hold whitespace and the printable ASCII characters U+0021 to U+007E.
+	/// A ')' that closes nothing says so. Reporting it as a reserved character and offering the
+	/// escape for a literal parenthesis is true and is almost never what was meant.
+	/// </summary>
+	[Theory]
+	[InlineData("AB)", 2)]
+	[InlineData("A)B", 1)]
+	[InlineData("(A)B)", 4)]
+	[InlineData("\\A\\A?\\9\\X? \\s!! \\9\\A\\A) | GIR \\s!! 0AA", 22)]
+	public void ClosingParenthesisWithNoGroup_IsNotReportedAsReserved(string text, int offset)
+	{
+		NaxpError error = FaultOf(text);
+
+		Assert.Equal(NaxpMessage.NAXP1057_GroupNotOpened, error.Message);
+		Assert.Equal(offset, error.Offset);
+		Assert.Contains("no group", error.Text, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The neighbouring faults are untouched: an unclosed group, and a parenthesis that was
+	/// escaped and so is an ordinary character.
 	/// </summary>
 	[Fact]
-	public void SourceOutsideTheRepertoire_IsRefused()
+	public void ParenthesisFaultsEitherSide_AreUnchanged()
+	{
+		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, FaultOf("(AB").Message);
+		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, FaultOf("((A)").Message);
+		Assert.NotNull(Naxp.Parse("A\\)B").ToString());
+	}
+	#endregion
+	#region Pattern repertoire
+	/// <summary>
+	/// The pattern may hold whitespace and the printable ASCII characters U+0021 to U+007E.
+	/// </summary>
+	[Fact]
+	public void SourceOutsideTheRepertoire_IsInvalid()
 	{
 		foreach (char c in new[] { '\u00E9', '\u0001', '\u007F' })
 		{
-			NaxpError error = Refuse("A" + c);
+			NaxpError error = FaultOf("A" + c);
 
 			Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 			Assert.Equal(1, error.Offset);
-			Assert.Contains("cannot appear in the source", error.Text, StringComparison.Ordinal);
+			Assert.Contains("cannot appear in the pattern", error.Text, StringComparison.Ordinal);
 		}
 	}
 
 	[Fact]
 	public void EmptySource_IsNotANaxp()
 	{
-		NaxpError error = Refuse(string.Empty);
+		NaxpError error = FaultOf(string.Empty);
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 	}
@@ -256,29 +308,29 @@ public class ParserTests
 	[InlineData("#[0-105]", "07", false)]
 	[InlineData("#[0-105]", "105", true)]
 	[InlineData("#[0-105]", "106", false)]
-	public void DigitsRange_MatchesTheWidthsItsBoundsFix(string naxp, string text, bool expected)
-		=> Assert.Equal(expected, Matcher.Generates(Parse(naxp), text, out _));
+	public void DecimalRange_MatchesTheWidthsItsBoundsFix(string naxp, string text, bool expected)
+		=> Assert.Equal(expected, TreeWalker.Generates(Parse(naxp), text, out _));
 
 	[Theory]
 	[InlineData("A{0,3}", "", true)]
 	[InlineData("A{0,3}", "AAA", true)]
 	[InlineData("A{0,3}", "AAAA", false)]
-	[InlineData("A{0}", "", true)]
-	[InlineData("A{0}", "A", false)]
+	[InlineData("()", "", true)]
+	[InlineData("()", "A", false)]
 	[InlineData("(A?){9}", "AAA", true)]
 	public void Interval_MatchesItsCounts(string naxp, string text, bool expected)
-		=> Assert.Equal(expected, Matcher.Generates(Parse(naxp), text, out _));
+		=> Assert.Equal(expected, TreeWalker.Generates(Parse(naxp), text, out _));
 	#endregion
 	#region Helpers
 	static Ast Parse(string text)
 	{
-		Assert.True(Parser.TryParse(text, out Ast? ast, out NaxpError? error), $"{text} was refused: {error}");
-		Assert.True(WellFormedness.TryCheck(ast!, out error), $"{text} was refused: {error}");
+		Assert.True(Parser.TryParse(text, out Ast? ast, out NaxpError? error), $"{text} was invalid: {error}");
+		Assert.True(WellFormedness.TryCheck(ast!, out error), $"{text} was invalid: {error}");
 
 		return ast!;
 	}
 
-	static NaxpError Refuse(string text)
+	static NaxpError FaultOf(string text)
 	{
 		if (!Parser.TryParse(text, out Ast? ast, out NaxpError? error)) { return error!.Value; }
 

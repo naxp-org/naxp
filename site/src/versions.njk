@@ -1,0 +1,24 @@
+---
+layout: base.njk
+title: "naxp spec versions"
+permalink: /spec/versions/index.html
+---
+<div class="spec">
+<h1>naxp spec versions</h1>
+
+<p>
+  A published version never changes. Implementations may safely pin to one and
+  vendor a copy of its test data.
+</p>
+
+<ul class="versions">
+{%- for spec in collections.spec %}
+  <li>
+    <a href="/spec/v{{ spec.data.version }}/">Version {{ spec.data.version }}</a>
+    {%- if loop.first %}<span class="badge">latest</span>{% endif %}
+  </li>
+{%- endfor %}
+</ul>
+
+<p><a href="/spec/">/spec/</a> always points at the newest.</p>
+</div>

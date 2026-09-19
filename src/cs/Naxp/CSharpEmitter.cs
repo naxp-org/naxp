@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
@@ -63,11 +63,9 @@ sealed class CSharpEmitter : Emitter
 	/// <inheritdoc/>
 	protected override void CloseDispatch(CodeWriter writer, string result)
 	{
-		writer.Line("default:");
-		writer.Indent();
-		writer.Line($"return {result};");
-		writer.Outdent();
 		writer.CloseBlock();
+		writer.Line();
+		writer.Line($"return {result};");
 	}
 
 	/// <inheritdoc/>
@@ -94,7 +92,7 @@ sealed class CSharpEmitter : Emitter
 		readonly Context context;
 
 		// The generated names, each the prefix plus the bare member name.
-		readonly string valueCountName;
+		readonly string maxEncodedValueName;
 		readonly string maxLengthName;
 		readonly string acceptsName;
 		readonly string encodeName;
@@ -122,7 +120,7 @@ sealed class CSharpEmitter : Emitter
 		// whatever the choice, because C# promotes narrow operands to int anyway and casts
 		// through the switch bodies would be pure noise; only the public boundary changes.
 		readonly string valueKeyword;
-		readonly string valueCountValue;
+		readonly string maxEncodedValueValue;
 		readonly string valueZero;
 		readonly string valueOne;
 		readonly string decodeCoreArgument;
@@ -149,7 +147,7 @@ sealed class CSharpEmitter : Emitter
 			}
 
 			this.valueIsWidest = context.ValueType == NaxpValueType.UInt64;
-			this.valueCountValue = emitter.Grouped(context.Compilation.ValueCount) + valueSuffix;
+			this.maxEncodedValueValue = emitter.Grouped(context.Compilation.MaxEncodedValue) + valueSuffix;
 			this.valueZero = this.valueIsWidest ? "0UL" : "0";
 			this.valueOne = this.valueIsWidest ? "1UL" : "1";
 
@@ -158,7 +156,7 @@ sealed class CSharpEmitter : Emitter
 			this.decodeCoreArgument = context.ValueType == NaxpValueType.UInt64 ? "value" : "(ulong)value";
 
 			string prefix = context.Prefix;
-			this.valueCountName = prefix + "ValueCount";
+			this.maxEncodedValueName = prefix + "MaxEncodedValue";
 			this.maxLengthName = prefix + "MaxLength";
 			this.acceptsName = prefix + "Accepts";
 			this.encodeName = prefix + "Encode";
@@ -186,6 +184,13 @@ sealed class CSharpEmitter : Emitter
 
 		int MaxLength => this.context.MaxLength;
 
+		int RegisterDepth => this.context.RegisterDepth;
+
+		bool NeedsRegister => this.context.NeedsRegister;
+
+		/// <summary>The name the generated code keeps the characters it has read under.</summary>
+		const string HeldName = "held";
+
 		public void Emit()
 		{
 			this.EmitConstants();
@@ -199,8 +204,8 @@ sealed class CSharpEmitter : Emitter
 
 		void EmitConstants()
 		{
-			this.Writer.Line("/// <summary>The count of values this naxp encodes, which is the largest value it can produce.</summary>");
-			this.Writer.Line($"public const {this.valueKeyword} {this.valueCountName} = {this.valueCountValue};");
+			this.Writer.Line("/// <summary>The largest encoded value this naxp produces, which is also how many it has.</summary>");
+			this.Writer.Line($"public const {this.valueKeyword} {this.maxEncodedValueName} = {this.maxEncodedValueValue};");
 			this.Writer.Line();
 			this.Writer.Line("/// <summary>The length of the longest string this naxp can decode a value to.</summary>");
 			this.Writer.Line($"public const int {this.maxLengthName} = {this.MaxLength.ToString(CultureInfo.InvariantCulture)};");
@@ -213,11 +218,15 @@ sealed class CSharpEmitter : Emitter
 			if (bytes)
 			{
 				this.Writer.Line("/// <summary>Whether this naxp accepts the specified ASCII text. A byte outside ASCII is never accepted.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The ASCII text to test.</param>");
+				this.Writer.Line("/// <returns>Whether the naxp accepts it.</returns>");
 				this.Writer.Line($"public static bool {this.acceptsName}({readOnlySpanOfByte} text)");
 			}
 			else
 			{
 				this.Writer.Line("/// <summary>Whether this naxp accepts the specified string.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The string to test.</param>");
+				this.Writer.Line("/// <returns>Whether the naxp accepts it.</returns>");
 				this.Writer.Line($"public static bool {this.acceptsName}({readOnlySpanOfChar} text)");
 			}
 
@@ -242,12 +251,16 @@ sealed class CSharpEmitter : Emitter
 		{
 			if (bytes)
 			{
-				this.Writer.Line($"/// <summary>The value of ASCII text, from 1 to <see cref=\"{this.valueCountName}\"/>, or zero where this naxp does not accept it.</summary>");
+				this.Writer.Line("/// <summary>The encoded value of ASCII text.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The ASCII text to encode.</param>");
+				this.Writer.Line($"/// <returns>The encoded value, from 1 to <see cref=\"{this.maxEncodedValueName}\"/>, or zero where the text is invalid.</returns>");
 				this.Writer.Line($"public static {this.valueKeyword} {this.encodeName}({readOnlySpanOfByte} text)");
 			}
 			else
 			{
-				this.Writer.Line($"/// <summary>The value of a string, from 1 to <see cref=\"{this.valueCountName}\"/>, or zero where this naxp does not accept it.</summary>");
+				this.Writer.Line("/// <summary>The encoded value of a string.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The string to encode.</param>");
+				this.Writer.Line($"/// <returns>The encoded value, from 1 to <see cref=\"{this.maxEncodedValueName}\"/>, or zero where the string is invalid.</returns>");
 				this.Writer.Line($"public static {this.valueKeyword} {this.encodeName}({readOnlySpanOfChar} text)");
 			}
 
@@ -274,19 +287,40 @@ sealed class CSharpEmitter : Emitter
 			else
 			{
 				this.Writer.Line($"{spanOfChar} canonical = stackalloc char[{this.maxLengthName}];");
+
+				if (this.NeedsRegister)
+				{
+					// The characters read, oldest first, so a reference of depth d is the one at
+					// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+					this.Writer.Line($"{spanOfChar} {HeldName} = stackalloc char[{this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}];");
+				}
+
 				this.Writer.Line("int length = 0;");
 				this.Writer.Line("int state = 0;");
 				this.Writer.Line();
 				this.Writer.Line(bytes ? "foreach (byte b in text)" : "foreach (char c in text)");
 				this.Writer.OpenBlock();
+
+				if (this.NeedsRegister)
+				{
+					string top = (this.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
+
+					if (this.RegisterDepth > 1)
+					{
+						this.Writer.Line($"for (int h = 0; h < {top}; ++h) {{ {HeldName}[h] = {HeldName}[h + 1]; }}");
+					}
+
+					this.Writer.Line(bytes ? $"{HeldName}[{top}] = (char)b;" : $"{HeldName}[{top}] = c;");
+				}
+
 				this.Writer.Line(bytes
-					? $"state = {this.canonicalStepName}(state, (char)b, canonical, ref length);"
-					: $"state = {this.canonicalStepName}(state, c, canonical, ref length);");
+					? $"state = {this.canonicalStepName}(state, (char)b, {this.StepArguments()});"
+					: $"state = {this.canonicalStepName}(state, c, {this.StepArguments()});");
 				this.Writer.Line();
 				this.Writer.Line($"if (state < 0) {{ return {this.valueZero}; }}");
 				this.Writer.CloseBlock();
 				this.Writer.Line();
-				this.Writer.Line($"length = {this.finishCanonicalName}(state, canonical, length);");
+				this.Writer.Line($"length = {this.finishCanonicalName}(state, {this.FinishArguments()});");
 				this.Writer.Line();
 				this.Writer.Line(this.valueIsWidest
 					? $"return length < 0 ? 0UL : {this.rankName}(canonical.Slice(0, length));"
@@ -299,15 +333,17 @@ sealed class CSharpEmitter : Emitter
 
 		void EmitDecodePublics()
 		{
-			string countDigits = this.context.Compilation.ValueCount.ToString(CultureInfo.InvariantCulture);
+			string countDigits = this.context.Compilation.MaxEncodedValue.ToString(CultureInfo.InvariantCulture);
 			string throwStatement =
 				$"throw new {argumentOutOfRangeException}(nameof(value), value, \"This naxp encodes the values 1 to {countDigits}.\");";
 
-			this.Writer.Line("/// <summary>The string a value stands for, which is in canonical form.</summary>");
+			this.Writer.Line("/// <summary>The string a value stands for.</summary>");
+			this.Writer.Line($"/// <param name=\"value\">The encoded value, from 1 to <see cref=\"{this.maxEncodedValueName}\"/>.</param>");
+			this.Writer.Line("/// <returns>The string, which is in canonical form.</returns>");
 			this.Writer.Line($"/// <exception cref=\"{argumentOutOfRangeException}\">The value is not one this naxp produces.</exception>");
 			this.Writer.Line($"public static string {this.decodeName}({this.valueKeyword} value)");
 			this.Writer.OpenBlock();
-			this.Writer.Line($"if (value < {this.valueOne} || value > {this.valueCountName})");
+			this.Writer.Line($"if (value < {this.valueOne} || value > {this.maxEncodedValueName})");
 			this.Writer.OpenBlock();
 			this.Writer.Line(throwStatement);
 			this.Writer.CloseBlock();
@@ -319,10 +355,12 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line();
 
 			this.Writer.Line("/// <summary>The string a value stands for, as ASCII bytes.</summary>");
+			this.Writer.Line($"/// <param name=\"value\">The encoded value, from 1 to <see cref=\"{this.maxEncodedValueName}\"/>.</param>");
+			this.Writer.Line("/// <returns>The bytes, which spell the string in canonical form.</returns>");
 			this.Writer.Line($"/// <exception cref=\"{argumentOutOfRangeException}\">The value is not one this naxp produces.</exception>");
 			this.Writer.Line($"public static byte[] {this.decodeToBytesName}({this.valueKeyword} value)");
 			this.Writer.OpenBlock();
-			this.Writer.Line($"if (value < {this.valueOne} || value > {this.valueCountName})");
+			this.Writer.Line($"if (value < {this.valueOne} || value > {this.maxEncodedValueName})");
 			this.Writer.OpenBlock();
 			this.Writer.Line(throwStatement);
 			this.Writer.CloseBlock();
@@ -337,11 +375,14 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 
-			this.Writer.Line("/// <summary>Tries to write the string a value stands for. False where the value is not one");
-			this.Writer.Line("/// this naxp produces, or the destination is too short for the string.</summary>");
+			this.Writer.Line("/// <summary>Tries to write the string a value stands for.</summary>");
+			this.Writer.Line("/// <param name=\"value\">The encoded value.</param>");
+			this.Writer.Line("/// <param name=\"destination\">Where the string is written.</param>");
+			this.Writer.Line("/// <param name=\"charsWritten\">How many characters were written, or zero where none were.</param>");
+			this.Writer.Line("/// <returns>False where the value is not one this naxp produces, or the destination is too short.</returns>");
 			this.Writer.Line($"public static bool {this.tryDecodeName}({this.valueKeyword} value, {spanOfChar} destination, out int charsWritten)");
 			this.Writer.OpenBlock();
-			this.Writer.Line($"if (value < {this.valueOne} || value > {this.valueCountName})");
+			this.Writer.Line($"if (value < {this.valueOne} || value > {this.maxEncodedValueName})");
 			this.Writer.OpenBlock();
 			this.Writer.Line("charsWritten = 0;");
 			this.Writer.Line("return false;");
@@ -368,11 +409,14 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 
-			this.Writer.Line("/// <summary>Tries to write the string a value stands for, as ASCII bytes. False where the value");
-			this.Writer.Line("/// is not one this naxp produces, or the destination is too short for the string.</summary>");
+			this.Writer.Line("/// <summary>Tries to write the string a value stands for, as ASCII bytes.</summary>");
+			this.Writer.Line("/// <param name=\"value\">The encoded value.</param>");
+			this.Writer.Line("/// <param name=\"destination\">Where the bytes are written.</param>");
+			this.Writer.Line("/// <param name=\"bytesWritten\">How many bytes were written, or zero where none were.</param>");
+			this.Writer.Line("/// <returns>False where the value is not one this naxp produces, or the destination is too short.</returns>");
 			this.Writer.Line($"public static bool {this.tryDecodeName}({this.valueKeyword} value, {spanOfByte} destination, out int bytesWritten)");
 			this.Writer.OpenBlock();
-			this.Writer.Line($"if (value < {this.valueOne} || value > {this.valueCountName})");
+			this.Writer.Line($"if (value < {this.valueOne} || value > {this.maxEncodedValueName})");
 			this.Writer.OpenBlock();
 			this.Writer.Line("bytesWritten = 0;");
 			this.Writer.Line("return false;");
@@ -418,7 +462,7 @@ sealed class CSharpEmitter : Emitter
 				this.Writer.Line();
 			}
 
-			this.Writer.Line($"/// <summary>Writes the string of a value that was already checked against <see cref=\"{this.valueCountName}\"/>, and returns its length.</summary>");
+			this.Writer.Line($"/// <summary>Writes the string of a value that was already checked against <see cref=\"{this.maxEncodedValueName}\"/>, and returns its length.</summary>");
 			this.Writer.Line($"static int {this.decodeCoreName}(ulong value, {spanOfChar} destination)");
 			this.Writer.OpenBlock();
 			this.Writer.Line("ulong remaining = value;");
@@ -435,7 +479,7 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line();
 
 			this.Writer.Line("/// <summary>The acceptor's transition: the next state, or -1 where the character fits nothing.</summary>");
-			this.emitter.EmitStepFunctions(this.Writer, 
+			this.emitter.EmitStepFunctions(this.Writer,
 				this.acceptStepName,
 				"int state, char c",
 				"state, c",
@@ -447,7 +491,7 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line();
 
 			this.Writer.Line("/// <summary>The canonical machine's transition, accumulating the values skipped: the next state, or -1.</summary>");
-			this.emitter.EmitStepFunctions(this.Writer, 
+			this.emitter.EmitStepFunctions(this.Writer,
 				this.encodeStepName,
 				"int state, char c, ref ulong total",
 				"state, c, ref total",
@@ -462,7 +506,7 @@ sealed class CSharpEmitter : Emitter
 			}
 
 			this.Writer.Line("/// <summary>One step of decoding: appends at most one character and returns the next state, or -1 when the string is complete.</summary>");
-			this.emitter.EmitStepFunctions(this.Writer, 
+			this.emitter.EmitStepFunctions(this.Writer,
 				this.decodeStepName,
 				$"int state, ref ulong remaining, {spanOfChar} destination, ref int length",
 				"state, ref remaining, destination, ref length",
@@ -475,21 +519,24 @@ sealed class CSharpEmitter : Emitter
 			{
 				this.Writer.Line();
 				this.Writer.Line("/// <summary>The canonicalising transition, appending what reading the character emits: the next state, or -1.</summary>");
-				this.emitter.EmitStepFunctions(this.Writer, 
+				string heldParameter = this.NeedsRegister ? $"{spanOfChar} {HeldName}, " : string.Empty;
+
+				this.emitter.EmitStepFunctions(this.Writer,
 					this.canonicalStepName,
-					$"int state, char c, {spanOfChar} canonical, ref int length",
-					"state, c, canonical, ref length",
+					$"int state, char c, {heldParameter}{spanOfChar} canonical, ref int length",
+					$"state, c, {this.StepArguments()}",
 					this.TransducerStates.Length,
 					this.EmitCanonicalCase);
 				this.Writer.Line();
 
 				this.Writer.Line("/// <summary>Appends what ending the input emits and returns the final length, or -1 where the input may not end here.</summary>");
-				this.emitter.EmitStepFunctions(this.Writer, 
+				this.emitter.EmitStepFunctions(this.Writer,
 					this.finishCanonicalName,
-					$"int state, {spanOfChar} canonical, int length",
-					"state, canonical, length",
+					$"int state, {heldParameter}{spanOfChar} canonical, int length",
+					$"state, {this.FinishArguments()}",
 					this.TransducerStates.Length,
-					this.EmitFinishCase);
+					this.EmitFinishCase,
+					caseNeeded: id => this.TransducerStates[id].EndOutput is not null);
 			}
 		}
 
@@ -506,7 +553,7 @@ sealed class CSharpEmitter : Emitter
 				this.Writer.Line($"if ({this.emitter.SetCondition(arc.Set)}) {{ return {arc.Next.ToString(CultureInfo.InvariantCulture)}; }}");
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -538,7 +585,7 @@ sealed class CSharpEmitter : Emitter
 				}
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -633,22 +680,24 @@ sealed class CSharpEmitter : Emitter
 				string condition = this.emitter.SetCondition(arc.Set);
 				string next = arc.Next.ToString(CultureInfo.InvariantCulture);
 
-				if (arc.Output.Length == 0)
+				List<string> outputs = this.OutputExpressions(arc.Output, forFinish: false);
+
+				if (outputs.Count == 0)
 				{
 					this.Writer.Line($"if ({condition}) {{ return {next}; }}");
 				}
-				else if (arc.Output.Length == 1)
+				else if (outputs.Count == 1)
 				{
-					this.Writer.Line($"if ({condition}) {{ canonical[length++] = {OutputExpression(arc.Output[0])}; return {next}; }}");
+					this.Writer.Line($"if ({condition}) {{ canonical[length++] = {outputs[0]}; return {next}; }}");
 				}
 				else
 				{
 					this.Writer.Line($"if ({condition})");
 					this.Writer.OpenBlock();
 
-					foreach (char output in arc.Output)
+					foreach (string expression in outputs)
 					{
-						this.Writer.Line($"canonical[length++] = {OutputExpression(output)};");
+						this.Writer.Line($"canonical[length++] = {expression};");
 					}
 
 					this.Writer.Line($"return {next};");
@@ -656,7 +705,7 @@ sealed class CSharpEmitter : Emitter
 				}
 			}
 
-			this.Writer.Line("return -1;");
+			this.Writer.Line("break;");
 			this.Writer.Outdent();
 		}
 
@@ -670,13 +719,60 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line($"case {id.ToString(CultureInfo.InvariantCulture)}:");
 			this.Writer.Indent();
 
-			foreach (char output in state.EndOutput)
+			foreach (string expression in this.OutputExpressions(state.EndOutput, forFinish: true))
 			{
-				this.Writer.Line($"canonical[length++] = {CharLiteral(output)};");
+				this.Writer.Line($"canonical[length++] = {expression};");
 			}
 
 			this.Writer.Line("return length;");
 			this.Writer.Outdent();
+		}
+
+		/// <summary>The arguments the canonicalising step takes after its character.</summary>
+		string StepArguments()
+			=> this.NeedsRegister ? $"{HeldName}, canonical, ref length" : "canonical, ref length";
+
+		/// <summary>The arguments the finishing step takes after its state.</summary>
+		string FinishArguments()
+			=> this.NeedsRegister ? $"{HeldName}, canonical, length" : "canonical, length";
+
+		/// <summary>
+		/// One expression per character an output emits, with each reference resolved against
+		/// the characters kept.
+		/// </summary>
+		/// <param name="output">The output, over literals and references.</param>
+		/// <param name="forFinish">Whether this is an end output, which has no character in hand.</param>
+		List<string> OutputExpressions(string output, bool forFinish)
+		{
+			var expressions = new List<string>();
+
+			for (int i = 0; i < output.Length; ++i)
+			{
+				if (output[i] != Tx.CopyMarker)
+				{
+					expressions.Add(CharLiteral(output[i]));
+					continue;
+				}
+
+				int depth = output[i + 1] - TxReference.DepthBase;
+
+				++i;
+
+				// A step already holds the character it is reading, so depth zero needs no
+				// buffer there. The finish function has no character, so it reads even that
+				// one back.
+				if (depth == 0 && !forFinish)
+				{
+					expressions.Add("c");
+					continue;
+				}
+
+				int at = this.RegisterDepth - 1 - depth;
+
+				expressions.Add($"{HeldName}[{at.ToString(CultureInfo.InvariantCulture)}]");
+			}
+
+			return expressions;
 		}
 
 		void EmitAcceptingPredicate(string name, ImmutableArray<StateModel> states)
@@ -755,9 +851,6 @@ sealed class CSharpEmitter : Emitter
 		return $"(char)({CharLiteral(run.First)} + {index})";
 	}
 
-
-	/// <summary>A transducer output character: the copy marker stands for the character just read.</summary>
-	static string OutputExpression(char output) => output == Tx.CopyMarker ? "c" : CharLiteral(output);
 
 	static string CharLiteral(char c)
 	{

@@ -4,20 +4,20 @@
 import { formatNaxpMessage } from './naxp-message.js';
 
 /**
- * A refusal: which message, where in the source, and what the message needs to say it.
+ * A fault: which message, where in the pattern, and what the message needs to say it.
  *
- * The text is not held. A refusal names a member of `NaxpMessage` and, where that message
+ * The text is not held. A fault names a member of `NaxpMessage` and, where that message
  * interpolates something, supplies one string; the words are looked up only when somebody asks for
- * them. So nothing between the point of refusal and the public surface handles prose.
+ * them. So nothing between the place a fault is found and the public surface handles prose.
  *
- * An `offset` and a `length` of zero together mean the whole naxp, which is what most refusals
+ * An `offset` and a `length` of zero together mean the whole naxp, which is what most faults
  * want and none of them have to say. Only the parser knows a position, and only the public surface
- * knows how long the source is, so the substitution happens there. Every refusal that does name a
+ * knows how long the pattern is, so the substitution happens there. Every fault that does name a
  * position uses a length of at least one, or it would read as this.
  */
 export class NaxpError {
 	/**
-	 * @param {string} message Which refusal this is, a member of `NaxpMessage`.
+	 * @param {string} message Which fault this is, a member of `NaxpMessage`.
 	 * @param {string | null} [argument] What the message interpolates, or null where it takes none.
 	 * @param {number} [offset] Where the fault starts, or zero for the naxp as a whole.
 	 * @param {number} [length] How much is at fault, or zero for the naxp as a whole.
@@ -31,16 +31,16 @@ export class NaxpError {
 		Object.freeze(this);
 	}
 
-	/** Whether this refusal belongs to the naxp as a whole rather than to a place in it. */
+	/** Whether this fault belongs to the naxp as a whole rather than to a place in it. */
 	get isWholeNaxp() {
 		return this.offset === 0 && this.length === 0;
 	}
 
 	/**
-	 * The stable identifier for this refusal, such as `NAXP1002`.
+	 * The stable identifier for this fault, such as `NAXP1002`.
 	 *
 	 * The number alone. `NaxpMessage` spells each member `NAXP1002_IntervalHyphen` so that somebody
-	 * reading the library can see at a glance which refusal a line is about, but that half is a
+	 * reading the library can see at a glance which fault a line is about, but that half is a
 	 * note to ourselves: it is not part of the identifier, it would read as a promise about
 	 * wording we have not made, and it must never reach a caller.
 	 */

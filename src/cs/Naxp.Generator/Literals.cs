@@ -12,7 +12,7 @@ namespace LogMu.Generator;
 /// Mapping a position in a string back to the character in the source that wrote it.
 /// </summary>
 /// <remarks>
-/// This is what lets a refusal underline the offending character of the naxp rather than the
+/// This is what lets a fault underline the offending character of the naxp rather than the
 /// whole attribute. Only a string literal on one line is mapped, which covers ordinary and
 /// verbatim literals and the single-line raw form; anything else - a multi-line literal, a
 /// constant referred to by name, a concatenation - falls back to the whole expression.

@@ -16,7 +16,7 @@
  */
 
 /**
- * The value of a canonical string, or zero if the machine does not accept it.
+ * The encoded value of a canonical string, or zero if the string is invalid.
  *
  * @param {import('./state-map.js').StateMap} map The machine for the canonical language.
  * @param {string} text The string, which must already be in canonical form.
@@ -34,7 +34,7 @@ export function encode(map, text) {
 		let next = null;
 
 		for (const transition of state.transitions) {
-			const count = transition.next.valueCount;
+			const count = transition.next.stringCount;
 
 			if (transition.set.contains(code)) {
 				total += skipped + (count * BigInt(transition.set.indexOf(code)));
@@ -64,8 +64,8 @@ export function encode(map, text) {
 export function tryDecode(map, value) {
 	if (map === null || map === undefined) { throw new TypeError('map is required.'); }
 
-	// Zero is reserved for a string the naxp does not accept, so it decodes to nothing.
-	if (value <= 0n || value > map.valueCount) { return null; }
+	// Zero is reserved for invalid text, so it decodes to nothing.
+	if (value <= 0n || value > map.stringCount) { return null; }
 
 	const characters = [];
 	let state = map.start;
@@ -82,7 +82,7 @@ export function tryDecode(map, value) {
 				continue;
 			}
 
-			const perCharacter = transition.next.valueCount;
+			const perCharacter = transition.next.stringCount;
 			const block = BigInt(transition.set.count) * perCharacter;
 
 			if (remaining <= block) {

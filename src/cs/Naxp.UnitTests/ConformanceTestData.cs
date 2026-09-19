@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
@@ -14,7 +14,7 @@ using Newtonsoft.Json;
 namespace LogMu.UnitTests;
 
 /// <summary>
-/// <c>conformance/naxp-v0.5.json</c>, which was generated from the specification rather than
+/// <c>conformance/naxp-v0.10.json</c>, which was generated from the specification rather than
 /// from any implementation. It is the oracle: the parser is not allowed to define its own truth.
 /// </summary>
 sealed class ConformanceTestData
@@ -22,11 +22,11 @@ sealed class ConformanceTestData
 	public string NaxpVersion { get; set; } = string.Empty;
 	public int TestDataVersion { get; set; }
 	public List<ConformanceCase> Cases { get; set; } = new();
-	public List<ConformanceRejection> Rejected { get; set; } = new();
+	public List<ConformanceInvalidNaxp> InvalidNaxps { get; set; } = new();
 
 	public static ConformanceTestData Load()
 	{
-		string path = Path.Combine(AppContext.BaseDirectory, "conformance", "naxp-v0.5.json");
+		string path = Path.Combine(AppContext.BaseDirectory, "conformance", "naxp-v0.10.json");
 
 		if (!File.Exists(path))
 		{
@@ -37,7 +37,7 @@ sealed class ConformanceTestData
 
 #if NET8_0_OR_GREATER
 		// The counts and encoded values are carried as decimal strings, because a naxp may hold
-		// up to 2^64 - 1 values and a JSON number is not safe above 2^53. Newtonsoft coerces
+		// up to 2^64 - 1 encoded values and a JSON number is not safe above 2^53. Newtonsoft coerces
 		// them for the net472 build without being asked.
 		var options = new JsonSerializerOptions
 		{
@@ -63,11 +63,11 @@ sealed class ConformanceCase
 {
 	public string Naxp { get; set; } = string.Empty;
 	public string? Note { get; set; }
-	public ulong ValueCount { get; set; }
+	public ulong MaxEncodedValue { get; set; }
 	public ulong AcceptedCount { get; set; }
 	public bool Complete { get; set; }
 	public List<ConformanceValue> Values { get; set; } = new();
-	public List<string> NotAccepted { get; set; } = new();
+	public List<string> Invalid { get; set; } = new();
 }
 
 sealed class ConformanceValue
@@ -77,7 +77,7 @@ sealed class ConformanceValue
 	public string? Canon { get; set; }
 }
 
-sealed class ConformanceRejection
+sealed class ConformanceInvalidNaxp
 {
 	public string Naxp { get; set; } = string.Empty;
 	public string Rule { get; set; } = string.Empty;

@@ -30,7 +30,7 @@ public class CSharpEmitterTests
 	{
 		string source = Emit("#[1-12]");
 
-		Assert.Contains("public const ulong ValueCount = 12UL;", source, StringComparison.Ordinal);
+		Assert.Contains("public const ulong MaxEncodedValue = 12UL;", source, StringComparison.Ordinal);
 		Assert.Contains("public const int MaxLength = 2;", source, StringComparison.Ordinal);
 	}
 
@@ -55,22 +55,22 @@ public class CSharpEmitterTests
 	{
 		string source = Emit("A|B", "Postcode");
 
-		Assert.Contains("public const ulong PostcodeValueCount = 2UL;", source, StringComparison.Ordinal);
+		Assert.Contains("public const ulong PostcodeMaxEncodedValue = 2UL;", source, StringComparison.Ordinal);
 		Assert.Contains("public static bool PostcodeAccepts(global::System.ReadOnlySpan<char> text)", source, StringComparison.Ordinal);
 		Assert.Contains("public static string PostcodeDecode(ulong value)", source, StringComparison.Ordinal);
 		Assert.Contains("static int PostcodeAcceptStep(int state, char c)", source, StringComparison.Ordinal);
 
 		// No name escapes the prefix: the bare names never appear followed by their own syntax.
-		Assert.DoesNotContain(" ValueCount", source, StringComparison.Ordinal);
+		Assert.DoesNotContain(" MaxEncodedValue", source, StringComparison.Ordinal);
 		Assert.DoesNotContain(" Accepts(", source, StringComparison.Ordinal);
-		Assert.DoesNotContain("\"ValueCount\"", source, StringComparison.Ordinal);
+		Assert.DoesNotContain("\"MaxEncodedValue\"", source, StringComparison.Ordinal);
 	}
 
 	[Theory]
 	[InlineData("1Bad")]
 	[InlineData("Bad.Name")]
 	[InlineData("Bad Name")]
-	public void Emit_RefusesABadPrefix(string prefix)
+	public void Emit_ThrowsOnABadPrefix(string prefix)
 	{
 		Compilation compilation = Compile("A");
 
@@ -79,10 +79,10 @@ public class CSharpEmitterTests
 
 	/// <summary>
 	/// A name of Unicode letters passes <see cref="char.IsLetter(char)"/> and must still be
-	/// refused, because the identifier rule is ASCII across every target language.
+	/// invalid, because the identifier rule is ASCII across every target language.
 	/// </summary>
 	[Fact]
-	public void Emit_RefusesAUnicodePrefix()
+	public void Emit_ThrowsOnAUnicodePrefix()
 	{
 		Compilation compilation = Compile("A");
 		string aUmlaut = "N" + (char)0xE4 + "xp";
@@ -137,7 +137,7 @@ public class CSharpEmitterTests
 	{
 		string source = CSharpEmitter.Instance.Emit(Compile("#[1-12]"), "", NaxpValueType.UInt8);
 
-		Assert.Contains("public const byte ValueCount = 12;", source, StringComparison.Ordinal);
+		Assert.Contains("public const byte MaxEncodedValue = 12;", source, StringComparison.Ordinal);
 		Assert.Contains("public static byte Encode(global::System.ReadOnlySpan<char> text)", source, StringComparison.Ordinal);
 		Assert.Contains("public static string Decode(byte value)", source, StringComparison.Ordinal);
 		Assert.Contains("public static bool TryDecode(byte value, global::System.Span<char> destination, out int charsWritten)", source, StringComparison.Ordinal);
@@ -145,13 +145,13 @@ public class CSharpEmitterTests
 	}
 
 	[Fact]
-	public void Emit_RefusesAValueTypeTheCountDoesNotFit()
+	public void Emit_ThrowsWhenTheValueTypeIsTooNarrow()
 	{
 		// 128 values: one more than sbyte holds, exactly what byte holds and more.
 		Compilation compilation = Compile("#[1-128]");
 
 		Assert.Throws<ArgumentException>(() => CSharpEmitter.Instance.Emit(compilation, "", NaxpValueType.Int8));
-		Assert.Contains("public const byte ValueCount = 128;", CSharpEmitter.Instance.Emit(compilation, "", NaxpValueType.UInt8), StringComparison.Ordinal);
+		Assert.Contains("public const byte MaxEncodedValue = 128;", CSharpEmitter.Instance.Emit(compilation, "", NaxpValueType.UInt8), StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -168,13 +168,13 @@ public class CSharpEmitterTests
 		Assert.Contains("public const int MaxLength = 297;", source, StringComparison.Ordinal);
 
 		// The canonicalising machine chunks by the same rule.
-		string replaceable = Emit("(B|b)!BA{99}C{99}D{99}");
+		string unified = Emit("(B|b)!BA{99}C{99}D{99}");
 
-		Assert.Contains("static int CanonicalStep1(", replaceable, StringComparison.Ordinal);
+		Assert.Contains("static int CanonicalStep1(", unified, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public void Emit_OmitsTheCanonicaliserWhereNothingIsReplaceable()
+	public void Emit_OmitsTheCanonicaliserWhereNothingIsUnified()
 	{
 		string source = Emit("AB|C");
 

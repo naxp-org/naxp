@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generate code for a naxp</title>
+<meta name="description" content="Turn a naxp into a self-contained recogniser and codec in the language of your choice, with no dependency on any naxp library.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<script type="module" src="/js/generate.js"></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Generate code for a naxp">
+<meta property="og:description" content="Turn a naxp into a self-contained recogniser and codec in the language of your choice.">
+<meta property="og:url" content="https://naxp.org/code-gen/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main data-reserve="code-gen">
+
+<!-- Band 2: title, what this is for, and the naxp -->
+<section class="band">
+  <div class="band__inner">
+
+    <h1 class="bandtitle">Generate code for a <strong>naxp</strong></h1>
+
+    <p>
+      If you want to implement a specific <strong>naxp</strong> but
+    </p>
+    <ul>
+      <li>you don't want to link in a <a href="/libraries/">library</a>,</li>
+      <li>
+        you don't want to pay the run-time cost associated with a <a href="/libraries/">library</a>
+        for something that can be completely determined in advance, or
+      </li>
+      <li>there is no library for your language,</li>
+    </ul>
+    <p>
+      then <em>code generation may be the answer, which is what this page is for</em>.
+    </p>
+
+    <!-- A div rather than a p, because a list cannot sit inside a paragraph: the browser
+         would close the paragraph before it, and the rule down the left with it. -->
+    <div class="admonition admonition--tip">
+      <p><span class="admonition__flag">Tip</span> If you are &hellip;</p>
+      <ul>
+        <li>
+          &hellip; <em>designing a <strong>naxp</strong></em> then
+          first use the <a href="/interactive/">interactive design page</a>
+          to make sure your <strong>naxp</strong> works as expected.
+        </li>
+        <li>
+          &hellip; <em>migrating a <strong>naxp</strong></em> from one version to another then
+          first use the <a href="/migrate/">migration tester</a>
+          to ensure stored encoded values continue to mean the same thing.
+        </li>
+        <li>
+          &hellip; <em>using C#</em>, then the source generator in the <a href="/libraries/">NuGet package</a>
+          gets you the same code as this page but <em>generated automatically from your source code</em>.
+        </li>
+      </ul>
+    </div>
+
+    <p>
+      The code generator below produces a single self-contained code fragment without namespace, class, 
+      header or using directives that
+      can be dropped directly into your code.
+      If you need more than one <strong>naxp</strong> in the same place then use 
+      the 'Name prefix' text box to add a prefix to all functions and constants to disambiguate them.
+    </p>
+
+    <p>
+      The generated code is fully documented in place, but, in broad terms 
+      (noting that actual naming conventions vary by language),
+    </p>
+    <ul>
+      <li><code>accepts</code> tests whether text is valid,</li>
+      <li><code>encode</code> gets the encoded value of text (with <code>0</code> indicating invalid text),</li>
+      <li><code>decode</code> and friends get the (canonical) text from an encoded value,</li>
+      <li><code>maxEncodedValue</code> is the largest possible encoded value, and</li>
+      <li><code>maxLength</code> is the maximum number of ASCII characters for valid text.</li>
+    </ul>
+
+  </div>
+</section>
+
+<section class="band band--edge-top">
+  <div class="band__inner">
+
+    <h2 class="section__title">The code generator</h2>
+
+    <noscript>
+      <p class="status__line status__line--bad">
+        This page needs JavaScript. The code is written in your browser rather than on a server,
+        so there is nothing to fall back to.
+      </p>
+    </noscript>
+
+    <div class="field field--pattern">
+      <label class="field__label" for="naxp-pattern"><strong>naxp</strong></label>
+      <!-- The box and the layer that marks a fault in it are stacked, so the squiggle lands
+           under the text being edited rather than in a box of its own. -->
+      <div class="field__stack">
+        <div id="naxp-underlay" class="input input--naxp field__underlay" aria-hidden="true"></div>
+        <textarea id="naxp-pattern" class="input input--naxp" rows="1" spellcheck="false" data-remember="generate.pattern"
+          autocapitalize="off" autocorrect="off" autocomplete="off">\A\A?\9\X? \s!! \9\A\A</textarea>
+      </div>
+    </div>
+
+    <div id="naxp-status" class="status" role="status" aria-live="polite"></div>
+
+    <div class="dev__chips">
+      <span class="field__label" id="naxp-languages-label">Language</span>
+      <div id="naxp-languages" class="chips" role="group" aria-labelledby="naxp-languages-label">
+        <button type="button" class="chip">C</button>
+        <button type="button" class="chip">C++</button>
+        <button type="button" class="chip">C#</button>
+        <button type="button" class="chip" aria-disabled="true">Go</button>
+        <button type="button" class="chip" aria-disabled="true">Java</button>
+        <button type="button" class="chip" aria-pressed="true">JavaScript</button>
+        <button type="button" class="chip" aria-disabled="true">Kotlin</button>
+        <button type="button" class="chip" aria-disabled="true">Python</button>
+        <button type="button" class="chip" aria-disabled="true">R</button>
+        <button type="button" class="chip" aria-disabled="true">Rust</button>
+        <button type="button" class="chip" aria-disabled="true">Swift</button>
+      </div>
+    </div>
+
+    <!-- Shown by generate.js only while C# is the language, which is the choice made in the row
+         above: the same fragment, but written at compile time by the source generator rather than
+         pasted in. -->
+    <p id="naxp-generator-hint" class="admonition admonition--tip" hidden></p>
+
+    <div class="dev__grid">
+      <div class="field">
+        <label class="field__label" for="naxp-prefix">Name prefix</label>
+        <!-- Blank by default, which gives the bare names. A prefix is what lets several naxps
+             share one scope, and a reader generating one naxp does not need it. -->
+        <input id="naxp-prefix" class="input" type="text" spellcheck="false" data-remember="generate.prefix"
+          autocapitalize="off" autocorrect="off" autocomplete="off" value=""
+          placeholder="none">
+      </div>
+      <div class="field">
+        <label class="field__label" for="naxp-valuetype">Value type</label>
+        <!-- Filled in by generate.js, which offers what the chosen language can actually hold a
+             value in: the eight integer types for C#, C and C++, and for JavaScript the one
+             thing its emitter will use, since that language has no such choice to make. -->
+        <select id="naxp-valuetype" class="input"></select>
+        <p id="naxp-valuetype-note" class="field__note"></p>
+      </div>
+    </div>
+
+    <div class="dev__chips">
+      <span class="field__label" id="naxp-output-label">Generated code</span>
+      <button type="button" id="naxp-expand" class="chip" hidden>Show all</button>
+    </div>
+
+    <div id="naxp-codebox" class="codebox">
+      <pre><code id="naxp-output" class="code" aria-labelledby="naxp-output-label"></code></pre>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 6: credits and licensing -->
+<!-- restore -->
+<!-- sitefooter -->
+
+</body>
+</html>

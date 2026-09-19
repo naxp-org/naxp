@@ -7,11 +7,12 @@
 
    Colours come from the design notes, which are not in this repository.
    Every resting state there is measured against WCAG AA; do not adjust a
-   value without re-checking it against them.
+   value without re-checking it against them. The scheme is teal throughout;
+   the logo's magenta appears in the wordmark and the favicon and nowhere else.
 
    Band numbering follows those same notes:
-     1 header  2 title and examples  3 selling points  4 tour title
-     5 quick guide  6 button links  7 credits */
+     1 header  2 title and examples  3 get started title  4 button links
+     5 quick tour title  6 quick tour  7 credits */
 
 @font-face {
   font-family: "Lisnoti";
@@ -41,21 +42,95 @@
 
 :root {
   --color-bg:          #FFFFFF;
-  --color-bg-tint:     #FFF0F9;
-  --color-bg-code:     #F4F0F2;
+  --color-bg-tint:     #E8F4F5;
+  --color-bg-code:     #EAF2F2;
+  /* Generated code sits on white rather than the tinted ground the inline code
+     chips use, because a listing is the one place on the site where colour has
+     to do work: three kinds of token told apart at a glance, over hundreds of
+     lines. The border still gives it its shape. */
+  --color-bg-generated: #FFFFFF;
 
-  --color-ink:         #1A0A15;
-  --color-ink-muted:   #665460;
+  --color-bg-pattern:  #FDEEF6;
+  --color-bg-pink:     #FBEAF3;
+  --color-bg-pink-hov: #F7DFEC;
+  /* The flash behind the part of a page a link has just brought you to. */
+  --color-target:      #FFF1A8;
 
-  --color-rule:        #E6DBE2;
-  --color-rule-strong: #A9899E;
+  /* A chip's edge. Darker than its ground here and lighter than it in dark
+     mode, both times by about the same step. The edge is what gives a chip its
+     shape, which is what lets the grounds be as faint as they are. */
+  --color-edge-code:   #CFDEDE;
+  --color-edge-pink:   #EDD0E1;
 
+  --color-ink:         #181818;
+  --color-ink-strong:  #0C0C0C;
+  --color-ink-muted:   #5F5F5F;
+
+  /* A control that does nothing: a language with no emitter yet, a copy button
+     with nothing to copy. Two steps down from muted, which is what labels and
+     asides take and reads as quiet prose rather than as out of service. Exempt
+     from the contrast floor, as inactive controls are, so it can sit well below
+     it and be seen for what it is. */
+  --color-ink-disabled: #A6A6A6;
+
+  /* The far end of the ink scale, for the menu: the current page and a hover.
+     It cannot be --color-ink-strong, because that runs the other way in dark
+     mode - #E5E5E5 is dimmer than --color-ink's #EBEBEB, so it would make the
+     current page recede rather than stand out. Blacker on white, brighter on
+     the dark ground. */
+  --color-nav-strong:  #000000;
+
+  --color-rule:        #D5E4E5;
+  --color-rule-strong: #7A979B;
+
+  /* Magenta is an outline and a mark, never a fill and never a ground: the
+     wordmark, the spine of a reference card, the edge of a primary button.
+     Everything that carries text is teal. */
   --color-brand:       #FF00AA;
-  --color-brand-text:  #B30077;
-  --color-on-brand:    #1A0A15;
 
-  --color-link:        #006E78;
-  --color-link-hover:  #007A85;
+  /* Deep teal for section headings. Darker than the link colour so that a
+     heading does not read as something to click.
+
+     The dark mode counterpart is not this hue. A hue of 185 reads as a dark
+     green teal at 18% lightness and as cyan at 60%, so holding the hue steady
+     across the modes makes the light one look green and the dark one look
+     blue. The dark set is rotated about eleven degrees towards green to
+     compensate, which is a perceptual match rather than a numerical one. */
+  --color-heading:     #054F57;
+
+  --color-link:        #00707A;
+  --color-link-hover:  #007D88;
+
+  /* The verdict on a naxp, and the only green and red on the site. Neither is
+     left to carry its meaning alone: the word beside it says the same thing.
+     It is also why a warning is orange rather than red: here red means a naxp
+     is invalid, and that is not what a warning says. */
+  --color-ok:          #1A7F37;
+  --color-bad:         #C1121F;
+
+  /* Blue for a note, which is what GitHub uses for the same thing and so what a
+     reader arrives expecting. This is GitHub's own value. That it sits near
+     --color-code-keyword in hue does not matter: the listing colours answer to
+     the code background alone and are no part of this palette.
+
+     The orange is as bright as it can go. The flag is bold text at 14.4px,
+     which WCAG counts as normal rather than large, so it needs 4.5 against
+     white and this sits at 4.56. Brighter fails, and would mean splitting the
+     colour in two: a bright box and a darker flag. */
+  --color-note:        #0969DA;
+  --color-warn:        #C85000;
+
+  /* The three roles in a listing. These are NOT part of the site's palette and
+     are not required to agree with it, now or ever: syntax highlighting is its
+     own convention, and the only thing these have to do is show up against the
+     code background. Do not retune them to match anything else on the page.
+
+     They are conventional on purpose - blue keywords, green commentary, a warm
+     colour for constants - because a reader arrives already knowing them from
+     every editor they have used. */
+  --color-code-comment: #1B7F3B;
+  --color-code-keyword: #0B47C2;
+  --color-code-literal: #A93000;
 
   /* Lisnoti for everything that is not code; code takes a monospace so
      that generated listings line up and match the reader's editor. */
@@ -69,29 +144,140 @@
   --gutter: clamp(1rem, 4vw, 2.5rem);
   --band-space: clamp(1.5rem, 3vw, 2.25rem);
 
+  /* The type scale. Six steps and no others: every font-size in this file is
+     one of these, apart from `code` and `sup`, which are deliberately relative
+     so a chip or an exponent tracks whatever it sits in.
+
+     Before this the site used twenty-two distinct sizes, most of them arrived
+     at one rule at a time - 1.4rem beside 1.35rem, 1.05rem beside 1.02rem,
+     0.82rem beside 0.8rem beside 0.78rem. None of those differences was
+     legible and all of them were maintenance. */
+  --text-title:   clamp(1.7rem, 1.3rem + 1.9vw, 2.5rem);
+  --text-heading: 1.5rem;
+  --text-sub:     1.25rem;
+  --text-body:    1rem;
+  --text-data:    0.9rem;
+  --text-label:   0.78rem;
+
+  /* A role, not a seventh step. It holds --text-data's value today and is a
+     token of its own so that it need not later: data is tabular, and if that
+     ever takes a face of its own an admonition should not follow it there. Any
+     rule setting this must set only the size, so the scale above stays the
+     whole answer to how large text is. */
+  --text-admonition: 0.9rem;
+
+  /* Between a page title and the first thing under it, on every page but the
+     landing one. See h1.bandtitle. */
+  --title-space: 0.9rem;
+
   color-scheme: light dark;
 }
 
+/* Three states, not two. With nothing chosen the page follows the system; the
+   button in the header then pins it light or dark by stamping data-theme on
+   the root, and `auto` clears the stamp again.
+
+   The dark set is written twice because it has to answer to both selectors.
+   Keep them identical. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg:          #14090F;
-    --color-bg-tint:     #2B1925;
-    --color-bg-code:     #22151E;
+  :root:not([data-theme="light"]) {
+    --color-bg:          #0A1719;
+    --color-bg-tint:     #162E31;
+    --color-bg-code:     #244C58;
+    /* Deeper than the inline ground rather than lighter, for the same reason
+       white is used in light mode: a listing wants the most room it can get
+       between the ink and the three token colours. */
+    --color-bg-generated: #0B1417;
 
-    --color-ink:         #EDE7EB;
-    --color-ink-muted:   #B09AA9;
+    --color-bg-pattern:  #4D3249;
+    --color-bg-pink:     #4D3249;
+    --color-bg-pink-hov: #61415C;
+    --color-target:      #5C4E12;
 
-    --color-rule:        #472D3E;
-    --color-rule-strong: #78546C;
+    --color-edge-code:   #2C525E;
+    --color-edge-pink:   #553E50;
+
+    --color-ink:         #EBEBEB;
+    --color-ink-strong:  #E5E5E5;
+    --color-ink-muted:   #C6C6C6;
+    --color-ink-disabled: #6F7F82;
+
+    --color-nav-strong:  #FFFFFF;
+
+    --color-rule:        #28474B;
+    --color-rule-strong: #54787D;
 
     --color-brand:       #FF00AA;
-    --color-brand-text:  #FF49C2;
-    --color-on-brand:    #1A0A15;
 
-    --color-link:        #32BCC9;
-    --color-link-hover:  #78D5DD;
+    --color-heading:     #64CEC3;
+
+    --color-link:        #4DD5C8;
+    --color-link-hover:  #8FE5DC;
+
+    /* The verdict on a naxp, and the only green and red on the site. Neither is
+       left to carry its meaning alone: the word beside it says the same thing. */
+    --color-ok:          #56D67F;
+    --color-bad:         #FF8880;
+
+    --color-note:        #6CB0FF;
+    --color-warn:        #FFA24D;
+
+    --color-code-comment: #7BD693;
+    --color-code-keyword: #93BEFF;
+    --color-code-literal: #FF9E6B;
   }
 }
+
+:root[data-theme="dark"] {
+  --color-bg:          #0A1719;
+  --color-bg-tint:     #162E31;
+  --color-bg-code:     #244C58;
+  /* Deeper than the inline ground rather than lighter, for the same reason
+     white is used in light mode: a listing wants the most room it can get
+     between the ink and the three token colours. */
+  --color-bg-generated: #0B1417;
+
+  --color-bg-pattern:  #4D3249;
+  --color-bg-pink:     #4D3249;
+  --color-bg-pink-hov: #61415C;
+  --color-target:      #5C4E12;
+
+  --color-edge-code:   #2C525E;
+  --color-edge-pink:   #553E50;
+
+  --color-ink:         #EBEBEB;
+  --color-ink-strong:  #E5E5E5;
+  --color-ink-muted:   #C6C6C6;
+  --color-ink-disabled: #6F7F82;
+
+  --color-nav-strong:  #FFFFFF;
+
+  --color-rule:        #28474B;
+  --color-rule-strong: #54787D;
+
+  --color-brand:       #FF00AA;
+
+  --color-heading:     #64CEC3;
+
+  --color-link:        #4DD5C8;
+  --color-link-hover:  #8FE5DC;
+
+  /* The verdict on a naxp, and the only green and red on the site. Neither is
+     left to carry its meaning alone: the word beside it says the same thing. */
+  --color-ok:          #56D67F;
+  --color-bad:         #FF8880;
+
+  --color-note:        #6CB0FF;
+  --color-warn:        #FFA24D;
+
+  --color-code-comment: #7BD693;
+  --color-code-keyword: #93BEFF;
+  --color-code-literal: #FF9E6B;
+}
+
+/* So that form controls, scrollbars and the like follow the choice too. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 /* ---------- base ---------- */
 
@@ -103,6 +289,11 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* The site header is centred on the viewport, so a page long enough to need
+     a scrollbar drew it a scrollbar's width narrower than a page that was not,
+     and the header appeared to shift as you moved between pages. Reserving
+     the gutter on every page, scrolling or not, holds it still. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -110,22 +301,75 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  /* One size for prose, everywhere, and the browser's own default. This used to
+     grow with the viewport, from 16px to 17px, which made the single-column
+     pages read a step larger than the rest of the site for no reason a reader
+     could see. Prose is 1rem; the smaller sizes below are a second tier for
+     data - tables, captions, metadata, the site header - and are set
+     rather than falling out of the layout. */
+  font-size: var(--text-body);
   line-height: 1.5;
   font-feature-settings: "kern" 1, "liga" 1;
+  /* The footer sits at the foot of the viewport on a page shorter than it,
+     rather than wherever the content happens to end. On the pages with text
+     boxes the results under them are filled in by a module after the first
+     paint, and until this the footer painted high and then dropped as they
+     arrived. Below the fold the drop still happens and cannot be seen. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+/* Relative, because an exponent belongs to the number beside it, but one
+   factor rather than the browser's `smaller`, which gave 12px in one place and
+   13.33px in another for the same markup. */
+sup, sub {
+  font-size: 0.75em;
+  line-height: 0;
 }
 
 h1, h2, h3 {
   line-height: 1.2;
   letter-spacing: -0.01em;
+  color: var(--color-heading);
 }
 
+/* No measure here. Most paragraphs on this site are interface text inside
+   something that already sets its width, and a measure on all of them had to be
+   undone six times over. It is set below on the places that hold running prose. */
 p {
   margin: 0 0 0.7rem;
-  max-width: var(--measure);
 }
 
 p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists had no styling of their own until the best practice page needed
+   bullets, so they fell back to the browser's 40px indent. This is the same
+   rhythm as a paragraph and the same 1.25rem indent the specification already
+   used, so a list reads as part of the prose wherever it appears. The
+   specification and the version index set their own and are untouched. */
+ul,
+ol {
+  margin: 0 0 0.7rem;
+  padding-left: 1.25rem;
+}
+
+ul:last-child,
+ol:last-child {
+  margin-bottom: 0;
+}
+
+li {
+  margin-bottom: 0.25rem;
+}
+
+li:last-child {
   margin-bottom: 0;
 }
 
@@ -149,6 +393,14 @@ a:hover {
   color: var(--color-ink-muted);
 }
 
+/* The browser default here is `bolder`, which is relative to the parent: inside
+   a heading or a button already at 700 it resolves to 900, and Lisnoti has no
+   900, so the browser synthesises one. Naming the weight keeps bold at bold
+   wherever it lands. */
+strong {
+  font-weight: 700;
+}
+
 /* ---------- bands ---------- */
 
 .band {
@@ -162,9 +414,15 @@ a:hover {
   padding-inline: var(--gutter);
 }
 
-/* Every band takes the page colour. Structure comes from the rules below and
-   from the dark credits band at the foot. --color-bg-tint is still in the
-   palette but is no longer used on the page. */
+/* Nearly every band takes the page colour, and structure comes from the rules
+   below and from the dark credits band at the foot. Get started is the one
+   exception: it is the page's call to action and takes a pale pink ground, so
+   the two bands it spans read as one block and the eye finds it without a
+   heading. --color-bg-tint is used only to mark the span an invalid naxp is
+   reported for. */
+.band--pink {
+  background: var(--color-bg-pink);
+}
 
 /* One rule weight and colour for every band edge on the page. */
 .band--edge-top {
@@ -177,8 +435,70 @@ a:hover {
 
 /* ---------- band 1: header ---------- */
 
+/* Held at the top while the page scrolls, so the buttons are always reachable.
+   Guarded on viewport height: on a short screen, a landscape phone above all,
+   a fixed site header takes a share of the page nobody can spare. */
 .siteheader {
   padding-block: 0.7rem;
+}
+
+@media (min-height: 30rem) {
+  .siteheader {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg);
+  }
+
+  /* A link into a page lands its target under the sticky header otherwise. */
+  [id] {
+    scroll-margin-top: 4rem;
+  }
+}
+
+/* ---------- the target of a link ---------- */
+
+/* Following a link into a page flashes the part it points at and fades it
+   over a couple of seconds, so the eye finds it on a page that has just
+   scrolled. The target itself takes the flash where it is a heading, a
+   paragraph or a table row. Where it is an empty anchor, the kind that sits
+   above a heading in the specification (markdown-it wraps it in a paragraph
+   of its own), the heading after it takes the flash; and where it is a
+   section or a division, whose whole extent would be too much yellow, its
+   first heading does. */
+@keyframes target-flash {
+  from { background-color: var(--color-target); }
+  to { background-color: transparent; }
+}
+
+:target {
+  animation: target-flash 2.5s ease-out;
+}
+
+a[id]:empty:target,
+:is(section, div, article, main):target {
+  animation: none;
+}
+
+a[id]:empty:target + *,
+p:has(> a[id]:empty:only-child:target) + *,
+:is(section, div, article, main):target :is(h1, h2, h3):first-of-type {
+  animation: target-flash 2.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :target,
+  a[id]:empty:target + *,
+  p:has(> a[id]:empty:only-child:target) + *,
+  :is(section, div, article, main):target :is(h1, h2, h3):first-of-type {
+    animation: none;
+    background-color: var(--color-target);
+  }
+
+  a[id]:empty:target,
+  :is(section, div, article, main):target {
+    background-color: transparent;
+  }
 }
 
 .siteheader__inner {
@@ -186,55 +506,229 @@ a:hover {
   margin-inline: auto;
   padding-inline: var(--gutter);
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.45rem;
+  /* The sections read left to right out of the wordmark, and the settings and
+     the offsite link are pushed to the far side by the auto margin on
+     .siteheader__tools. */
+  justify-content: flex-start;
+  /* Bottom, not centre, so that when a label breaks the single-line items sit
+     on the same line as its second one rather than floating half way up it. */
+  align-items: flex-end;
+  /* Tight, because the row is close to full at laptop widths and every item
+     pays this twice. It is the row gap as well, so it also sets how close the
+     two rows sit once the site header wraps. */
+  gap: 0.3rem;
   flex-wrap: wrap;
 }
 
-.navbtn {
-  font: inherit;
-  font-size: 0.875rem;
-  color: var(--color-link);
-  background: none;
-  border: 1px solid var(--color-rule-strong);
-  border-radius: 0.3rem;
-  padding: 0.22rem 0.7rem;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
+/* Above the phone widths the row does not wrap; a label too long for the space
+   left breaks inside its own box instead, so 'Interactive naxp dev' becomes two
+   lines and the site header stays a single row of items.
+
+   This has to be a wrap/nowrap switch rather than anything on the labels
+   themselves. A wrapping flex container moves a whole item to a second row
+   before it will shrink one, so no amount of white-space or overflow-wrap on
+   .navbtn can produce the break: only a container that refuses to wrap makes
+   the item narrow enough for its text to need one.
+
+   Shrinkage is proportional to each item's own width, so the longest label
+   gives way first, which is the one we want to break. Below 40rem the row goes
+   back to wrapping, because at phone widths there is no width to shrink into
+   and every label would break at once. */
+@media (min-width: 40rem) {
+  .siteheader__inner {
+    flex-wrap: nowrap;
+  }
 }
 
-.navbtn:hover {
+/* The mark goes left and everything else stays right, which one auto margin
+   does without a wrapper round the buttons. Inlined by the same transform as
+   the hero's wordmark, so the 'n' takes the page colour and follows the theme
+   while its underline keeps the magenta. */
+/* The mark and the version it belongs to travel together, and the group takes
+   the auto margin so the buttons stay right whether or not there is a version
+   to show. */
+.siteheader__brand {
+  /* A little air before the first section, since the wordmark is a mark rather
+     than another word in the row. */
+  margin-right: 0.9rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+/* The two things that are not places to go on the site, plus the language,
+   held together so the auto margin that pushes them right has one home. Kept a
+   group rather than three loose items, so removing one does not strand the
+   margin on whichever happened to be first. */
+.siteheader__tools {
+  margin-left: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.siteheader__logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.siteheader__version {
+  font-size: var(--text-label);
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.siteheader__version:hover {
   color: var(--color-link-hover);
-  border-color: var(--color-link-hover);
+}
+
+.naxpicon {
+  display: block;
+  height: 1.55rem;
+  width: auto;
+  color: var(--color-ink);
+}
+
+/* Plain text rather than outlined buttons. The outlines drew five boxes across
+   the top of every page and competed with the buttons in the Get started band,
+   which are the ones meant to be pressed. A hover underline is enough to say a
+   word is a link.
+
+   The border is kept at zero width rather than dropped, so the box model is
+   identical whether or not a rule is drawn, and the row cannot shift. */
+.navbtn {
+  font: inherit;
+  font-size: var(--text-data);
+  /* Prose ink, not the link teal. The menu carries no green: it sits above the
+     page rather than in it, and a row of coloured words at the top competed
+     with the headings below. */
+  color: var(--color-ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  padding: 0.22rem 0.55rem;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  /* When a label does break, split it evenly rather than filling the first
+     line: 'Interactive / naxp dev' rather than 'Interactive naxp / dev'. A
+     label that must never break holds itself together with a non-breaking
+     space in the list in eleventy.config.js, which is cheaper than a modifier
+     class for the one or two that need it. */
+  text-wrap: balance;
+}
+
+/* The same pale pink fill the current page carries, so hovering shows you the
+   shape of the item you are about to press. No underline: it was spent on the
+   current page for a while and is now free again, but it stays off, Tim having
+   asked for a colour change rather than a rule. The faint ink shift stays as
+   well; it does nothing much on its own and does no harm beside the fill. */
+.navbtn:hover {
+  color: var(--color-nav-strong);
+  background: var(--color-bg-pink);
+}
+
+/* The page you are on, and the language picker that is not yet a picker. Both
+   are inert, so both are muted and neither responds to a hover. */
+/* The page you are on is marked, not dimmed. It used to share this declaration
+   with aria-disabled, so it looked exactly like the inert English button - the
+   same visual saying both 'you are here' and 'this does nothing'. Dimming now
+   means unavailable and nothing else.
+
+   The mark is the pale pink of the Get started band, filling the item that the
+   .navbtn padding and radius already shape. A magenta rule was tried first and
+   looked awful; the fill also sidesteps the problem that killed it, which is
+   that a label breaking over two lines took a separate underline on each. A
+   background covers whatever height the item happens to be, and takes no space,
+   so nothing moves.
+
+   The text stays ink, so the magenta is nowhere near a word - the fill is the
+   band's own colour, not the brand magenta, which never carries text. */
+.navbtn[aria-current="page"] {
+  color: var(--color-nav-strong);
+  cursor: default;
+  background: var(--color-bg-pink);
 }
 
 .navbtn[aria-disabled="true"] {
-  color: var(--color-ink-muted);
+  color: var(--color-ink-disabled);
   cursor: default;
 }
 
-.navbtn[aria-disabled="true"]:hover {
-  color: var(--color-ink-muted);
-  border-color: var(--color-rule-strong);
+.navbtn[aria-current="page"]:hover {
+  color: var(--color-nav-strong);
 }
 
+/* The one item that must not take the hover fill. It does nothing when pressed,
+   and a fill promising otherwise is worse than no feedback at all. */
+.navbtn[aria-disabled="true"]:hover {
+  color: var(--color-ink-disabled);
+  background: none;
+}
+
+/* Sits in the text flow rather than as a flex item, so the label beside it is
+   ordinary text and keeps its spaces. */
 .navbtn svg {
   width: 1.05em;
   height: 1.05em;
+  margin-right: 0.35em;
+  vertical-align: -0.17em;
   fill: currentColor;
+}
+
+/* The theme button carries an icon and a word, as the GitHub one does. The
+   icon is swapped by script, so it is sized here rather than inline, and the
+   width is fixed so the row does not shift as the word changes.
+
+   Nothing but script can work it, so it is hidden until the document says
+   there is some. The marker is set inline in the head, before the first
+   paint, so the button does not appear late. */
+/* The two that are not places to go on the site: a setting and an offsite
+   link. Both are icons alone, and neither takes the hover underline the words
+   do, there being no word under which to draw it. */
+.navbtn--icon {
+  padding-inline: 0.35rem;
+}
+
+.navbtn--icon:hover {
+  text-decoration: none;
+}
+
+.navbtn--icon svg {
+  width: 1.3em;
+  height: 1.3em;
+  margin-right: 0;
+  vertical-align: -0.3em;
+}
+
+.navbtn--theme {
+  display: none;
+}
+
+.js .navbtn--theme {
+  display: inline-block;
 }
 
 /* ---------- band 2: title, pitch, examples ---------- */
 
+/* The pitch and the examples take a half each from 64rem. A half is about
+   557px on a 1280px window, so the two longest example naxps wrap onto two
+   lines; a third for the pitch was tried and left the table wider than its
+   content. Below 64rem they stack, pitch first, with the examples at full
+   width; halves below that were tried and the table scrolled sideways from
+   about 56rem down, which is why the stack starts as high as it does. */
 .hero__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  grid-template-columns: 1fr;
   gap: clamp(1.25rem, 3vw, 2.5rem);
   align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .hero__grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .wordmark {
@@ -252,7 +746,7 @@ a:hover {
 
 .hero__strap {
   margin: 0.8rem 0 0;
-  font-size: clamp(1.1rem, 1rem + 0.6vw, 1.3rem);
+  font-size: var(--text-sub);
   line-height: 1.3;
   max-width: 24rem;
 }
@@ -260,11 +754,22 @@ a:hover {
 .hero__pitch {
   margin: 0.7rem 0 0;
   color: var(--color-ink-muted);
+  max-width: var(--measure);
+}
+
+/* The examples are the page's proof, so they are given an edge rather than
+   left loose on the page. Same hairline card as the reference tables in the
+   quick tour, for the same reason: the border marks the panel out without
+   putting a ground behind the chips inside it. */
+.examples__panel {
+  border: 1px solid var(--color-rule);
+  border-radius: 0.35rem;
+  padding: clamp(0.7rem, 2vw, 1rem);
 }
 
 .examples__caption {
   margin: 0 0 0.5rem;
-  font-size: 0.78rem;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
@@ -274,10 +779,86 @@ a:hover {
   overflow-x: auto;
 }
 
+/* ---------- generated code ---------- */
+
+/* A fragment for a naxp of any size runs to hundreds of lines, which is more
+   page than anybody wants between them and the rest of it. So the box is cut
+   to a few screens' worth until asked to open, and the cut is softened rather
+   than left as a guillotine across a line of code. */
+.codebox {
+  position: relative;
+}
+
+/* Set tighter than the listings in the prose. Those are a handful of lines
+   being read; this is hundreds being scanned, where the leading that helps a
+   quoted fragment only spreads the thing over more screen.
+
+   The hairline stroke is what makes it read heavier without making it bold.
+   Lisnoti is installed as two static faces, regular and bold, with nothing
+   between: font-weight 500 renders the regular unchanged and 550 jumps to the
+   full bold. A stroke of a seventh of a pixel in the glyph's own colour
+   thickens the strokes and nothing else. Browsers that ignore the property show
+   the page exactly as it was. */
+.codebox pre {
+  background: var(--color-bg-generated);
+  font-size: var(--text-label);
+  line-height: 1.25;
+  -webkit-text-stroke: 0.01em currentColor;
+  /* Tabs render at eight columns by default, and a stepper's cases sit four
+     levels deep: at eight, the guts of every one of them start a hundred pixels
+     in. This does not stop the box scrolling sideways, since the widest line is
+     an un-indented doc comment, but it stops the nested code marching across
+     it. Display only - the copy button still puts tabs on the clipboard, for
+     whatever the reader pastes into to render as it likes. */
+  tab-size: 4;
+}
+
+.codebox--clipped pre {
+  max-height: 24rem;
+  overflow-y: hidden;
+}
+
+.codebox--clipped::after {
+  content: "";
+  position: absolute;
+  inset: auto 1px 1px 1px;
+  height: 4rem;
+  border-radius: 0 0 0.35rem 0.35rem;
+  background: linear-gradient(to bottom, transparent, var(--color-bg-generated));
+  pointer-events: none;
+}
+
+/* Three roles and no more. A generated fragment is not prose and does not want
+   a rainbow over it; what a reader needs is the commentary told apart from the
+   code, and the constants told apart from the words around them.
+
+   These are the one place on the site where a colour is allowed to be strong.
+   The teals that carry the rest of it sit too close to the ink to be seen at
+   all against a listing, which is what the first attempt got wrong. */
+.code__comment {
+  color: var(--color-code-comment);
+}
+
+.code__keyword {
+  color: var(--color-code-keyword);
+}
+
+.code__literal {
+  color: var(--color-code-literal);
+}
+
+/* Sits under the value type, saying what the language will do with it where
+   the language leaves nothing to choose. */
+.field__note {
+  margin: 0.3rem 0 0;
+  font-size: var(--text-label);
+  color: var(--color-ink-muted);
+}
+
 .examples {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: var(--text-data);
 }
 
 .examples th,
@@ -291,7 +872,7 @@ a:hover {
 
 .examples thead th {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: var(--text-label);
   color: var(--color-ink-muted);
   padding-bottom: 0.3rem;
 }
@@ -304,31 +885,30 @@ a:hover {
   padding-right: 0;
 }
 
-/* The sample code sits on its own line under the name. It is set in the code
-   face because it is a literal, and muted because the name is what the reader
-   is scanning for. */
+/* The sample sits on its own line under the name. Only the sample itself is a
+   literal, so only it is a chip; the 'e.g.' in front of it is words. */
 .examples .eg {
   display: block;
-  font-family: var(--font-code);
-  font-size: 0.85em;
-  font-feature-settings: "zero" 1, "tnum" 1;
   color: var(--color-ink-muted);
-  padding-top: 0.05rem;
+  padding-top: 0.1rem;
 }
 
 /* The longer expressions would otherwise force the table far wider than the
-   column it sits in. Whitespace carries no meaning inside a naxp, so wrapping
-   at the spaces already written into the expression is safe: the line can only
-   break where a break changes nothing, never inside a token. */
+   column it sits in. Whitespace carries no meaning inside a naxp, so a break at
+   one of the spaces already written into the expression changes nothing.
+
+   Leaving that to the line breaker does not work. It offers a break after a
+   hyphen and before a '[', so a set such as [\9AC-FHKNPRTV-Y] splits across one
+   of its ranges and '#[' splits from its bounds. Neither word-break: keep-all
+   nor overflow-wrap suppresses those: both govern breaking within a word that
+   has no opportunity of its own, and these have one. So each token is marked
+   nowrap here and the spaces between the tokens are the only breaks left. */
 .examples .naxp--wrap {
   white-space: normal;
-  overflow-wrap: normal;
 }
 
-.examples .naxp {
-  font-family: var(--font-code);
-  font-size: 0.92em;
-  font-weight: 700;
+.examples .naxp__token {
+  white-space: nowrap;
 }
 
 .examples .num {
@@ -339,11 +919,268 @@ a:hover {
 
 .examples__note {
   margin: 0.6rem 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-data);
   color: var(--color-ink-muted);
 }
 
-/* ---------- band 3: selling points ---------- */
+/* ---------- standard naxps ---------- */
+
+/* A heading below the page title, for a section that is not a registry entry. */
+.section__title {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-heading);
+}
+
+.registry {
+  display: flex;
+  flex-direction: column;
+  gap: 2.2rem;
+}
+
+/* A rule above each entry rather than a box around it, matching the quick tour
+   on the landing page.
+
+   Each entry is its own two-column block, set the way the quick tour on the
+   design page is: the count is a maximum and the width a minimum, so a wide
+   display never gets a third and a narrow one gets one. Only the explanatory
+   prose flows in the columns. The heading and the meta line span, so an entry
+   reads as a titled block; the table and the note beneath it span, since a
+   table of naxps wants the width and the note is its caption. Anything after
+   the note picks the columns up again. The next entry starts a new row. */
+.entry {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 1rem;
+  columns: 2 22rem;
+  column-gap: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.entry > h2,
+.entry > .entry__meta,
+.entry > .table-scroll,
+.entry > .entry__note {
+  column-span: all;
+}
+
+/* A sub-heading at the foot of one column with its text at the head of the
+   next is a heading to nothing. */
+.entry > h3 {
+  break-after: avoid;
+}
+
+.entry h2 {
+  margin: 0 0 0.2rem;
+  font-size: var(--text-heading);
+}
+
+/* The examples, the size and the citation, stacked under the heading rather
+   than run together on one line. The size is what most readers come to an
+   entry for, so it gets a line of its own to be found on. */
+.entry__meta {
+  margin: 0 0 0.85rem;
+  font-size: var(--text-data);
+  color: var(--color-ink-muted);
+}
+
+.entry__meta p {
+  margin: 0 0 0.15rem;
+}
+
+.entry__meta p:last-child {
+  margin-bottom: 0;
+}
+
+/* A sub-heading inside an entry, for a case that needs explaining rather than
+   a row in the table. Smaller than the entry's own h2 and with no rule, so it
+   reads as part of the entry rather than as the next one. */
+.entry__aside {
+  margin: 1.4rem 0 0.4rem;
+  font-size: var(--text-sub);
+}
+
+/* Prose, several sentences of it, so it takes the page's prose size. The muted
+   ink is what marks it as an aside to the entry above. */
+.entry__note {
+  margin: 0.7rem 0 0;
+  color: var(--color-ink-muted);
+}
+
+/* The variants of one entry. Same weights and rules as the examples table on
+   the landing page, but the last column is prose and so must wrap; everything
+   before it is a name, an expression or a number and must not. */
+.datatable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-data);
+  margin: 0.9rem 0 1rem;
+}
+
+.datatable th,
+.datatable td {
+  text-align: left;
+  vertical-align: baseline;
+  padding: 0.35rem 0.9rem 0.35rem 0;
+  border-bottom: 1px solid var(--color-rule);
+  white-space: nowrap;
+}
+
+.datatable thead th {
+  font-weight: 700;
+  font-size: var(--text-label);
+  color: var(--color-ink-muted);
+  padding-bottom: 0.3rem;
+}
+
+.datatable tbody th {
+  font-weight: 400;
+}
+
+.datatable tr > *:last-child {
+  padding-right: 0;
+  white-space: normal;
+  color: var(--color-ink-muted);
+  min-width: 14rem;
+}
+
+.datatable .naxp--wrap {
+  white-space: normal;
+}
+
+.datatable .naxp__token {
+  white-space: nowrap;
+}
+
+.datatable .num {
+  text-align: right;
+  font-feature-settings: "zero" 1, "tnum" 1;
+  color: var(--color-ink-muted);
+}
+
+/* A table whose cells are prose, as on the libraries page. It reads as part of
+   the page rather than as data: body size, every column wraps, nothing scrolls,
+   the last column is not muted, and rows align at the top because a cell may
+   run to several paragraphs. Those paragraphs sit closer than page paragraphs
+   do, so a cell reads as one entry and not as three. */
+.datatable--prose {
+  font-size: var(--text-body);
+}
+
+.datatable--prose td {
+  vertical-align: top;
+  white-space: normal;
+}
+
+.datatable--prose th {
+  vertical-align: top;
+}
+
+/* The column names stay on one line, the last one included, which the base
+   rule above would let wrap. */
+.datatable--prose thead th:last-child {
+  white-space: nowrap;
+}
+
+.datatable--prose tr > *:last-child {
+  color: inherit;
+  min-width: 0;
+}
+
+.datatable--prose p {
+  margin-bottom: 0.35rem;
+}
+
+.datatable--prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Alternatives in a cell, such as the ways to install one library. A list of
+   them rather than paragraphs, so that they read as separate choices and not
+   as one description in three lines. The bullet is a hollow box drawn with a
+   border, so it looks the same in every font, and it is hollow so that it
+   reads as a box to tick rather than as a dot in a list of points. */
+.options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.options li {
+  position: relative;
+  padding-left: 1.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.options li:last-child {
+  margin-bottom: 0;
+}
+
+.options li::before {
+  content: "";
+  position: absolute;
+  left: 0.1rem;
+  top: 0.4em;
+  width: 0.5em;
+  height: 0.5em;
+  border: 1px solid currentColor;
+}
+
+/* Something not yet published: an install option, or the words in the prose
+   that explain the grey by wearing it. An option is dimmed with no link,
+   because a link to a package page that does not exist yet is worse than
+   none. The bullet borrows currentColor, so it dims with the text; the code
+   element would keep its strong ink, so it is told to follow. */
+.is-pending {
+  color: var(--color-ink-disabled);
+}
+
+.is-pending code {
+  color: inherit;
+}
+
+/* Four columns of prose do not fit a phone, and a prose table should not
+   scroll, so below the site's one breakpoint each row becomes a block: the
+   language as its heading, then each cell under the column name it came from,
+   which the cell carries in data-label. */
+@media (max-width: 39.99rem) {
+  .datatable--prose thead {
+    display: none;
+  }
+
+  .datatable--prose tr,
+  .datatable--prose th,
+  .datatable--prose td {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .datatable--prose tr {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .datatable--prose tbody th {
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+
+  .datatable--prose td {
+    margin-bottom: 0.35rem;
+  }
+
+  .datatable--prose td:last-child {
+    margin-bottom: 0;
+  }
+
+  .datatable--prose td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-label);
+    font-weight: 700;
+    color: var(--color-ink-muted);
+  }
+}
+
+/* ---------- band 4: button links ---------- */
 
 .cards {
   display: grid;
@@ -351,60 +1188,37 @@ a:hover {
   gap: clamp(1rem, 3vw, 2rem);
 }
 
-.card--feature {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 0.85rem;
-  row-gap: 0.3rem;
-  align-items: start;
-}
-
-/* One colour throughout, so the file can stay a file: it is used as a mask
-   and background-color paints it. The SVG needs to know nothing about the
-   page, and nothing is inlined. --icon is set per card below.
-
-   Top alignment needs no nudge: align-items: start on the card lands the
-   icon's top edge on the top of the heading's em box, which is where a round
-   mark wants to be. A circle needs slight overshoot above the cap line to
-   look level. Measured at 0.4px. */
-.card__icon {
-  grid-column: 1;
-  grid-row: 1;
-  width: 2.5rem;
-  height: 2.5rem;
-  background-color: var(--color-brand);
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
-}
-
-.card__icon--easy     { --icon: url("/img/icon-easy-to-use.svg"); }
-.card__icon--platform { --icon: url("/img/icon-platform-independent.svg"); }
-.card__icon--support  { --icon: url("/img/icon-widely-supported.svg"); }
-
-.card--feature h3 {
-  grid-column: 2;
-  grid-row: 1;
-  margin: 0;
-  font-size: 1.02rem;
-}
-
-.card--feature p {
-  grid-column: 2;
-  grid-row: 2;
-  margin: 0;
-  color: var(--color-ink-muted);
-  max-width: none;
-}
-
-/* ---------- bands 4 and 6: section titles ---------- */
+/* ---------- bands 3 and 5: section titles ---------- */
 
 .bandtitle {
   margin: 0;
-  font-size: clamp(1.4rem, 1.1rem + 1.5vw, 2rem);
-  color: var(--color-brand-text);
+  font-size: var(--text-title);
 }
 
-/* ---------- band 5: quick guide ---------- */
+/* The gap between a page's title and whatever opens the page beneath it. One
+   number, and the only thing that sets it, so the pages cannot drift apart the
+   way they had: /dev/ opened 10px under its title, /compare/ 0px, and the three
+   pages whose title sits alone in a band opened a whole band's padding below
+   it. The landing page is left out of this: `h1` rather than `.bandtitle`,
+   because there the class marks the section headings of a long page rather
+   than the page's own title. */
+h1.bandtitle {
+  margin-bottom: var(--title-space);
+}
+
+/* A band holding nothing but the page title. Closing the padding on both sides
+   of the join leaves the title's own margin as the whole of the gap, so a page
+   whose opening prose starts a new band reads the same as one where the two
+   share a band. */
+.band--title {
+  padding-bottom: 0;
+}
+
+.band--title + .band {
+  padding-top: 0;
+}
+
+/* ---------- band 6: quick tour ---------- */
 
 /* Two named values: the count is a maximum and the width is a minimum, so
    this gives two columns when there is room and one when there is not. */
@@ -422,74 +1236,138 @@ a:hover {
   margin-bottom: 0;
 }
 
+/* A rule above each heading, so the tour reads as a run of separate cards in
+   the column rather than as one long list. The section below it is the whole
+   entry, table and example included.
+
+   Both levels, because the cards sit at different depths on the two pages that
+   use them. The landing page's tour is a section of that page and its cards
+   are h3 under 'A quick tour'; the design guidelines are the whole page, so
+   theirs are h2 under the page title. */
+.tour h2,
 .tour h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1rem;
+  margin: 0 0 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-rule);
+  font-size: var(--text-sub);
 }
 
+/* Prose, so it takes the page's prose size. It was 0.9rem, matched to the
+   reference cards below it, and the whole card then read a step smaller than
+   the same words on any other page. The muted ink is what marks a card as
+   secondary now, and the reference tables below have come up with it so that
+   every chip in a card is still one size. */
 .tour p {
   margin: 0 0 0.5rem;
   color: var(--color-ink-muted);
-  font-size: 0.92rem;
-  max-width: none;
 }
 
-.syntax {
-  border-collapse: collapse;
-  width: 100%;
+/* A list inside a card is prose like the paragraphs around it, so it takes the
+   same colour. */
+.tour ul,
+.tour ol {
   margin: 0 0 0.5rem;
-  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+
+/* Each of these is a reference card in its own right, so it is given an edge
+   rather than being left to run on as more prose. Separate borders because a
+   collapsed table ignores padding, and the padding is what makes it a card. */
+/* Sized with the prose around it rather than with the data tables elsewhere:
+   it sits inside a card, among sentences, and a chip in one of its rows has to
+   match a chip in the sentence above it. */
+.syntax {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin: 0 0 0.6rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.65rem;
 }
 
 .syntax td {
   vertical-align: baseline;
-  padding: 0.15rem 0.75rem 0.15rem 0;
+  padding: 0.2rem 0.75rem 0.2rem 0;
   border: 0;
+}
+
+.syntax td:first-child {
+  white-space: nowrap;
 }
 
 .syntax td:last-child {
   padding-right: 0;
+  width: 99%;
   color: var(--color-ink-muted);
 }
 
-.syntax .tok {
-  font-family: var(--font-code);
-  font-size: 0.92em;
-  white-space: nowrap;
-  color: var(--color-ink);
+/* The worked example under a card. Not a code block: only the literals in it
+   are code, and the words between them are not.
+
+   Every property here was identical to .tour p, which is the only place the
+   class is ever used, so it did nothing whatever. The rule down the left is
+   what now separates a worked example from the explanation above it. */
+.example {
+  margin: 0 0 0.5rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--color-rule);
+  color: var(--color-ink-muted);
 }
 
 /* ---------- code ---------- */
 
+/* Two chips, and the ground is the whole distinction. Teal is anything a naxp
+   accepts or generates; pink is a naxp pattern. Both stay at regular weight, so
+   a chip never competes with the bold naxp in the prose around it.
+
+   The chip is set at 0.95em rather than the 0.9em it began at. Lisnoti serves
+   both the prose and the code here, so there was never much of a second face to
+   compensate for. */
 code {
   font-family: var(--font-code);
   font-variant-ligatures: none;
   background: var(--color-bg-code);
-  padding: 0.1em 0.32em;
+  border: 1px solid var(--color-edge-code);
+  color: var(--color-ink-strong);
+  padding: 0.05em 0.3em;
   border-radius: 0.25em;
-  font-size: 0.9em;
+  font-size: 0.95em;
+}
+
+code.naxp {
+  background: var(--color-bg-pattern);
+  border-color: var(--color-edge-pink);
 }
 
 pre {
   font-family: var(--font-code);
   font-variant-ligatures: none;
   background: var(--color-bg-code);
-  border: 1px solid var(--color-rule);
+  border: 1px solid var(--color-edge-code);
   padding: 0.55rem 0.75rem;
   border-radius: 0.35rem;
   overflow-x: auto;
   margin: 0;
   line-height: 1.45;
-  font-size: 0.88rem;
+  font-size: var(--text-data);
 }
 
+/* The chip treatment is for code inside a sentence. Inside a listing the pre
+   is already the box, so the code element gives up its ground, its padding and
+   its edge. The edge matters most: an inline element spanning many lines draws
+   its top and bottom border on every line box, so leaving it on ruled a faint
+   line above and below each line of the listing, each one only as wide as the
+   text on it. */
 pre code {
   background: none;
+  border: 0;
   padding: 0;
   font-size: inherit;
 }
 
-/* ---------- band 6: button links ---------- */
+/* ---------- buttons ---------- */
 
 .cards--actions .card {
   display: flex;
@@ -497,14 +1375,13 @@ pre code {
 }
 
 .cards--actions .card h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1.02rem;
+  margin: 0 0 0.35rem;
+  font-size: var(--text-sub);
 }
 
 .cards--actions .card p {
   margin: 0 0 0.9rem;
   color: var(--color-ink-muted);
-  max-width: none;
 }
 
 /* Pushes every button to the bottom of its card, so they line up across the
@@ -514,45 +1391,54 @@ pre code {
   align-self: flex-start;
 }
 
+/* An outline rather than a fill. The magenta carries no text, which is what
+   lets it be the brand magenta at full strength: it measures 3.60 against
+   white, enough for a graphic and nowhere near enough for a word. The label is
+   ink, and the hover is a step of the band's own pink: darker on a light page,
+   lighter on a dark one.
+
+   The step is small, and it is the outline that caps it. The magenta has to
+   keep 3.0 against whatever sits inside it, and one shade darker than
+   --color-bg-pink-hov takes it to 2.91. */
 .btn {
   display: inline-block;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-body);
   font-weight: 700;
   text-decoration: none;
-  color: var(--color-bg);
-  background: var(--color-link);
-  border: 1px solid transparent;
+  color: var(--color-ink);
+  background: none;
+  border: 2px solid var(--color-brand);
   border-radius: 0.3rem;
-  padding: 0.4rem 0.9rem;
+  padding: 0.4rem 0.95rem;
   cursor: pointer;
 }
 
 .btn:hover {
-  color: var(--color-bg);
-  background: var(--color-link-hover);
+  color: var(--color-ink);
+  background: var(--color-bg-pink-hov);
 }
 
-/* ---------- band 8: credits ---------- */
+/* ---------- band 7: credits ---------- */
 
 /* Dark in both modes. The overrides are local custom properties, so links and
    muted text inside the band resolve against the dark ground rather than the
    page's. Values are the dark-mode set from color-scheme.md, already measured
    against this background. */
 .sitefooter {
-  --color-ink:        #EDE7EB;
-  --color-ink-muted:  #B09AA9;
-  --color-link:       #32BCC9;
-  --color-link-hover: #78D5DD;
+  --color-ink:        #EBEBEB;
+  --color-ink-muted:  #C6C6C6;
+  --color-link:       #4DD5C8;
+  --color-link-hover: #8FE5DC;
 
-  background: #14090F;
+  background: #0A1719;
   color: var(--color-ink-muted);
   /* In dark mode the page is this same colour, so the band needs its own edge
      to read as a band at all. Against a white page the line simply softens the
      step down into the dark. */
-  border-top: 1px solid #472D3E;
+  border-top: 1px solid #28474B;
   padding-block: 1.25rem 1.6rem;
-  font-size: 0.875rem;
+  font-size: var(--text-data);
 }
 
 .sitefooter__inner {
@@ -563,13 +1449,15 @@ pre code {
 
 .sitefooter p {
   margin: 0 0 0.15rem;
-  max-width: none;
 }
 
 /* ---------- spec pages ---------- */
 
 .spec {
-  max-width: calc(var(--measure) + 8rem + 2 * var(--gutter));
+  /* The same width as a band on every other page, and the prose runs to it
+     as the prose on every other page does. It kept a narrower measure for a
+     while, which read as a column set inside a wider page. */
+  max-width: calc(var(--page) + 2 * var(--gutter));
   margin-inline: auto;
   padding-inline: var(--gutter);
   padding-block: 1.25rem 2.5rem;
@@ -581,7 +1469,7 @@ pre code {
 }
 
 .spec h1 {
-  font-size: clamp(1.6rem, 1.35rem + 1.4vw, 2.25rem);
+  font-size: var(--text-title);
   margin: 1rem 0 1.5rem;
 }
 
@@ -589,19 +1477,27 @@ pre code {
   margin-top: 2rem;
   padding-bottom: 0.25rem;
   border-bottom: 1px solid var(--color-rule);
-  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.4rem);
+  font-size: var(--text-heading);
 }
 
 .spec h3 {
   margin-top: 1.5rem;
-  font-size: 1.02rem;
+  font-size: var(--text-sub);
 }
 
 .spec table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.92rem;
+  font-size: var(--text-data);
   margin: 0 0 0.9rem;
+}
+
+/* The same header as every other table on the site. These were left at the
+   table's own size in ink, which made a specification table read as if its top
+   row were data. */
+.spec thead th {
+  font-size: var(--text-label);
+  color: var(--color-ink-muted);
 }
 
 .spec th,
@@ -621,12 +1517,25 @@ pre code {
 
 .spec ul,
 .spec ol {
-  max-width: var(--measure);
   padding-left: 1.25rem;
 }
 
 .spec li {
   margin-bottom: 0.25rem;
+}
+
+/* The table of contents, which is the list following the Contents heading.
+   Every entry carries its section number, so a bullet beside it numbers the
+   list twice. Selected by that heading's id rather than by a class, because
+   the page is markdown and the list has no class to give it. */
+.spec h2#contents + ul,
+.spec h2#contents + ul ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.spec h2#contents + ul ul {
+  padding-left: 1.25rem;
 }
 
 .spec pre {
@@ -641,7 +1550,11 @@ pre code {
   padding: 0;
 }
 
+/* Its own rule between rows, so it takes none of the gap the general li rule
+   gives a bullet: that gap would fall after the border and separate each row
+   from the line under it. */
 .versions li {
+  margin-bottom: 0;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--color-rule);
 }
@@ -657,7 +1570,572 @@ pre code {
   border: 1px solid var(--color-rule-strong);
   border-radius: 0.75rem;
   color: var(--color-ink-muted);
-  font-size: 0.72rem;
+  font-size: var(--text-label);
   letter-spacing: 0.03em;
   vertical-align: 0.12em;
+}
+
+/* ---------- interactive developer page ---------- */
+
+/* Its own bands, numbered separately from the landing page's:
+     1 header  2 the naxp  3 encode and decode  4 notes  5 credits
+
+   Two colours of their own, a green and a red, for the verdict. Neither carries
+   the meaning alone: the word is written as well as coloured, so the state
+   survives a reader who cannot tell the two apart. The fault's code keeps the
+   deeper heading teal. */
+
+/* ---------- fields ---------- */
+
+.field {
+  margin-top: 1rem;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+/* A label that names something case-sensitive cannot be uppercased without
+   changing what it says: the comparison's a and b are lower case in the API and
+   in the prose, and came out as A and B here. */
+.field__label--exact {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--color-ink);
+  background: var(--color-bg-code);
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.35rem;
+  padding: 0.5rem 0.7rem;
+}
+
+/* A box grows to fit its lines, which boxes.js sees to, so it is never dragged
+   and never scrolls: a new line adds a line to the box. Hiding the overflow
+   stops a scrollbar flashing up in the instant between a keystroke and the
+   resize that follows it. */
+textarea.input {
+  resize: none;
+  overflow-y: hidden;
+}
+
+.input::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+
+/* The pattern being worked on is the one thing on the page everything else
+   reads from, so it is set larger than the boxes that feed off it and takes the
+   pattern chip's ground. */
+.field--pattern .input {
+  font-size: var(--text-sub);
+  background: var(--color-bg-pattern);
+}
+
+/* The width sits on the stack rather than the box, so the copy button stays in
+   the box's corner rather than the row's. */
+.field--value .field__stack {
+  max-width: 18rem;
+}
+
+.field--value .input {
+  font-feature-settings: "zero" 1, "tnum" 1;
+}
+
+/* ---------- example chips ---------- */
+
+.dev__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+}
+
+/* The label sits on the same line as the chips here, so the block display it
+   carries inside a field is not wanted. */
+.dev__chips .field__label {
+  margin-bottom: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+/* Buttons mostly, but /interactive/ has one that navigates and so is an anchor.
+   The display and the missing underline are what let the same class dress
+   either: a button is inline-block already, an anchor is not. */
+.chip {
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--color-link);
+  background: none;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.3rem;
+  padding: 0.18rem 0.6rem;
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
+}
+
+/* The chip you are on, marked the way the site header marks the page you are
+   on:
+   the pale pink fill of the Get started band, filling the shape the padding and
+   radius already give. Ink stays ink, so the magenta is nowhere near a word. */
+.chip[aria-pressed="true"],
+.chip[aria-pressed="true"]:hover {
+  color: var(--color-nav-strong);
+  background: var(--color-bg-pink);
+  border-color: var(--color-rule-strong);
+  cursor: default;
+}
+
+/* A language the emitters do not cover yet. Dimmed means unavailable and
+   nothing else, and it must not take the hover: feedback promising something
+   will happen is worse than none. */
+.chip[aria-disabled="true"],
+.chip[aria-disabled="true"]:hover {
+  color: var(--color-ink-disabled);
+  border-color: var(--color-rule);
+  background: none;
+  cursor: default;
+}
+
+/* Pushed to the far end of the row: it acts on the naxp rather than replacing
+   it, so it does not belong among the examples. */
+.chip--share {
+  margin-left: auto;
+}
+
+/* Disabled while there is nothing to copy, which is any moment the naxp does
+   not compile. Same treatment as a language that is not offered. */
+.chip:disabled,
+.chip:disabled:hover {
+  color: var(--color-ink-disabled);
+  border-color: var(--color-rule);
+  background: none;
+  cursor: default;
+}
+
+/* ---------- status ---------- */
+
+.status {
+  margin-top: 1rem;
+  min-height: 2.6rem;
+}
+
+.status__line {
+  margin: 0;
+}
+
+.status__flag {
+  font-weight: 700;
+}
+
+/* The verdict leads the line and the reason follows it, on both /test/ and
+   /migrate/, so the two pages report in one voice. It is set at the
+   sub-heading size, which is what makes it the first thing read rather than a
+   coloured word among the prose. */
+.status__line--ok .status__flag,
+.status__line--bad .status__flag {
+  font-size: var(--text-sub);
+  line-height: 1.3;
+  margin-right: 0.45rem;
+}
+
+.status__line--ok .status__flag {
+  color: var(--color-ok);
+}
+
+.status__line--bad .status__flag {
+  color: var(--color-bad);
+}
+
+/* A tick and a cross, drawn here rather than typeset. Lisnoti's own ✓ and ✗ are
+   not good enough to carry a verdict, and every other glyph for the job renders
+   differently on each platform or arrives as emoji.
+
+   Two straight strokes each, butt caps and mitred joins, so every end and every
+   elbow is a corner. They are masks rather than images, so the shape takes
+   `currentColor` and follows the green and the red through both themes without
+   a second copy of either colour. The colour is never the only thing carrying
+   the verdict: the word is written beside it, and the shapes differ. */
+@supports ((mask-image: none) or (-webkit-mask-image: none)) {
+  .status__line--ok .status__flag::before,
+  .status__line--bad .status__flag::before {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.35em;
+    vertical-align: -0.04em;
+    background: currentColor;
+    -webkit-mask: var(--status-mark) center / contain no-repeat;
+    mask: var(--status-mark) center / contain no-repeat;
+  }
+
+  .status__line--ok .status__flag {
+    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12.5 9.5 19.5 21.5 4.5' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/svg%3E");
+  }
+
+  .status__line--bad .status__flag {
+    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 4.5 19.5 19.5 M19.5 4.5 4.5 19.5' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/svg%3E");
+  }
+}
+
+/* ---------- admonitions ---------- */
+
+/* An aside in the prose that the reader is meant to stop at: a note that saves
+   them work, or a warning that saves them a mistake they cannot undo.
+
+   Built as the status line above is, a flag word then the prose, rather than as
+   a block with the label on a line of its own the way GitHub sets these. The
+   site already reads that way and the two should not differ. The rule down the
+   left is what makes it an aside rather than another paragraph.
+
+   The note takes the heading teal rather than the link teal, so a reader does
+   not take the flag for something to click. The warning takes the one colour
+   added for it: red is spoken for, and on this site it means a naxp is invalid,
+   which is not what a warning says. */
+/* A rule down the left in the flag's own colour, and nothing else: no box, no
+   ground, no shadow. It was a 1px box for a while and went back, the rule being
+   what the site already uses for an aside - the blockquote in the specification
+   is drawn the same way, at the same width. */
+.admonition {
+  /* Top and bottom, where a paragraph carries only a bottom. Adjacent margins
+     collapse, so this changes nothing where an admonition follows prose and
+     gives it air where it follows something with no margin of its own, such as
+     the row of chips above the generated code. */
+  margin: 0.7rem 0;
+  padding: 0.45rem 0.75rem;
+  border-left: 3px solid var(--color-rule-strong);
+  font-size: var(--text-admonition);
+}
+
+.admonition__flag {
+  font-weight: 700;
+  margin-right: 0.4rem;
+}
+
+.admonition--note {
+  border-color: var(--color-note);
+}
+
+.admonition--note .admonition__flag {
+  color: var(--color-note);
+}
+
+.admonition--warning {
+  border-color: var(--color-warn);
+}
+
+.admonition--warning .admonition__flag {
+  color: var(--color-warn);
+}
+
+/* A tip takes the green of the tick: something that will go well if followed. */
+.admonition--tip {
+  border-color: var(--color-ok);
+}
+
+.admonition--tip .admonition__flag {
+  color: var(--color-ok);
+}
+
+/* An admonition holding more than one paragraph, or a list, is a div with them
+   inside; the first and last lose their outer margins, so the aside is padded
+   as the one-paragraph kind is. */
+.admonition > :first-child {
+  margin-top: 0;
+}
+
+.admonition > :last-child {
+  margin-bottom: 0;
+}
+
+/* Drawn here rather than typeset, for the reasons the tick and the cross are:
+   the glyphs for these render differently on every platform or arrive as
+   emoji. Masks again, so each shape takes currentColor and follows its flag
+   through both themes. The colour is never the only thing carrying the
+   meaning: the word is written beside it, and the shapes differ. */
+@supports ((mask-image: none) or (-webkit-mask-image: none)) {
+  .admonition__flag::before {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.3em;
+    vertical-align: -0.1em;
+    background: currentColor;
+    -webkit-mask: var(--admonition-mark) center / contain no-repeat;
+    mask: var(--admonition-mark) center / contain no-repeat;
+  }
+
+  .admonition--note .admonition__flag {
+    --admonition-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='butt' stroke-linejoin='miter'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Cpath d='M12 11V17.5 M12 6.5V8.5'/%3E%3C/svg%3E");
+  }
+
+  .admonition--warning .admonition__flag {
+    --admonition-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='butt' stroke-linejoin='miter'%3E%3Cpath d='M12 2.5 22.5 21H1.5Z M12 9V14.5 M12 16.8V18.4'/%3E%3C/svg%3E");
+  }
+
+  /* A bulb, in the same stroke as the other two. */
+  .admonition--tip .admonition__flag {
+    --admonition-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='butt' stroke-linejoin='miter'%3E%3Cpath d='M12 2.5a6.5 6.5 0 0 0-3.8 11.8c.8.6 1.3 1.5 1.3 2.5V17h5v-.2c0-1 .5-1.9 1.3-2.5A6.5 6.5 0 0 0 12 2.5Z M9.5 19.5h5 M10.5 22h3'/%3E%3C/svg%3E");
+  }
+}
+
+/* The fault's code, in front of the words that explain it. */
+.status__code {
+  font-family: var(--font-code);
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.status__line--bad {
+  color: var(--color-ink);
+}
+
+.status__line--idle {
+  color: var(--color-ink-muted);
+}
+
+/* The fault is marked in the box the naxp is written in rather than in a copy of
+   it below. A layer holding the same text sits over the box, so the two have to
+   agree on every metric that decides where a character lands: font, size, line
+   height, padding and border.
+
+   The layer is on top rather than behind. Underneath it, the box's own glyphs
+   paint over the stroke wherever a descender reaches into it, which leaves the
+   squiggle broken up. Its text is transparent and it takes no pointer events, so
+   only the stroke shows and the box below stays fully editable. */
+.field__stack {
+  position: relative;
+}
+
+/* Room for the copy button in the corner, on the layer as well as the box, since
+   the two have to break their lines in the same place. */
+.field__stack > .input {
+  padding-right: 2.4rem;
+}
+
+/* ---------- the copy button ---------- */
+
+/* Sits in the top right corner of every text box and of the generated code,
+   drawn in the muted ink until pointed at, so it is there when wanted and not
+   before. Above the fault layer on the pattern boxes, which is why it has a
+   depth of its own. */
+.copy {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.copy svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.copy:hover,
+.copy:focus-visible {
+  color: var(--color-link);
+  /* A wash of its own colour, so it reads the same on the pink ground of the
+     pattern box, the teal of the others and the generated code's. */
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* Nothing to copy, so the button waits rather than goes: a control that comes
+   and goes with each keystroke is a distraction. */
+.copy:disabled,
+.copy:disabled:hover {
+  color: var(--color-ink-disabled);
+  background: transparent;
+  cursor: default;
+}
+
+/* Written with both classes so it outweighs the rule that grounds the pattern
+   box: the layer has to stay see-through whatever the box behind it is painted. */
+.input.field__underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  color: transparent;
+  background: transparent;
+  border-color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The characters at fault are marked in place. Everywhere else the layer's text
+   is transparent and only the box below shows through; here it paints an opaque
+   ground over the box's own glyphs and then draws them again in red, so the fault
+   reads as recoloured text rather than as something drawn near it.
+
+   A wavy underline was tried first and does not work at this size: over a single
+   space it is four pixels of stroke, which is a stray tick rather than a wave.
+   A ground has no such floor, so the mark can name exactly the characters at
+   fault and nothing more.
+
+   Nothing here is sized. The layer has to break its lines exactly where the box
+   does, so a mark may recolour but never take space. */
+.errmark {
+  /* A red rule and nothing else. The layer's text stays transparent here as it is
+     everywhere, so the characters at fault are the box's own, drawn once, with
+     their own ink and the caret still visible through them.
+
+     An opaque ground was tried and is what made this brittle: it had to cover the
+     box's glyphs, so the layer had to draw them again, and it covered the caret
+     along with them. Painting only the rule means the layer contributes one thing
+     and can get nothing else wrong. */
+  text-decoration: underline;
+  text-decoration-color: var(--color-bad);
+  text-decoration-skip-ink: none;
+  text-decoration-thickness: 0.1em;
+  text-underline-offset: 0.14em;
+}
+
+/* ---------- encode and decode ---------- */
+
+.dev__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.dev__paneTitle {
+  margin: 0;
+  font-size: var(--text-heading);
+}
+
+.dev__paneNote {
+  margin: 0.3rem 0 0;
+  color: var(--color-ink-muted);
+  max-width: var(--measure);
+}
+
+.dev__subTitle {
+  margin: 1.4rem 0 0.35rem;
+  font-size: var(--text-sub);
+}
+
+.dev__results {
+  margin-top: 0.9rem;
+}
+
+/* The string a value stands for, given the weight of an answer rather than of
+   a table row. */
+.decoded {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  font-size: var(--text-sub);
+  font-weight: 700;
+  background: var(--color-bg-code);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.35rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: none;
+}
+
+/* ---------- result tables ---------- */
+
+.results {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-data);
+}
+
+.results th,
+.results td {
+  text-align: left;
+  vertical-align: baseline;
+  padding: 0.35rem 0.9rem 0.35rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.results thead th {
+  font-weight: 700;
+  font-size: var(--text-label);
+  color: var(--color-ink-muted);
+  padding-bottom: 0.3rem;
+}
+
+.results tr > *:last-child {
+  padding-right: 0;
+}
+
+.results .num {
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-feature-settings: "zero" 1, "tnum" 1;
+  font-weight: 400;
+}
+
+/* Spaces are kept, since a string that differs from another only in its spaces
+   is exactly the case this page is for. */
+.results__literal {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  font-weight: 400;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.results tr.is-invalid .results__literal,
+.results tr.is-invalid .num {
+  color: var(--color-ink-muted);
+}
+
+/* Digits are grouped in threes by a margin rather than by a separator character, so that
+   selecting a number and copying it gives the bare digits, ready to paste into code. The
+   width is U+202F's, which is what the specification and the prose use where only a
+   character will do. */
+.digits__group + .digits__group {
+  margin-left: 0.22em;
+}
+
+/* A note about the table above it, so it is sized with that table rather than
+   given a size of its own. Same as .examples__note, which does the same job. */
+.results__note {
+  margin: 0.5rem 0 0;
+  font-size: var(--text-data);
 }

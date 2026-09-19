@@ -36,11 +36,11 @@ namespace LogMu;
 static class W3Checker
 {
 	/// <summary>
-	/// Checks that replacement is single valued.
+	/// Checks that unification is single valued.
 	/// </summary>
 	/// <param name="ast">The tree, which must already have passed W1 and W2.</param>
 	/// <param name="rxFactory">The factory the machines will be built with, reused for interning.</param>
-	/// <param name="error">The refusal, or <see langword="null"/> if the naxp passes.</param>
+	/// <param name="error">The fault, or <see langword="null"/> if the naxp passes.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the naxp passes.</returns>
 	public static bool TryCheck(Ast ast, RxFactory rxFactory, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
@@ -50,29 +50,29 @@ static class W3Checker
 		if (ast is null) { throw new ArgumentNullException(nameof(ast)); }
 		if (rxFactory is null) { throw new ArgumentNullException(nameof(rxFactory)); }
 
-		return TryCheck(ast, rxFactory, Ast.ContainsReplaceable(ast), out error, maxStates);
+		return TryCheck(ast, rxFactory, Ast.ContainsUnified(ast), out error, maxStates);
 	}
 
 	/// <summary>
-	/// Checks that replacement is single valued, where the caller already knows whether there is
+	/// Checks that unification is single valued, where the caller already knows whether there is
 	/// anything to check.
 	/// </summary>
 	/// <param name="ast">The tree, which must already have passed W1 and W2.</param>
 	/// <param name="rxFactory">The factory the machines will be built with, reused for interning.</param>
-	/// <param name="hasReplaceable">
-	/// <see cref="Ast.ContainsReplaceable"/> for <paramref name="ast"/>, so that a caller which
+	/// <param name="hasUnified">
+	/// <see cref="Ast.ContainsUnified"/> for <paramref name="ast"/>, so that a caller which
 	/// needs the same fact does not walk the tree for it twice.
 	/// </param>
-	/// <param name="error">The refusal, or <see langword="null"/> if the naxp passes.</param>
+	/// <param name="error">The fault, or <see langword="null"/> if the naxp passes.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the naxp passes.</returns>
-	public static bool TryCheck(Ast ast, RxFactory rxFactory, bool hasReplaceable, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
+	public static bool TryCheck(Ast ast, RxFactory rxFactory, bool hasUnified, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
 	{
 		if (ast is null) { throw new ArgumentNullException(nameof(ast)); }
 		if (rxFactory is null) { throw new ArgumentNullException(nameof(rxFactory)); }
 
 		// Without a '!' the transduction is the identity, which is single valued for nothing.
-		if (!hasReplaceable)
+		if (!hasUnified)
 		{
 			error = null;
 			return true;
@@ -96,7 +96,7 @@ static class W3Checker
 	/// <param name="txFactory">The factory that made it, whose derivative cache is reused.</param>
 	/// <param name="error">The violation, or <see langword="null"/> where there is none.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
-	/// <returns>Whether replacement is single valued.</returns>
+	/// <returns>Whether unification is single valued.</returns>
 	public static bool TryCheck(Tx root, TxFactory txFactory, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
 	{
 		if (root is null) { throw new ArgumentNullException(nameof(root)); }
@@ -455,12 +455,12 @@ static class W3Checker
 		/// different thing from running out of pair states and must not claim to be that.
 		/// </summary>
 		static NaxpError Abandoned()
-			=> new NaxpError(NaxpMessage.NAXP1052_PairOutputAbandoned);
+			=> new NaxpError(NaxpMessage.NAXP1051_PairOutputAbandoned);
 
 		NaxpError TooLarge()
-			=> new NaxpError(NaxpMessage.NAXP1051_TooManyPairStates);
+			=> new NaxpError(NaxpMessage.NAXP1050_TooManyPairStates);
 
 		static NaxpError Violation(string witness)
-			=> new NaxpError(NaxpMessage.NAXP1046_ReplacementNotSingleValuedWitness, witness);
+			=> new NaxpError(NaxpMessage.NAXP1045_UnificationNotSingleValuedWitness, witness);
 	}
 }

@@ -36,7 +36,7 @@ namespace LogMu.Generator;
 /// NAXP0008  ValueTypeTooNarrow    Error     The naxp does not fit the value type
 /// NAXP0009  GeneratorFailed       Error     The naxp generator failed
 /// NAXP0010  FileLocalType         Error     A file-local type cannot hold a naxp
-/// NAXP0101  NaxpRefused           Error     The naxp was refused
+/// NAXP0101  NaxpInvalid           Error     The naxp was invalid
 /// </code>
 /// </remarks>
 enum Rule
@@ -51,7 +51,7 @@ enum Rule
 	ValueTypeTooNarrow,
 	GeneratorFailed,
 	FileLocalType,
-	NaxpRefused,
+	NaxpInvalid,
 }
 
 /// <summary>The descriptors behind <see cref="Rule"/>, and the shorthand for reporting one.</summary>
@@ -109,7 +109,7 @@ static class Rules
 			"'{0}' is a file-local type, and the generated code goes in a file of its own, which cannot be part of it. Drop the 'file' modifier."),
 		Error(
 			"NAXP0101",
-			"The naxp was refused",
+			"The naxp was invalid",
 			"{0}: {1}"));
 
 	/// <summary>The descriptor for a rule.</summary>

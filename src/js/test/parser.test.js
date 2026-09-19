@@ -7,40 +7,42 @@ import assert from 'node:assert/strict';
 import {
 	AstAlternation,
 	AstChars,
-	AstDigitsRange,
+	AstDecimalRange,
 	AstEmpty,
 	AstInterval,
 	AstOptional,
-	AstReplaceable,
+	AstUnified,
 	AstSequence,
-	ReplaceableForm,
+	UnifiedForm,
 } from '../lib/ast.js';
+import { NaxpMessage } from '../lib/naxp-message.js';
+import { Naxp } from '../lib/naxp.js';
 import { tryParse } from '../lib/parser.js';
 import { ruleOf } from './naxp-message-rules.js';
 
 // #region Helpers
 
 /**
- * Parses, and fails the test if the source is refused.
+ * Parses, and fails the test if the pattern is invalid.
  *
- * @param {string} text The source.
+ * @param {string} text The pattern.
  * @returns {import('../lib/ast.js').Ast} The tree.
  */
 function parse(text) {
 	const { ast, error } = tryParse(text);
 
-	assert.ok(ast !== null, `${text} was refused: ${error}`);
+	assert.ok(ast !== null, `${text} was invalid: ${error}`);
 
 	return ast;
 }
 
 /**
- * Parses, and fails the test if the source is accepted.
+ * Parses, and fails the test if the pattern is accepted.
  *
- * @param {string} text The source.
- * @returns {import('../lib/naxp-error.js').NaxpError} The refusal.
+ * @param {string} text The pattern.
+ * @returns {import('../lib/naxp-error.js').NaxpError} The fault.
  */
-function refuse(text) {
+function faultOf(text) {
 	const { ast, error } = tryParse(text);
 
 	assert.equal(ast, null, `${text} was accepted.`);
@@ -49,10 +51,10 @@ function refuse(text) {
 }
 
 /**
- * The shape of a tree, with source offsets dropped.
+ * The shape of a tree, with pattern offsets dropped.
  *
  * The C# test compares two trees by generating strings from each and checking they agree, which
- * needs the matcher. Comparing the shapes directly is available now and is the stronger check:
+ * needs the tree walker. Comparing the shapes directly is available now and is the stronger check:
  * two trees that generate the same strings can still differ.
  *
  * @param {import('../lib/ast.js').Ast} node The node.
@@ -63,9 +65,9 @@ function shape(node) {
 
 	if (node instanceof AstChars) { return { kind: 'chars', chars: node.charSet.key() }; }
 
-	if (node instanceof AstDigitsRange) {
+	if (node instanceof AstDecimalRange) {
 		return {
-			kind: 'digitsRange',
+			kind: 'decimalRange',
 			low: node.low,
 			lowDigitCount: node.lowDigitCount,
 			high: node.high,
@@ -92,9 +94,9 @@ function shape(node) {
 		};
 	}
 
-	if (node instanceof AstReplaceable) {
+	if (node instanceof AstUnified) {
 		return {
-			kind: 'replaceable',
+			kind: 'unified',
 			form: node.form,
 			subject: shape(node.subject),
 			rendering: shape(node.rendering),
@@ -122,21 +124,21 @@ test('an empty group is the empty string', () => {
 
 test('x!! expands to an optional subject rendered as itself', () => {
 	// x!! is x?!(x), and the expansion is structural rather than textual.
-	const replaceable = parse('\\s!!');
+	const unified = parse('\\s!!');
 
-	assert.ok(replaceable instanceof AstReplaceable);
-	assert.equal(replaceable.form, ReplaceableForm.Reproduced);
-	assert.ok(replaceable.subject instanceof AstOptional);
-	assert.equal(replaceable.subject.child, replaceable.rendering, 'the subtree is shared');
+	assert.ok(unified instanceof AstUnified);
+	assert.equal(unified.form, UnifiedForm.Reproduced);
+	assert.ok(unified.subject instanceof AstOptional);
+	assert.equal(unified.subject.child, unified.rendering, 'the subtree is shared');
 });
 
 test('x!? expands to an optional subject rendered as nothing', () => {
-	const replaceable = parse('\\A!?');
+	const unified = parse('\\A!?');
 
-	assert.ok(replaceable instanceof AstReplaceable);
-	assert.equal(replaceable.form, ReplaceableForm.Dropped);
-	assert.ok(replaceable.subject instanceof AstOptional);
-	assert.ok(replaceable.rendering instanceof AstEmpty);
+	assert.ok(unified instanceof AstUnified);
+	assert.equal(unified.form, UnifiedForm.Dropped);
+	assert.ok(unified.subject instanceof AstOptional);
+	assert.ok(unified.rendering instanceof AstEmpty);
 });
 
 test('a quantifier binds to the base before it', () => {
@@ -165,10 +167,10 @@ test('an interval with one count uses it for both', () => {
 	assert.equal(interval.maxCount, 3);
 });
 
-test('a digits range keeps the widths as written', () => {
+test('a decimal range keeps the widths as written', () => {
 	const padded = parse('#[00-105]');
 
-	assert.ok(padded instanceof AstDigitsRange);
+	assert.ok(padded instanceof AstDecimalRange);
 	assert.equal(padded.low, 0);
 	assert.equal(padded.lowDigitCount, 2);
 	assert.equal(padded.high, 105);
@@ -176,7 +178,7 @@ test('a digits range keeps the widths as written', () => {
 });
 
 test('an interval is not expanded at parse time', () => {
-	// The cap on an interval count exists so that an implementation can reject a naxp before
+	// The cap on an interval count exists so that an implementation can find a naxp invalid before
 	// expanding it, which parsing must not throw away.
 	const interval = parse('(A{99}){99}');
 
@@ -213,7 +215,7 @@ test('whitespace between tokens is ignored', () => {
 test('an interval with a hyphen names the separator', () => {
 	// The counts take a comma, as in every regular expression dialect. A hyphen is what somebody
 	// carrying a habit over from a character range would reach for, so it earns its own message.
-	const error = refuse('A{2-5}');
+	const error = faultOf('A{2-5}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.equal(error.offset, 3);
@@ -221,54 +223,76 @@ test('an interval with a hyphen names the separator', () => {
 });
 
 test('an unbounded interval says there is none', () => {
-	const error = refuse('A{2,}');
+	const error = faultOf('A{2,}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.ok(error.text.includes('no unbounded interval'), error.text);
 });
 
 test('a bare bang names the three forms', () => {
-	const error = refuse('A!');
+	const error = faultOf('A!');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.equal(error.offset, 1);
 	assert.ok(error.text.includes("'x!y', 'x!!' or 'x!?'"), error.text);
 });
 
-test('the hex escape says it was removed', () => {
-	// Version 0.3 removed it, so anyone who knows regex or an earlier draft will write this and
-	// deserves to be told why it has gone.
-	const error = refuse('\\x41');
+test('\\x is a digit or a lower case letter, so \\x41 is three positions', () => {
+	// The regex hex escape reads as the block escape followed by two literal digits. Anyone
+	// expecting 'A' out of it gets a naxp that accepts 'a41' and refuses 'A'.
+	const naxp = Naxp.parse('\\x41');
 
-	assert.equal(ruleOf(error.message), 'syntax');
-	assert.equal(error.offset, 0);
-	assert.ok(error.text.includes('removed in version 0.3'), error.text);
+	assert.equal(naxp.maxEncodedValue, 36n);
+	assert.ok(naxp.accepts('a41'));
+	assert.ok(naxp.accepts('741'));
+	assert.ok(!naxp.accepts('A41'));
+	assert.ok(!naxp.accepts('A'));
 });
 
 test('an undefined escape lists the escape letters', () => {
-	const error = refuse('\\d');
+	const error = faultOf('\\d');
 
 	assert.equal(ruleOf(error.message), 'syntax');
-	assert.ok(error.text.includes("'s', '9', 'A', 'a' and 'X'"), error.text);
+	assert.ok(error.text.includes("'s', '9', 'A', 'a', 'X', 'x', 'C' and 'c'"), error.text);
 });
 
 test('a range written backwards says lowest first', () => {
-	const error = refuse('[E-A]');
+	const error = faultOf('[E-A]');
 
-	assert.equal(ruleOf(error.message), 'syntax');
+	assert.equal(ruleOf(error.message), 'W4');
 	assert.ok(error.text.includes('lowest first'), error.text);
-	assert.ok(error.text.includes("'A'-'E'"), error.text);
+	assert.ok(error.text.includes("'A-E'"), error.text);
+});
+
+test('a range written backwards suggests something that can be typed', () => {
+	// The message quotes its argument, so the argument must not quote itself. It also has to be
+	// the pattern of the range rather than a description of its bounds: a space is written '\s'
+	// and cannot be typed as itself, and a reserved bound has to keep its backslash.
+	const cases = [
+		['[E-A]', 'A-E'],
+		['[~-\\s]', '\\s-~'],
+		['[a-\\]]', '\\]-a'],
+	];
+
+	for (const [text, suggestion] of cases) {
+		const error = faultOf(text);
+
+		assert.ok(error.text.includes(`Write '${suggestion}'.`), `${text}: ${error.text}`);
+
+		// A suggestion that is not itself a naxp is not a suggestion.
+		parse(`[${suggestion}]`);
+	}
 });
 
 test("'!!' after a '?' says to write it out", () => {
-	const error = refuse('\\s?!!');
+	const error = faultOf('\\s?!!');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.ok(error.text.includes("x!(x)"), error.text);
 });
 
 test('two quantifiers on one base says to group it', () => {
-	const error = refuse('A?{2}');
+	const error = faultOf('A?{2}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.ok(error.text.includes("'(A?){2}'"), error.text);
@@ -284,7 +308,7 @@ test('whitespace splitting a token points at the whitespace', () => {
 	];
 
 	for (const [text, offset, fragment] of cases) {
-		const error = refuse(text);
+		const error = faultOf(text);
 
 		assert.equal(ruleOf(error.message), 'syntax', text);
 		assert.equal(error.offset, offset, text);
@@ -292,7 +316,7 @@ test('whitespace splitting a token points at the whitespace', () => {
 	}
 });
 
-test('further refusals the test data does not cover', () => {
+test('further faults the test data does not cover', () => {
 	// Kept here so the parser cannot quietly grow lax.
 	const cases = [
 		['A)', 'syntax'],
@@ -312,34 +336,59 @@ test('further refusals the test data does not cover', () => {
 	];
 
 	for (const [text, rule] of cases) {
-		assert.equal(ruleOf(refuse(text).message), rule, text);
+		assert.equal(ruleOf(faultOf(text).message), rule, text);
 	}
 });
 
 // #endregion
-// #region Source repertoire
+// #region Pattern repertoire
 
-test('source outside the repertoire is refused', () => {
-	// The source may hold whitespace and the printable ASCII characters U+0021 to U+007E.
+test('a closing parenthesis with no group to close says so', () => {
+	const cases = [
+		['AB)', 2],
+		['A)B', 1],
+		['(A)B)', 4],
+		['\\A\\A?\\9\\X? \\s!! \\9\\A\\A) | GIR \\s!! 0AA', 22],
+	];
+
+	for (const [text, offset] of cases) {
+		const error = faultOf(text);
+
+		assert.equal(error.message, NaxpMessage.NAXP1057_GroupNotOpened, text);
+		assert.equal(error.offset, offset, text);
+		assert.ok(error.text.includes('no group'), error.text);
+	}
+});
+
+test('the faults either side of it are unchanged', () => {
+	// An unclosed group still reports the opener, and an escaped parenthesis is still an
+	// ordinary character rather than a fault.
+	assert.equal(faultOf('(AB').message, NaxpMessage.NAXP1009_GroupNotClosed);
+	assert.equal(faultOf('((A)').message, NaxpMessage.NAXP1009_GroupNotClosed);
+	assert.notEqual(tryParse('A\\)B').ast, null);
+});
+
+test('pattern outside the repertoire is invalid', () => {
+	// The pattern may hold whitespace and the printable ASCII characters U+0021 to U+007E.
 	for (const c of ['\u00e9', '\u0001', '\u007f']) {
-		const error = refuse(`A${c}`);
+		const error = faultOf(`A${c}`);
 
 		assert.equal(ruleOf(error.message), 'syntax');
 		assert.equal(error.offset, 1);
-		assert.ok(error.text.includes('cannot appear in the source'), error.text);
+		assert.ok(error.text.includes('cannot appear in the pattern'), error.text);
 	}
 });
 
 test('the repertoire message names the code point', () => {
-	assert.ok(refuse('A\u00e9').text.includes('U+00E9'));
+	assert.ok(faultOf('A\u00e9').text.includes('U+00E9'));
 });
 
-test('an empty source is not a naxp', () => {
-	assert.equal(ruleOf(refuse('').message), 'syntax');
+test('an empty pattern is not a naxp', () => {
+	assert.equal(ruleOf(faultOf('').message), 'syntax');
 });
 
-test('a source of nothing but whitespace is not a naxp', () => {
-	assert.equal(ruleOf(refuse('   ').message), 'syntax');
+test('a pattern of nothing but whitespace is not a naxp', () => {
+	assert.equal(ruleOf(faultOf('   ').message), 'syntax');
 });
 
 // #endregion

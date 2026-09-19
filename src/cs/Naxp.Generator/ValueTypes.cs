@@ -27,7 +27,7 @@ static class ValueTypes
 		(SpecialType.System_UInt64, NaxpValueType.UInt64, "ulong"),
 	];
 
-	/// <summary>The types a message offers when it has just refused one, in the same order.</summary>
+	/// <summary>The types a message offers when it has just ruled one out, in the same order.</summary>
 	public const string Choices = "sbyte, byte, short, ushort, int, uint, long or ulong";
 
 	/// <summary>The type <c>typeof(...)</c> named, where it is one a naxp can encode to.</summary>
@@ -60,11 +60,11 @@ static class ValueTypes
 	}
 
 	/// <summary>The narrowest type a naxp of this many values fits, for saying so.</summary>
-	public static NaxpValueType Narrowest(ulong valueCount)
+	public static NaxpValueType Narrowest(ulong maxEncodedValue)
 	{
 		foreach ((SpecialType _, NaxpValueType value, string _2) in Table)
 		{
-			if (valueCount <= Emitter.Capacity(value)) { return value; }
+			if (maxEncodedValue <= Emitter.Capacity(value)) { return value; }
 		}
 
 		// W5 caps a legal naxp at ulong.MaxValue values, which is the last row, so the loop

@@ -77,12 +77,15 @@ public class NaxpMessageTests
 			new[]
 			{
 				NaxpMessage.NAXP1027_RangeReversed,
-				NaxpMessage.NAXP1032_EscapeUndefined,
-				NaxpMessage.NAXP1033_CharacterNotAllowed,
-				NaxpMessage.NAXP1038_ReservedCharacterHere,
-				NaxpMessage.NAXP1039_CharacterHere,
-				NaxpMessage.NAXP1044_RenderingNotGenerated,
-				NaxpMessage.NAXP1046_ReplacementNotSingleValuedWitness,
+				NaxpMessage.NAXP1031_EscapeUndefined,
+				NaxpMessage.NAXP1032_CharacterNotAllowed,
+				NaxpMessage.NAXP1037_ReservedCharacterHere,
+				NaxpMessage.NAXP1038_CharacterHere,
+				NaxpMessage.NAXP1043_RenderingNotGenerated,
+				NaxpMessage.NAXP1045_UnificationNotSingleValuedWitness,
+				NaxpMessage.NAXP1052_FoldInCharacterSet,
+				NaxpMessage.NAXP1059_RepetitionUnbounded,
+				NaxpMessage.NAXP1061_Anchor,
 			},
 			withArgument);
 	}
@@ -95,7 +98,7 @@ public class NaxpMessageTests
 	/// Several messages quote naxps holding braces - <c>'A{2,5}'</c> and <c>Add a '}'</c> among
 	/// them - and those never reach <see cref="string.Format(IFormatProvider, string, object?)"/>
 	/// because they take no argument. Giving one an argument later without doubling its braces
-	/// would throw at the moment of refusal, which is the worst time to find out.
+	/// would throw at the moment of fault, which is the worst time to find out.
 	/// </remarks>
 	[Fact]
 	public void EveryMessageTakingAnArgument_FormatsWithoutThrowing()
@@ -120,18 +123,18 @@ public class NaxpMessageTests
 	{
 		string states = NaxpLimits.MaxStates.ToString(CultureInfo.InvariantCulture);
 
-		Assert.Contains(states, NaxpMessages.Format(NaxpMessage.NAXP1049_TooManyStates, null), StringComparison.Ordinal);
-		Assert.Contains(states, NaxpMessages.Format(NaxpMessage.NAXP1051_TooManyPairStates, null), StringComparison.Ordinal);
+		Assert.Contains(states, NaxpMessages.Format(NaxpMessage.NAXP1048_TooManyStates, null), StringComparison.Ordinal);
+		Assert.Contains(states, NaxpMessages.Format(NaxpMessage.NAXP1050_TooManyPairStates, null), StringComparison.Ordinal);
 
 		Assert.Contains(
 			NaxpLimits.MaxCanonicalStates.ToString(CultureInfo.InvariantCulture),
-			NaxpMessages.Format(NaxpMessage.NAXP1050_TooManyCanonicalStates, null),
+			NaxpMessages.Format(NaxpMessage.NAXP1049_TooManyCanonicalStates, null),
 			StringComparison.Ordinal);
 
-		Assert.Contains(
-			Matcher.MaxGeneratedLength.ToString(CultureInfo.InvariantCulture),
-			NaxpMessages.Format(NaxpMessage.NAXP1048_ElementTooLong, null),
-			StringComparison.Ordinal);
+		string generated = TreeWalker.MaxGeneratedLength.ToString(CultureInfo.InvariantCulture);
+
+		Assert.Contains(generated, NaxpMessages.Format(NaxpMessage.NAXP1047_ElementTooLong, null), StringComparison.Ordinal);
+		Assert.Contains(generated, NaxpMessages.Format(NaxpMessage.NAXP1051_PairOutputAbandoned, null), StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -148,14 +151,14 @@ public class NaxpMessageTests
 	}
 
 	/// <summary>
-	/// A refusal that names no place in the naxp leaves both numbers at zero, which the public
-	/// surface reads as the whole of it. A refusal that does name one must never do that, or it
+	/// A fault that names no place in the naxp leaves both numbers at zero, which the public
+	/// surface reads as the whole of it. A fault that does name one must never do that, or it
 	/// would be mistaken for the same thing.
 	/// </summary>
 	[Fact]
-	public void ARefusalWithAPosition_IsNotMistakenForTheWholeNaxp()
+	public void AFaultWithAPosition_IsNotMistakenForTheWholeNaxp()
 	{
-		Assert.True(new NaxpError(NaxpMessage.NAXP1047_TooManyValues).IsWholeNaxp);
+		Assert.True(new NaxpError(NaxpMessage.NAXP1046_TooManyValues).IsWholeNaxp);
 		Assert.False(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, offset: 0, length: 1).IsWholeNaxp);
 		Assert.False(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, offset: 3, length: 1).IsWholeNaxp);
 	}
@@ -165,7 +168,7 @@ public class NaxpMessageTests
 	/// </summary>
 	/// <remarks>
 	/// A member is spelled <c>NAXP1002_IntervalHyphen</c> so that a line of the library says which
-	/// refusal it is about at a glance. That half is a note to ourselves: it would read as a
+	/// fault it is about at a glance. That half is a note to ourselves: it would read as a
 	/// promise about wording nobody has made, so it stops at the boundary.
 	/// </remarks>
 	[Fact]

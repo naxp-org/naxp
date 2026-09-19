@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { tryCanonicalise } from '../lib/canonicaliser.js';
 import { encode, tryDecode } from '../lib/codec.js';
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert } from '../lib/rx-converter.js';
+import { convert } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { tryBuild } from '../lib/state-map.js';
 import { checkW3 } from '../lib/w3-checker.js';
@@ -22,7 +22,7 @@ const data = loadConformanceData();
  * This is what the compiler will do once it is written. Doing it by hand here means the encoding
  * can be held to the test data now rather than after another file.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {{ast: import('../lib/ast.js').Ast,
  *   canonical: import('../lib/state-map.js').StateMap,
  *   accepted: import('../lib/state-map.js').StateMap}} The tree and the two machines.
@@ -37,8 +37,8 @@ function compile(naxp) {
 
 	assert.equal(checkW3(ast, factory), null, `${naxp} failed W3`);
 
-	const canonical = tryBuild(convert(ast, factory, NaxpLanguage.Canonical), factory);
-	const accepted = tryBuild(convert(ast, factory, NaxpLanguage.Accepted), factory);
+	const canonical = tryBuild(convert(ast, factory, true), factory);
+	const accepted = tryBuild(convert(ast, factory, false), factory);
 
 	assert.ok(canonical.map !== null, `${naxp}: no canonical machine: ${canonical.error}`);
 	assert.ok(accepted.map !== null, `${naxp}: no accepted machine: ${accepted.error}`);
@@ -53,10 +53,10 @@ test('the value count is the one the test data states', () => {
 	for (const item of data.cases) {
 		const { canonical } = compile(item.naxp);
 
-		if (canonical.valueCount !== BigInt(item.valueCount)) {
+		if (canonical.stringCount !== BigInt(item.maxEncodedValue)) {
 			failures.push(
-				`${item.naxp}: ${canonical.valueCount} values, `
-				+ `and the test data says ${item.valueCount}.`);
+				`${item.naxp}: ${canonical.stringCount} values, `
+				+ `and the test data says ${item.maxEncodedValue}.`);
 		}
 	}
 
@@ -65,7 +65,7 @@ test('the value count is the one the test data states', () => {
 
 test('the accepted count is the one the test data states', () => {
 	// The size of the accepted language, which differs from the value count exactly where the
-	// naxp holds a replaceable element.
+	// naxp holds a unified element.
 	const failures = [];
 
 	for (const item of data.cases) {
@@ -73,9 +73,9 @@ test('the accepted count is the one the test data states', () => {
 
 		const { accepted } = compile(item.naxp);
 
-		if (accepted.valueCount !== BigInt(item.acceptedCount)) {
+		if (accepted.stringCount !== BigInt(item.acceptedCount)) {
 			failures.push(
-				`${item.naxp}: ${accepted.valueCount} accepted, `
+				`${item.naxp}: ${accepted.stringCount} accepted, `
 				+ `and the test data says ${item.acceptedCount}.`);
 		}
 	}
@@ -138,15 +138,15 @@ test('every value in the test data decodes to the canonical form it states', () 
 	assert.ok(checked > 400, `only ${checked} values were checked`);
 });
 
-test('a string the test data marks as not accepted encodes to zero', () => {
+test('a string the test data marks invalid encodes to zero', () => {
 	for (const item of data.cases) {
 		const { ast, canonical } = compile(item.naxp);
 
-		for (const refused of item.notAccepted) {
-			const canonicalForm = tryCanonicalise(ast, refused);
+		for (const invalid of item.invalid) {
+			const canonicalForm = tryCanonicalise(ast, invalid);
 			const encoded = canonicalForm === null ? 0n : encode(canonical, canonicalForm);
 
-			assert.equal(encoded, 0n, `${item.naxp}: '${refused}'`);
+			assert.equal(encoded, 0n, `${item.naxp}: '${invalid}'`);
 		}
 	}
 });
@@ -167,10 +167,10 @@ test('a naxp whose values are all listed has exactly the listed values', () => {
 
 		assert.equal(
 			BigInt(listed.size),
-			canonical.valueCount,
-			`${item.naxp} lists ${listed.size} distinct values of ${canonical.valueCount}`);
+			canonical.stringCount,
+			`${item.naxp} lists ${listed.size} distinct values of ${canonical.stringCount}`);
 
-		for (let value = 1n; value <= canonical.valueCount; ++value) {
+		for (let value = 1n; value <= canonical.stringCount; ++value) {
 			assert.ok(listed.has(value.toString()), `${item.naxp} does not list ${value}`);
 		}
 	}

@@ -9,29 +9,28 @@ using Xunit;
 namespace LogMu.UnitTests;
 
 /// <summary>
-/// The compiler against <c>conformance/naxp-v0.4.json</c>.
+/// The compiler against <c>conformance/naxp-v0.10.json</c>.
 /// </summary>
 /// <remarks>
-/// W3 needs the single-valuedness of a transduction, which is not implemented, so the test data
-/// entry for it is held in a test of its own that asserts the gap. It will fail the moment W3
-/// lands, which is the point.
+/// Every rule the data tags is now implemented, W3, W5 and W6 included, so
+/// <see cref="ImplementedRules"/> covers all of them and nothing here asserts a gap.
 /// </remarks>
 public class ConformanceTests
 {
 	static readonly ConformanceTestData TestData = ConformanceTestData.Load();
 
-	/// <summary>The rules a naxp can currently be refused for.</summary>
+	/// <summary>The rules a naxp can currently be invalid for.</summary>
 	static readonly HashSet<string> ImplementedRules = new(StringComparer.Ordinal)
 	{
-		"syntax", "W1", "W2", "W3", "W4", "W5",
+		"syntax", "W1", "W2", "W3", "W4", "W5", "W6",
 	};
 
 	[Fact]
-	public void TestData_IsForVersion05()
+	public void TestData_IsForVersion09()
 	{
-		Assert.Equal("0.5", TestData.NaxpVersion);
+		Assert.Equal("0.10", TestData.NaxpVersion);
 		Assert.NotEmpty(TestData.Cases);
-		Assert.NotEmpty(TestData.Rejected);
+		Assert.NotEmpty(TestData.InvalidNaxps);
 	}
 
 	[Fact]
@@ -43,7 +42,7 @@ public class ConformanceTests
 		{
 			if (!Compiler.TryCompile(item.Naxp, out _, out NaxpError? error))
 			{
-				failures.Add($"{item.Naxp} was refused: {error}");
+				failures.Add($"{item.Naxp} was invalid: {error}");
 			}
 		}
 
@@ -52,7 +51,7 @@ public class ConformanceTests
 
 	/// <summary>
 	/// The size of the canonical language, which is the count of encodable values, and the size
-	/// of the accepted language. The two differ only where the naxp contains a replacement.
+	/// of the accepted language. The two differ only where the naxp contains a unified element.
 	/// </summary>
 	[Fact]
 	public void Cases_HaveTheStatedCounts()
@@ -63,13 +62,13 @@ public class ConformanceTests
 		{
 			if (!Compiler.TryCompile(item.Naxp, out Compilation? compilation, out NaxpError? error))
 			{
-				failures.Add($"{item.Naxp} was refused: {error}");
+				failures.Add($"{item.Naxp} was invalid: {error}");
 				continue;
 			}
 
-			if (compilation!.ValueCount != (ulong)item.ValueCount)
+			if (compilation!.MaxEncodedValue != (ulong)item.MaxEncodedValue)
 			{
-				failures.Add($"{item.Naxp} has {compilation.ValueCount} values, and the test data says {item.ValueCount}.");
+				failures.Add($"{item.Naxp} has {compilation.MaxEncodedValue} values, and the test data says {item.MaxEncodedValue}.");
 			}
 
 			if (compilation.AcceptedCount != (ulong)item.AcceptedCount)
@@ -83,8 +82,8 @@ public class ConformanceTests
 
 	/// <summary>
 	/// Every string the test data lists, matched two ways: against the tree by the backtracking
-	/// matcher, and against the machine built from it. An entry whose value is zero is one the
-	/// naxp does not accept; every other entry is accepted.
+	/// tree walker, and against the machine built from it. An entry whose value is zero is one the
+	/// naxp finds invalid; every other entry it accepts.
 	/// </summary>
 	[Fact]
 	public void Values_AreAcceptedExactlyWhenTheTestDataSaysSo()
@@ -96,7 +95,7 @@ public class ConformanceTests
 		{
 			if (!Compiler.TryCompile(item.Naxp, out Compilation? compilation, out NaxpError? error))
 			{
-				failures.Add($"{item.Naxp} was refused: {error}");
+				failures.Add($"{item.Naxp} was invalid: {error}");
 				continue;
 			}
 
@@ -106,10 +105,10 @@ public class ConformanceTests
 				Check(item.Naxp, compilation!, value.In, value.Out != 0L, failures);
 			}
 
-			foreach (string notAccepted in item.NotAccepted)
+			foreach (string invalidText in item.Invalid)
 			{
 				++checkCount;
-				Check(item.Naxp, compilation!, notAccepted, false, failures);
+				Check(item.Naxp, compilation!, invalidText, false, failures);
 			}
 		}
 
@@ -119,7 +118,7 @@ public class ConformanceTests
 
 	static void Check(string naxp, Compilation compilation, string text, bool expected, List<string> failures)
 	{
-		bool byTree = Matcher.Generates(compilation.Ast, text, out bool tooLong);
+		bool byTree = TreeWalker.Generates(compilation.Ast, text, out bool tooLong);
 		bool byMachine = Accepts(compilation.Accepted, text);
 
 		if (tooLong)
@@ -130,12 +129,12 @@ public class ConformanceTests
 
 		if (byTree != expected)
 		{
-			failures.Add($"{naxp} {(byTree ? "accepts" : "does not accept")} '{text}' by the tree, and the test data says otherwise.");
+			failures.Add($"{naxp} finds '{text}' {(byTree ? "valid" : "invalid")} by the tree, and the test data says otherwise.");
 		}
 
 		if (byMachine != expected)
 		{
-			failures.Add($"{naxp} {(byMachine ? "accepts" : "does not accept")} '{text}' by the machine, and the test data says otherwise.");
+			failures.Add($"{naxp} finds '{text}' {(byMachine ? "valid" : "invalid")} by the machine, and the test data says otherwise.");
 		}
 	}
 
@@ -179,7 +178,7 @@ public class ConformanceTests
 		{
 			if (!Compiler.TryCompile(item.Naxp, out Compilation? compilation, out NaxpError? error))
 			{
-				failures.Add($"{item.Naxp} was refused: {error}");
+				failures.Add($"{item.Naxp} was invalid: {error}");
 				continue;
 			}
 
@@ -215,15 +214,15 @@ public class ConformanceTests
 				}
 			}
 
-			foreach (string notAccepted in item.NotAccepted)
+			foreach (string invalidText in item.Invalid)
 			{
 				++checkCount;
 
-				ulong encoded = compilation!.Encode(notAccepted);
+				ulong encoded = compilation!.Encode(invalidText);
 
 				if (encoded != 0UL)
 				{
-					failures.Add($"{item.Naxp} encodes '{notAccepted}' to {encoded}, and the test data lists it as not accepted.");
+					failures.Add($"{item.Naxp} encodes '{invalidText}' to {encoded}, and the test data lists it as invalid.");
 				}
 			}
 		}
@@ -241,21 +240,21 @@ public class ConformanceTests
 	{
 		var failures = new List<string>();
 
-		foreach (ConformanceCase item in TestData.Cases.Where(c => c.Complete && c.ValueCount <= 2000L))
+		foreach (ConformanceCase item in TestData.Cases.Where(c => c.Complete && c.MaxEncodedValue <= 2000L))
 		{
 			if (!Compiler.TryCompile(item.Naxp, out Compilation? compilation, out NaxpError? error))
 			{
-				failures.Add($"{item.Naxp} was refused: {error}");
+				failures.Add($"{item.Naxp} was invalid: {error}");
 				continue;
 			}
 
 			var seen = new HashSet<string>(StringComparer.Ordinal);
 
-			for (ulong value = 1UL; value <= (ulong)item.ValueCount; ++value)
+			for (ulong value = 1UL; value <= (ulong)item.MaxEncodedValue; ++value)
 			{
 				if (!compilation!.TryDecode(value, out string? decoded))
 				{
-					failures.Add($"{item.Naxp} could not decode {value}, and it claims {item.ValueCount} values.");
+					failures.Add($"{item.Naxp} could not decode {value}, and it claims {item.MaxEncodedValue} values.");
 					continue;
 				}
 
@@ -272,9 +271,9 @@ public class ConformanceTests
 				}
 			}
 
-			if (compilation!.TryDecode((ulong)item.ValueCount + 1UL, out _))
+			if (compilation!.TryDecode((ulong)item.MaxEncodedValue + 1UL, out _))
 			{
-				failures.Add($"{item.Naxp} decoded a value above its count of {item.ValueCount}.");
+				failures.Add($"{item.Naxp} decoded a value above its count of {item.MaxEncodedValue}.");
 			}
 		}
 
@@ -303,11 +302,11 @@ public class ConformanceTests
 	}
 
 	[Fact]
-	public void Rejected_AreRefusedForTheStatedRule()
+	public void InvalidNaxps_AreInvalidForTheStatedRule()
 	{
 		var failures = new List<string>();
 
-		foreach (ConformanceRejection item in TestData.Rejected.Where(r => ImplementedRules.Contains(r.Rule)))
+		foreach (ConformanceInvalidNaxp item in TestData.InvalidNaxps.Where(r => ImplementedRules.Contains(r.Rule)))
 		{
 			if (Compiler.TryCompile(item.Naxp, out _, out NaxpError? error))
 			{
@@ -319,7 +318,7 @@ public class ConformanceTests
 
 			if (!string.Equals(actual, item.Rule, StringComparison.Ordinal))
 			{
-				failures.Add($"{item.Naxp} was refused for {actual} rather than {item.Rule}: {error}");
+				failures.Add($"{item.Naxp} was invalid for {actual} rather than {item.Rule}: {error}");
 			}
 		}
 
@@ -327,14 +326,14 @@ public class ConformanceTests
 	}
 
 	/// <summary>
-	/// Every rule the test data rejects for is now implemented, so nothing is skipped by
-	/// <see cref="Rejected_AreRefusedForTheStatedRule"/>. This fails if a later version of the data
+	/// Every rule the test data names is now implemented, so nothing is skipped by
+	/// <see cref="InvalidNaxps_AreInvalidForTheStatedRule"/>. This fails if a later version of the data
 	/// introduces a rule the implementation does not know about.
 	/// </summary>
 	[Fact]
-	public void Rejected_LeaveNoRuleUnimplemented()
+	public void InvalidNaxps_LeaveNoRuleUnimplemented()
 	{
-		string[] pending = TestData.Rejected
+		string[] pending = TestData.InvalidNaxps
 			.Select(r => r.Rule)
 			.Where(rule => !ImplementedRules.Contains(rule))
 			.Distinct()

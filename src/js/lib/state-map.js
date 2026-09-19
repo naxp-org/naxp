@@ -35,13 +35,13 @@ export class State {
 	/**
 	 * @param {number} id The state's number.
 	 * @param {Transition[]} transitions Sorted by the set order, end of text first where present.
-	 * @param {bigint} valueCount The count of strings the state's language holds, saturated at
+	 * @param {bigint} stringCount The count of strings the state's language holds, saturated at
 	 * 2^64 - 1.
 	 */
-	constructor(id, transitions, valueCount) {
+	constructor(id, transitions, stringCount) {
 		this.id = id;
 		this.transitions = transitions;
-		this.valueCount = valueCount;
+		this.stringCount = stringCount;
 	}
 
 	/** Whether this is the terminal state, whose language is the empty string alone. */
@@ -63,7 +63,7 @@ export class StateMap {
 	 * @param {State} start The start state.
 	 * @param {State[]} states Every state.
 	 * @param {boolean} countSaturated Whether the true count exceeds 2^64 - 1, in which case
-	 * `valueCount` is that limit rather than the count.
+	 * `stringCount` is that limit rather than the count.
 	 */
 	constructor(start, states, countSaturated) {
 		this.start = start;
@@ -72,15 +72,15 @@ export class StateMap {
 	}
 
 	/** The size of the language, saturated at 2^64 - 1. */
-	get valueCount() {
-		return this.start.valueCount;
+	get stringCount() {
+		return this.start.stringCount;
 	}
 
 	/**
 	 * Whether this machine's language holds a string.
 	 *
 	 * One transition per character. A string longer than any the machine generates runs out of
-	 * transitions and is refused, so no length guard is needed.
+	 * transitions and is invalid, so no length guard is needed.
 	 *
 	 * @param {string} text The string to test.
 	 * @returns {boolean} Whether the language holds it.
@@ -175,7 +175,7 @@ class StateMapBuilder {
 
 	/**
 	 * @param {import('./rx.js').Rx} start The expression, as produced by the converter.
-	 * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the refusal.
+	 * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the fault.
 	 */
 	build(start) {
 		const explored = this.explore(start);
@@ -273,7 +273,7 @@ class StateMapBuilder {
 					return {
 						expressions: [],
 						edges,
-						error: new NaxpError(NaxpMessage.NAXP1049_TooManyStates),
+						error: new NaxpError(NaxpMessage.NAXP1048_TooManyStates),
 					};
 				}
 			}
@@ -325,13 +325,13 @@ class StateMapBuilder {
 		for (const transition of transitions) {
 			const width = transition.set.isEmpty ? 1n : BigInt(transition.set.count);
 
-			total += width * transition.next.valueCount;
+			total += width * transition.next.stringCount;
 		}
 
-		if (total > NaxpLimits.maxValueCount) {
+		if (total > NaxpLimits.maxEncodedValue) {
 			this.saturated = true;
 
-			return NaxpLimits.maxValueCount;
+			return NaxpLimits.maxEncodedValue;
 		}
 
 		return total;
@@ -345,7 +345,7 @@ class StateMapBuilder {
  * @param {import('./rx.js').RxFactory} factory The factory that made it, reused so derivatives
  * stay interned.
  * @param {number} [maxStates] The budget, lowered by tests so the cap can be reached cheaply.
- * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the refusal.
+ * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the fault.
  */
 export function tryBuild(start, factory, maxStates = NaxpLimits.maxStates) {
 	return new StateMapBuilder(factory, maxStates).build(start);

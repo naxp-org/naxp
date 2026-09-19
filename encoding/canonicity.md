@@ -4,8 +4,8 @@
 this repository: whether generative equivalence implies
 encoding equivalence, and whether every naxp has a unique minimal form. It is an
 input to the encoding specification, not itself normative. Grammar references
-are to version 0.3 of the grammar, which is not published yet; code references are to
-`prior-work/NXOld`.
+are to the draft of the specification current when it was written; code references
+are to `prior-work/NXOld`.
 
 ## Summary
 
@@ -27,7 +27,7 @@ are given below.
 ## Setting
 
 Write Σ for the matchable characters, `0x20` to `0x7E`. A naxp without `!`
-denotes a language L ⊆ Σ*, which is finite and non-empty (v0.3 has no unbounded
+denotes a language L ⊆ Σ*, which is finite and non-empty (naxp has no unbounded
 repetition, and every base matches at least one string).
 
 For a character c, the derivative c⁻¹L = { w : cw ∈ L } is the set of
@@ -137,19 +137,19 @@ passed:
 - The pinned values for `#[0-10]` and `#[00-10]` from the grammar's ordering
   section.
 
-## Replaceable elements
+## Unified elements
 
 A naxp with `!` denotes a pair (L, ρ): the accepted language and the
-canonicalisation map that replaces each replaceable element's match by its
+canonicalisation map that replaces each unified element's match by its
 rendering. W3 is precisely the requirement that ρ is a function.
 
 **Lemma.** Given W1 and W3, ρ fixes every canonical form: ρ(ρ(w)) = ρ(w).
 W1 puts each rendering among the strings its subject generates, so a canonical
-form has a parse with renderings in the replaceable slots, and applying ρ along
+form has a parse with renderings in the unified slots, and applying ρ along
 that parse changes nothing; W3 says no other parse can disagree. It follows
 that the canonical sublanguage C = ρ(L) equals the language of the naxp with
-each `x!y` rewritten to `y`, which is what v0.3 already asserts about the count
-of encodable values. C is a plain finite language with no replaceables, so
+each `x!y` rewritten to `y`, which is what the specification asserts about the count
+of encodable values. C is a plain finite language with no unified elements, so
 everything above applies to it.
 
 **Definition, adopted 2026-08-06: encode(w) = rank of ρ(w) within C**, under
@@ -165,7 +165,7 @@ cleverer is to hand.
 ### The weighted single machine is unsound
 
 The design sketched earlier put `(charSet, weight, canonicalChar)` on each
-transition of the L-machine, weight 1 inside a replaceable region. Two
+transition of the L-machine, weight 1 inside a unified region. Two
 well-formed naxps break it; both pass W1, W2 and W3.
 
 **Order flips.** `(A|b)!bX|BY`. Here L = {AX, bX, BY} and C = {bX, BY}. On the
@@ -178,7 +178,7 @@ the canonical character moved the set across the sort order.
 ρ(aX) = AX, and a⁻¹L = {X} differs from A⁻¹L = {X, Y}, so `aX` and `AX` leave
 the start state by different transitions yet must take the same value. No
 assignment of per-transition weights whose offsets are prefix sums can express
-that: whether a replaceable region's values duplicate another transition's
+that: whether a unified region's values duplicate another transition's
 values depends on the rest of the naxp, not on the transition.
 
 Under the composition definition both examples are unproblematic: encode is
@@ -188,7 +188,7 @@ as an implementation strategy where a single pass is wanted.
 
 ### The adopted reading
 
-v0.3 says "the encoding is defined on the string with every replaceable
+The draft said "the encoding is defined on the string with every unified
 element replaced by its rendering", which left two readings. **Reading (a) is
 adopted, 2026-08-06**: rank within C under C's own order, as defined above.
 Decoding needs only the C-machine; a naxp with `!` encodes exactly like the
@@ -210,9 +210,9 @@ gives BY the value 1 where (b) gives bX the value 1.
 - The value-count bound. `CharacterCombinationCount` is a `ulong` and
   overflows silently (`State.cs`, `Transition.cs`). The specification must
   bound the count of encodable values, which is |C|, and say that a naxp
-  exceeding the bound is rejected, together with when: the cap on interval
-  counts exists so that this rejection is affordable. That cap was four
-  digits when this note was written and is two from v0.5.
+  exceeding the bound is invalid, together with when: the cap on interval
+  counts exists so that deciding that is affordable. That cap was four
+  digits when this note was written and is now two.
 - The composition definition for `!` as adopted: encode(w) is the rank of
   ρ(w) within C under C's own order. The spec must state this normatively,
   since it is what makes the two counterexamples above encode determinately.

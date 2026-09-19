@@ -7,21 +7,6 @@ using System.Collections.Generic;
 namespace LogMu;
 
 /// <summary>
-/// Which of a naxp's two languages an expression is being built for.
-/// </summary>
-enum NaxpLanguage
-{
-	/// <summary>The accepted language <i>L</i>, the strings the naxp matches.</summary>
-	Accepted,
-
-	/// <summary>
-	/// The canonical language <i>C</i>, which is <i>L</i> with each replaceable element replaced
-	/// by its rendering. The encoding is a rank over this one.
-	/// </summary>
-	Canonical,
-}
-
-/// <summary>
 /// Turns a parsed naxp into the algebra the state map is built over.
 /// </summary>
 /// <remarks>
@@ -32,16 +17,23 @@ enum NaxpLanguage
 /// to taking the rendering.
 /// </para>
 /// <para>
-/// Digits ranges are expanded here, because a bound of fifteen digits expands to about fifteen
+/// Decimal ranges are expanded here, because a bound of fifteen digits expands to about fifteen
 /// alternatives and costs nothing. Intervals are not, because their counts multiply when nested.
 /// </para>
 /// </remarks>
 static class RxConverter
 {
-	/// <summary>Powers of ten up to the fifteen digit cap on a digits range bound.</summary>
+	/// <summary>Powers of ten up to the fifteen digit cap on a decimal range bound.</summary>
 	static readonly ulong[] PowersOfTen = BuildPowersOfTen();
 
-	public static Rx Convert(Ast node, RxFactory factory, NaxpLanguage language)
+	/// <param name="node">The tree.</param>
+	/// <param name="factory">The factory to build with.</param>
+	/// <param name="isCanonical">
+	/// Which of a naxp's two languages the expression is for: the canonical language <i>C</i>,
+	/// which is <i>L</i> with each unified element replaced by its rendering and which the
+	/// encoding ranks over, or the accepted language <i>L</i>, the strings the naxp matches.
+	/// </param>
+	public static Rx Convert(Ast node, RxFactory factory, bool isCanonical)
 	{
 		switch (node)
 		{
@@ -51,13 +43,13 @@ static class RxConverter
 			case AstChars chars:
 				return factory.Chars(chars.CharSet);
 
-			case AstDigitsRange range:
-				return ConvertDigitsRange(range, factory);
+			case AstDecimalRange range:
+				return ConvertDecimalRange(range, factory);
 
 			case AstSequence sequence:
 			{
 				var parts = new List<Rx>(sequence.Children.Count);
-				foreach (Ast child in sequence.Children) { parts.Add(Convert(child, factory, language)); }
+				foreach (Ast child in sequence.Children) { parts.Add(Convert(child, factory, isCanonical)); }
 
 				return factory.Concat(parts);
 			}
@@ -65,22 +57,22 @@ static class RxConverter
 			case AstAlternation alternation:
 			{
 				var alternatives = new List<Rx>(alternation.Children.Count);
-				foreach (Ast child in alternation.Children) { alternatives.Add(Convert(child, factory, language)); }
+				foreach (Ast child in alternation.Children) { alternatives.Add(Convert(child, factory, isCanonical)); }
 
 				return factory.Union(alternatives);
 			}
 
 			case AstOptional optional:
-				return factory.Union(factory.Epsilon, Convert(optional.Child, factory, language));
+				return factory.Union(factory.Epsilon, Convert(optional.Child, factory, isCanonical));
 
 			case AstInterval interval:
-				return factory.Interval(Convert(interval.Child, factory, language), interval.MinCount, interval.MaxCount);
+				return factory.Interval(Convert(interval.Child, factory, isCanonical), interval.MinCount, interval.MaxCount);
 
-			case AstReplaceable replaceable:
+			case AstUnified unified:
 				return Convert(
-					language == NaxpLanguage.Canonical ? replaceable.Rendering : replaceable.Subject,
+					isCanonical ? unified.Rendering : unified.Subject,
 					factory,
-					language);
+					isCanonical);
 
 			default:
 				throw new InvalidOperationException($"Unhandled node type {node.GetType().Name}.");
@@ -88,14 +80,14 @@ static class RxConverter
 	}
 
 	/// <summary>
-	/// Expands a digits range into an ordinary expression.
+	/// Expands a decimal range into an ordinary expression.
 	/// </summary>
 	/// <remarks>
 	/// One alternative per width. The lower width admits the leading zeros the lower bound was
 	/// written with; every width above it does not, which is what makes <c>#[0-105]</c> stand
 	/// for <c>[0-9] | [1-9][0-9] | 10[0-5]</c> rather than admitting <c>07</c>.
 	/// </remarks>
-	static Rx ConvertDigitsRange(AstDigitsRange range, RxFactory factory)
+	static Rx ConvertDecimalRange(AstDecimalRange range, RxFactory factory)
 	{
 		var widths = new List<Rx>(range.HighDigitCount - range.LowDigitCount + 1);
 

@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
@@ -17,20 +17,37 @@ namespace LogMu;
 /// <remarks>
 /// The default everywhere is <see cref="UInt64"/>, which every naxp fits: W5 caps the value
 /// count at 2^64 - 1, so nothing narrower is guaranteed to hold one. A narrower choice is
-/// validated against the naxp's value count when emitting, so a naxp that outgrows the type
-/// its caller pinned is refused rather than silently widened. Each emitter maps the choice to
-/// its language's own types; a language without unsigned integers, such as Java, refuses the
+/// validated against the naxp's largest encoded value when emitting, so a naxp that outgrows the type
+/// its caller pinned is invalid rather than silently widened. Each emitter maps the choice to
+/// its language's own types; a language without unsigned integers, such as Java, rules out the
 /// unsigned members.
 /// </remarks>
-enum NaxpValueType
+public enum NaxpValueType
 {
+	/// <summary>A signed 8-bit integer, holding encoded values to 127.</summary>
 	Int8,
+
+	/// <summary>An unsigned 8-bit integer, holding encoded values to 255.</summary>
 	UInt8,
+
+	/// <summary>A signed 16-bit integer, holding encoded values to 32 767.</summary>
 	Int16,
+
+	/// <summary>An unsigned 16-bit integer, holding encoded values to 65 535.</summary>
 	UInt16,
+
+	/// <summary>A signed 32-bit integer, holding encoded values to 2 147 483 647.</summary>
 	Int32,
+
+	/// <summary>An unsigned 32-bit integer, holding encoded values to 4 294 967 295.</summary>
 	UInt32,
+
+	/// <summary>A signed 64-bit integer, holding encoded values to 9 223 372 036 854 775 807.</summary>
 	Int64,
+
+	/// <summary>
+	/// An unsigned 64-bit integer, holding every encoded value any naxp produces. The default.
+	/// </summary>
 	UInt64,
 }
 
@@ -71,7 +88,6 @@ abstract class Emitter
 	/// </remarks>
 	internal const int ChunkSize = 250;
 
-	readonly string indent;
 	readonly string? blockOpen;
 	readonly string? blockClose;
 
@@ -79,9 +95,14 @@ abstract class Emitter
 	/// Constructs an emitter over its language's block syntax, with the meanings
 	/// <see cref="CodeWriter"/> gives the arguments. The defaults suit the brace languages.
 	/// </summary>
-	protected Emitter(string indent = "\t", string? blockOpen = "{", string? blockClose = "}")
+	/// <remarks>
+	/// Indentation and the newline are not here. A caller may reasonably want either, and no
+	/// language is broken by the choice, so they are parameters of
+	/// <see cref="Emit(Compilation, string, NaxpValueType, string, string, string)"/> instead.
+	/// Block syntax is not a taste: a caller cannot want C# with different braces.
+	/// </remarks>
+	protected Emitter(string? blockOpen = "{", string? blockClose = "}")
 	{
-		this.indent = indent;
 		this.blockOpen = blockOpen;
 		this.blockClose = blockClose;
 	}
@@ -96,46 +117,65 @@ abstract class Emitter
 	/// empty, where the bare names are wanted.
 	/// </param>
 	/// <param name="valueType">
-	/// The integer type the generated code uses for encoded values. The naxp's value count must
+	/// The integer type the generated code uses for encoded values. The naxp's largest encoded value must
 	/// fit it.
 	/// </param>
 	/// <param name="initialIndent">
 	/// What every line of the fragment is indented with ahead of its own depth, so it can sit
 	/// inside an already-indented wrapper.
 	/// </param>
+	/// <param name="newLine">
+	/// What ends every line. The caller's choice rather than the platform's, so that one naxp
+	/// gives the same fragment on every machine.
+	/// </param>
+	/// <param name="indent">What one level of indentation is written as.</param>
 	/// <returns>The fragment.</returns>
 	/// <exception cref="ArgumentException">
-	/// The prefix is neither empty nor an ASCII identifier, or the value count does not fit
+	/// The prefix is neither empty nor an ASCII identifier, or the largest encoded value does not fit
 	/// <paramref name="valueType"/>.
 	/// </exception>
-	public string Emit(Compilation compilation, string prefix, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "")
+	public string Emit(Compilation compilation, string prefix, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "", string newLine = "\n", string indent = "\t")
 	{
 		var builder = new StringBuilder();
-		this.Emit(compilation, prefix, builder, valueType, initialIndent);
+		this.Emit(compilation, prefix, builder, valueType, initialIndent, newLine, indent);
 
 		return builder.ToString();
 	}
 
 	/// <summary>
 	/// Emits a compiled naxp as a source fragment appended to a <see cref="StringBuilder"/>.
-	/// The parameters are those of <see cref="Emit(Compilation, string, NaxpValueType, string)"/>.
+	/// The parameters are those of <see cref="Emit(Compilation, string, NaxpValueType, string, string, string)"/>.
 	/// </summary>
-	public void Emit(Compilation compilation, string prefix, StringBuilder builder, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "")
+	public void Emit(Compilation compilation, string prefix, StringBuilder builder, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "", string newLine = "\n", string indent = "\t")
 	{
 		if (builder is null) { throw new ArgumentNullException(nameof(builder)); }
 
-		this.Emit(compilation, prefix, valueType, new CodeWriterSB(builder, initialIndent, this.indent, this.blockOpen, this.blockClose));
+		CheckFormat(initialIndent, newLine, indent);
+
+		this.Emit(compilation, prefix, valueType, new CodeWriterSB(builder, initialIndent, indent, this.blockOpen, this.blockClose, newLine));
 	}
 
 	/// <summary>
 	/// Emits a compiled naxp as a source fragment written to a <see cref="TextWriter"/>.
-	/// The parameters are those of <see cref="Emit(Compilation, string, NaxpValueType, string)"/>.
+	/// The parameters are those of <see cref="Emit(Compilation, string, NaxpValueType, string, string, string)"/>.
 	/// </summary>
-	public void Emit(Compilation compilation, string prefix, TextWriter writer, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "")
+	public void Emit(Compilation compilation, string prefix, TextWriter writer, NaxpValueType valueType = NaxpValueType.UInt64, string initialIndent = "", string newLine = "\n", string indent = "\t")
 	{
 		if (writer is null) { throw new ArgumentNullException(nameof(writer)); }
 
-		this.Emit(compilation, prefix, valueType, new CodeWriterTW(writer, initialIndent, this.indent, this.blockOpen, this.blockClose));
+		CheckFormat(initialIndent, newLine, indent);
+
+		this.Emit(compilation, prefix, valueType, new CodeWriterTW(writer, initialIndent, indent, this.blockOpen, this.blockClose, newLine));
+	}
+
+	/// <summary>Throws where any of the three formatting strings is null.</summary>
+	static void CheckFormat(string initialIndent, string newLine, string indent)
+	{
+		if (initialIndent is null) { throw new ArgumentNullException(nameof(initialIndent)); }
+
+		if (newLine is null) { throw new ArgumentNullException(nameof(newLine)); }
+
+		if (indent is null) { throw new ArgumentNullException(nameof(indent)); }
 	}
 
 	void Emit(Compilation compilation, string prefix, NaxpValueType valueType, CodeWriter writer)
@@ -145,15 +185,15 @@ abstract class Emitter
 
 		if (prefix.Length != 0) { ValidateIdentifier(prefix, nameof(prefix)); }
 
-		if (compilation.ValueCount > Capacity(valueType))
+		if (compilation.MaxEncodedValue > Capacity(valueType))
 		{
-			throw new ArgumentException($"This naxp encodes {compilation.ValueCount} values, which does not fit {valueType}.", nameof(valueType));
+			throw new ArgumentException($"This naxp encodes {compilation.MaxEncodedValue} values, which does not fit {valueType}.", nameof(valueType));
 		}
 
 		this.Emit(new Context(compilation, prefix, valueType, writer));
 	}
 
-	/// <summary>The largest value count a type can hold, remembering that zero is reserved.</summary>
+	/// <summary>The largest encoded value a type can hold, remembering that zero is reserved.</summary>
 	internal static ulong Capacity(NaxpValueType valueType)
 	{
 		switch (valueType)
@@ -218,7 +258,7 @@ abstract class Emitter
 		return metadata < 0 ? version : version.Substring(0, metadata);
 	}
 
-	/// <summary>The naxp's source, made safe for a line comment.</summary>
+	/// <summary>The naxp's pattern, made safe for a line comment.</summary>
 	internal static string CommentText(string text)
 	{
 		var builder = new StringBuilder(text.Length);
@@ -408,6 +448,15 @@ abstract class Emitter
 	/// declaration out, since an unused local is a warning in some of the target languages.
 	/// </param>
 	/// <param name="defaultResult">What a state the dispatch does not name returns.</param>
+	/// <param name="caseNeeded">
+	/// Whether a state writes a case at all. A function holding no such state has nothing to
+	/// dispatch on, and writes only the default.
+	/// </param>
+	/// <param name="prologue">
+	/// Writes whatever the language needs at the top of a function's body, given the first state
+	/// the function holds and how many, or <see langword="null"/> for nothing. C and C++ use it
+	/// to say which parameters the range leaves unused, which their compilers otherwise warn of.
+	/// </param>
 	protected void EmitStepFunctions(
 		CodeWriter writer,
 		string name,
@@ -417,16 +466,19 @@ abstract class Emitter
 		Action<int> emitCase,
 		string? preamble = null,
 		Func<int, bool>? preambleNeeded = null,
-		string defaultResult = "-1")
+		string defaultResult = "-1",
+		Func<int, bool>? caseNeeded = null,
+		Action<int, int>? prologue = null)
 	{
-		if (stateCount <= ChunkSize)
+		int chunkCount = ChunkCount(stateCount);
+
+		if (chunkCount == 1)
 		{
-			this.EmitStepFunction(writer, name, parameters, 0, stateCount, emitCase, preamble, preambleNeeded, defaultResult);
+			this.EmitStepFunction(
+				writer, name, parameters, 0, stateCount, emitCase, preamble, preambleNeeded, defaultResult, caseNeeded, prologue);
 
 			return;
 		}
-
-		int chunkCount = ((stateCount - 1) / ChunkSize) + 1;
 
 		this.OpenFunction(writer, name, parameters);
 
@@ -456,9 +508,22 @@ abstract class Emitter
 				emitCase,
 				preamble,
 				preambleNeeded,
-				defaultResult);
+				defaultResult,
+				caseNeeded,
+				prologue);
 		}
 	}
+
+	/// <summary>
+	/// How many functions a machine of this many states is emitted as: one up to
+	/// <see cref="ChunkSize"/>, and above that one per chunk, which the dispatcher then fronts.
+	/// </summary>
+	/// <remarks>
+	/// Protected because C and C++ have to declare every function before its first use, so
+	/// their prototypes need the chunk names ahead of the skeleton writing them.
+	/// </remarks>
+	protected static int ChunkCount(int stateCount)
+		=> stateCount <= ChunkSize ? 1 : ((stateCount - 1) / ChunkSize) + 1;
 
 	void EmitStepFunction(
 		CodeWriter writer,
@@ -469,9 +534,24 @@ abstract class Emitter
 		Action<int> emitCase,
 		string? preamble,
 		Func<int, bool>? preambleNeeded,
-		string defaultResult)
+		string defaultResult,
+		Func<int, bool>? caseNeeded,
+		Action<int, int>? prologue)
 	{
 		this.OpenFunction(writer, name, parameters);
+		prologue?.Invoke(firstState, stateCount);
+
+		// A chunk of a machine where no state writes a case has nothing to dispatch on, and an
+		// empty switch is both noise and, in C#, a warning. Only the finishing step can be in
+		// that position, and only when chunked: its cases belong to the states where the input
+		// may end, and those can all fall outside one chunk.
+		if (!AnyCase(firstState, stateCount, caseNeeded))
+		{
+			this.WriteReturn(writer, defaultResult);
+			this.CloseFunction(writer);
+
+			return;
+		}
 
 		if (preamble is not null && NeedsPreamble(firstState, stateCount, preambleNeeded))
 		{
@@ -488,6 +568,19 @@ abstract class Emitter
 
 		this.CloseDispatch(writer, defaultResult);
 		this.CloseFunction(writer);
+	}
+
+	/// <summary>Whether any state in a function's range writes a case.</summary>
+	static bool AnyCase(int firstState, int stateCount, Func<int, bool>? caseNeeded)
+	{
+		if (caseNeeded is null) { return true; }
+
+		for (int id = firstState; id < firstState + stateCount; ++id)
+		{
+			if (caseNeeded(id)) { return true; }
+		}
+
+		return false;
 	}
 
 	static bool NeedsPreamble(int firstState, int stateCount, Func<int, bool>? preambleNeeded)
@@ -525,6 +618,7 @@ abstract class Emitter
 				? default
 				: BuildTransducer(compilation.CanonicalMachine)
 				;
+			this.RegisterDepth = compilation.CanonicalMachine?.RegisterDepth ?? 0;
 			this.MaxLength = LongestPath(compilation.Canonical);
 		}
 
@@ -533,7 +627,7 @@ abstract class Emitter
 		/// <summary>The prefix every generated name starts with, possibly empty.</summary>
 		public string Prefix { get; }
 
-		/// <summary>The integer type for encoded values, already validated against the value count.</summary>
+		/// <summary>The integer type for encoded values, already validated against the largest one.</summary>
 		public NaxpValueType ValueType { get; }
 
 		/// <summary>The writer the fragment goes through, configured for the language.</summary>
@@ -550,6 +644,41 @@ abstract class Emitter
 
 		/// <summary>The length of the longest canonical string, which bounds every buffer the generated code needs.</summary>
 		public int MaxLength { get; }
+
+		/// <summary>
+		/// How many characters read the generated code has to keep, so that an output can reach
+		/// back to one it has not yet placed.
+		/// </summary>
+		/// <remarks>
+		/// Zero where there is no canonicalisation machine and one where every reference is to
+		/// the character being read, which is the character the step already has. Only two or
+		/// more needs a buffer, which is what <see cref="NeedsRegister"/> reports.
+		/// </remarks>
+		public int RegisterDepth { get; }
+
+		/// <summary>Whether the generated code has to keep characters beyond the one being read.</summary>
+		/// <remarks>
+		/// A depth of one is every reference standing for the character being read, which a step
+		/// already holds. An end output is different: the finish function has no character, so a
+		/// reference there needs the buffer whatever the depth.
+		/// </remarks>
+		public bool NeedsRegister
+			=> this.RegisterDepth > 1 || this.EndOutputReachesBack();
+
+		bool EndOutputReachesBack()
+		{
+			if (this.TransducerStates.IsDefault) { return false; }
+
+			foreach (TxStateModel state in this.TransducerStates)
+			{
+				if (state.EndOutput is not null && state.EndOutput.IndexOf(Tx.CopyMarker) >= 0)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
 	}
 	#endregion
 	#region Building the models
@@ -558,7 +687,7 @@ abstract class Emitter
 	/// </summary>
 	/// <param name="map">The machine.</param>
 	/// <param name="withCounts">
-	/// Whether to carry each transition's value counts, which encode and decode fold into their
+	/// Whether to carry each transition's string counts, which encode and decode fold into their
 	/// constants. The accepted machine's counts may be saturated and nothing generated reads
 	/// them, so it does not carry them.
 	/// </param>
@@ -601,7 +730,7 @@ abstract class Emitter
 					continue;
 				}
 
-				ulong count = withCounts ? transition.Next.ValueCount : 0UL;
+				ulong count = withCounts ? transition.Next.StringCount : 0UL;
 
 				arcs.Add(new ArcModel(transition.Set, idOf[transition.Next], count, skipped));
 				skipped += count * (ulong)transition.Set.Count;
@@ -639,13 +768,6 @@ abstract class Emitter
 		for (int id = 0; id < states.Length; ++id)
 		{
 			TxState state = ordered[id];
-
-			// The builder narrows any block whose marker would survive the step that read it, so
-			// an end output holding one would mean the machine is broken, not the naxp.
-			if (state.EndOutput is not null && state.EndOutput.IndexOf(Tx.CopyMarker) >= 0)
-			{
-				throw new InvalidOperationException("A copy marker survived into an end output.");
-			}
 
 			var arcs = new List<TxArcModel>();
 
@@ -732,10 +854,10 @@ abstract class Emitter
 
 		public int Next { get; }
 
-		/// <summary>The count of values of the state this arc reaches.</summary>
+		/// <summary>The string count of the state this arc reaches.</summary>
 		public ulong NextCount { get; }
 
-		/// <summary>The count of values sitting below this arc in its state's order.</summary>
+		/// <summary>The count of strings sitting below this arc in its state's order.</summary>
 		public ulong SkippedBefore { get; }
 	}
 

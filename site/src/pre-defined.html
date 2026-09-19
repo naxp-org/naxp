@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre&#8209;defined standard naxps</title>
+<meta name="description" content="Pre-written naxps for widely used code systems, so that everyone handling the same codes gets identical encodings.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pre-defined standard naxps">
+<meta property="og:description" content="Pre-written naxps for widely used code systems, so that everyone handling the same codes gets identical encodings.">
+<meta property="og:url" content="https://naxp.org/pre-defined/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle">Pre&#8209;defined standard <strong>naxp</strong>s</h1>
+  </div>
+</section>
+
+<!-- Band 3: what a standard naxp is -->
+<section class="band">
+  <div class="band__inner">
+    <p>
+      This page contains pre-defined standard <strong>naxp</strong>s
+      for some widely used code systems.
+      Where variants are provided, they map to the same encoded values.
+    </p>
+    <p>
+      The following are standard <strong>naxp</strong>s defined on this page:
+    </p>
+    <ul>
+      <li><a href="#uk-postcode">UK postcode</a></li>
+      <li><a href="#ireland-eircode">Ireland Eircode</a></li>
+      <li><a href="#netherlands-postcode">Netherlands postcode</a></li>
+      <li><a href="#flight-designator">Flight designator</a></li>
+    </ul>
+    <p>
+      Good candidates for standard <strong>naxp</strong>s are public code systems
+      used by multiple organisations and which are not plain numbers.
+    </p>
+    <p>
+      To propose a new standard, open an issue on
+      <a href="https://github.com/naxp-org">GitHub</a> with the <strong>naxp</strong>, the
+      code system's published structure, and a citation for that structure.
+    </p>
+    <p>
+      Code systems for which we don't currently have a standard include UK National Insurance numbers, UK vehicle registration
+      marks, ISO 6346 shipping container codes, and the UK small-area statistical geographies
+      (LSOA, Data Zone and SOA).
+    </p>
+  </div>
+</section>
+
+<!-- Band 4: the draft registry, one entry per code system -->
+<section class="band">
+  <div class="band__inner registry">
+
+    <article class="entry" id="uk-postcode">
+      <h2>UK postcode</h2>
+      <div class="entry__meta">
+        <p>Examples: <code>EC4M 8AD</code> <code>B1 1AA</code> <code>GIR 0AA</code></p>
+        <p>1.8&#x202f;bn encoded values &middot; 31 bits required</p>
+        <p>Source: Royal Mail, <a href="https://www.poweredbypaf.com/wp-content/uploads/2025/01/Latest-Programmers_guide_Edition-7-Version-6-2.pdf"><cite>Programmer's Guide</cite> (edition 7, version 6.2)</a>, from the <a href="https://www.poweredbypaf.com/resources/">PAF resources page</a></p>
+      </div>
+      <p>
+        UK postcodes comprise alphanumeric 'outward' and 'inward' parts separated by a space. For instance,
+        for the postcode <code>EC4M 8AD</code>, 
+        <code>EC4M</code> is the outward and 
+        <code>8AD</code> is the inward.
+      </p>
+      <p>
+        Although the space can be inferred if omitted 
+        (because the final inward part is always three characters),
+        <em>the encoding is affected by whether or not including 
+        a space is treated as the canonical form</em>
+        (which is not true of most postcodes). 
+        Royal Mail says the standard version includes a space and 
+        so that is the standard we adopt here.
+      </p>
+      <p>
+        The anomalous <code>GIR 0AA</code> postcode <em>is</em> included, 
+        despite it officially having been phased out 
+        because, while it no longer appears in the official Postcode Address File (PAF),
+        it remains in the Postzon product and may be present in older datasets.
+      </p>
+      <p>
+        Although the Royal Mail guide states that certain letters cannot appear 
+        in certain parts of a postcode, the standard <strong>naxp</strong>s below
+        encode <em>all</em> letters on the basis that
+      </p>
+      <ul>
+        <li>
+          following the guide explicitly would reduce the 
+          storage required from 31&nbsp;bits to 30&nbsp;bits, i.e. no material difference, and  
+        </li>
+        <li>
+          there is a history of postcode character exclusions being relaxed 
+          when more capacity is required 
+          &ndash; see e.g. the <a href="#netherlands-postcode">Netherlands entry</a> below.
+        </li>
+      </ul>
+      <p>
+        Some systems store a postcode as exactly eight characters by padding the spaces in the middle,
+        e.g. <code>B1&#x2423;&#x2423;&#x2423;1AA</code>
+        (where <code>&#x2423;</code> represents a single space character)
+        so this is also included.
+      </p>
+      <p>
+        As with all postcode systems, a <strong>naxp</strong> encodes postcodes,
+        but validation is a separate task, in this case typically requiring the PAF.
+      </p>
+      <div class="table-scroll">
+        <table class="datatable">
+          <thead>
+            <tr>
+              <th scope="col">Variant</th>
+              <th scope="col"><strong>naxp</strong></th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Include a separator space</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> a postcode with or without a separator space,
+                e.g. <code>B1 1AA</code> or <code>B11AA</code>.
+                <br/>
+                <em>Prints</em> <strong>with</strong> a space, e.g. <code>B1 1AA</code>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Padding-tolerant</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">(\A\A\9\X|\A\A\9\s!?|\A\9\X\s!?|\A\9\s!?\s!?) \s!! \9\A\A</span>
+                  <span class="naxp__token">|</span>
+                  <span class="naxp__token">GIR \s!?\s!?\s!! 0AA</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> padding of spaces up to eight characters, 
+                e.g. <code>B1&nbsp;&nbsp;&nbsp;1AA</code>, <code>B1 1AA</code> or <code>B11AA</code>.
+                <br/>
+                <em>Prints</em> as standard, i.e. with a single space,
+                e.g. <code>B1 1AA</code>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Padding-canonical</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">(\A\A\9\X|\A\A\9\s!!|\A\9\X\s!!|\A\9\s!!\s!!) \s!! \9\A\A</span>
+                  <span class="naxp__token">|</span>
+                  <span class="naxp__token">GIR \s!!\s!!\s!! 0AA</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> padding of spaces up to eight characters, 
+                e.g. <code>B1&nbsp;&nbsp;&nbsp;1AA</code>, <code>B1 1AA</code> or <code>B11AA</code>.
+                <br/>
+                <em>Prints</em> the padded version,
+                e.g. <code>B1&nbsp;&nbsp;&nbsp;1AA</code>.
+                (Useful for writing <em>to</em> IT systems.)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="entry" id="ireland-eircode">
+      <h2>Ireland Eircode</h2>
+      <div class="entry__meta">
+        <p>Examples: <code>A65 F4E2</code> <code>D02 AF30</code> <code>D6W 1234</code></p>
+        <p>1.5&#x202f;bn encoded values &middot; 31 bits required</p>
+        <p>Source: <a href="https://www.eircode.ie/docs/default-source/gating-files/ecaf---(eircode-address-file)-product-guide-edition-2-version-2---publishedf08dd1ef-74e8-4635-9cdb-b94f86cd93a8.pdf"><cite>Eircode Address File product guide</cite> (edition 2, version 2)</a>, section 1.5.4</p>
+      </div>
+      <p>
+        An Eircode comprises a three-character routing key plus a four-character unique identifier.
+      </p>
+      <p>
+        The guide recommends that an Eircode should always be
+      </p>
+      <ul>
+        <li>
+          <em>stored</em> as a single string of seven upper case characters in IT systems, e.g. <code>A65F4E2</code>, but
+        </li>
+        <li>
+          <em>presented</em> in upper case as two parts separated by a space,
+          e.g. <code>A65 F4E2</code> and never <code>A65F4E2</code>.
+        </li>
+      </ul>
+      <p>
+        For this reason, the two <strong>naxp</strong>s below differ only in whether or not
+        the version with a separator space is canonical.
+      </p>
+      <p>
+        The guide specifies that routing keys are letter-digit-digit, 
+        where eleven letters that cause readability problems are excluded,
+        or <code>D6W</code>.
+        The <strong>naxp</strong>s below deliberately widen the routing keys accepted
+        to take a letter or digit as the third character on the basis that
+        this accommodates the existing <code>D6W</code> special case
+        and is one possible way Eircode could expand, while keeping the encoded value 
+        storage to 31&nbsp;bits.
+      </p>
+      <p>
+        As with all postcode systems, a <strong>naxp</strong> encodes postcodes,
+        but validation is a separate task, in this case typically requiring the 
+        Eircode Address File (ECAF).
+      </p>
+      <div class="table-scroll">
+        <table class="datatable">
+          <thead>
+            <tr>
+              <th scope="col">Variant</th>
+              <th scope="col"><strong>naxp</strong></th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Include a separator space</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">[AC-FHKNPRTV-Y]\9[\9AC-FHKNPRTV-Y] \s!! [\9AC-FHKNPRTV-Y]{4}</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> an Eircode with or without a separator space,
+                e.g. <code>A65 F4E2</code> or <code>A65F4E2</code>.
+                <br/>
+                <em>Prints</em> <strong>with</strong> a space, e.g. <code>A65 F4E2</code>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">No separator</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">[AC-FHKNPRTV-Y]\9[\9AC-FHKNPRTV-Y] \s!? [\9AC-FHKNPRTV-Y]{4}</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> an Eircode with or without a separator space,
+                e.g. <code>A65 F4E2</code> or <code>A65F4E2</code>.
+                <br/>
+                <em>Prints</em> <strong>without</strong> a space, e.g. <code>A65F4E2</code>.
+                (Useful for writing <em>to</em> IT systems.)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="entry" id="netherlands-postcode">
+      <h2>Netherlands postcode</h2>
+      <!-- TODO: no verified deep link for the PostNL format definition yet. -->
+      <div class="entry__meta">
+        <p>Examples: <code>1012 AB</code> <code>9999 ZZ</code></p>
+        <p>6.8&#x202f;m encoded values &middot; 23 bits required</p>
+        <p>Source: PostNL</p>
+      </div>
+      <p>
+        A Netherlands postcode comprises four digits then two letters.
+      </p>
+      <p>
+        The official PostNL format mandates a space as a separator between
+        the digits and the letters.
+        In practice, online forms and backend databases omit the separator,
+        and occasionally older legacy systems or international shippers use a hyphen e.g. <code>1012-AB</code>, 
+        although this is technically incorrect.
+      </p>
+      <p>
+        As with all postcode systems, a <strong>naxp</strong> encodes postcodes,
+        but validation is a separate task.
+      </p>
+      <p>
+        <em>
+        Netherlands postcodes are a case study in how 
+        strict original constraints on legal characters can later be relaxed 
+        when expansion is required. The 1977 format excluded
+        <br/>(a)&nbsp;the letters
+        <code>F</code>, <code>I</code>, <code>O</code>, <code>Q</code>, 
+        <code>U</code> and <code>Y</code> &ndash; dropped in 2005, and
+        <br/>(b)&nbsp;zero (<code>0</code>) as a first digit &ndash; dropped in 2025,
+        with postcodes <code>0000 AA</code> to <code>0999 ZZ</code>
+        allocated for the Caribbean Netherlands.
+        </em>
+      </p>
+      
+      <div class="table-scroll">
+        <table class="datatable">
+          <thead>
+            <tr>
+              <th scope="col">Variant</th>
+              <th scope="col"><strong>naxp</strong></th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Include a separator space</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">\9\9\9\9 \s!! \A\A</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> a postcode with or without a separator space,
+                e.g. <code>1012 AB</code> or <code>1012AB</code>.
+                <br/>
+                <em>Prints</em> <strong>with</strong> a space, e.g. <code>1012 AB</code>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">No separator</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">\9\9\9\9 \s!? \A\A</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> a postcode with or without a separator space,
+                e.g. <code>1012 AB</code> or <code>1012AB</code>.
+                <br/>
+                <em>Prints</em> <strong>without</strong> a space, e.g. <code>1012AB</code>.
+                (Useful for writing <em>to</em> IT systems.)
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Include a separator space;<br/>tolerates hyphen </th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">\9\9\9\9 (\s|\-)?!(\s) \A\A</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> a postcode with or without a separator space, 
+                or with a hyphen as a separator,
+                e.g. <code>1012 AB</code>, <code>1012-AB</code> or <code>1012AB</code>.
+                <br/>
+                <em>Prints</em> <strong>with</strong> a space, e.g. <code>1012 AB</code>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="entry" id="flight-designator">
+      <h2>Flight designator</h2>
+      <!-- TODO: no verified deep link for SSIM or Resolution 762 yet. -->
+      <div class="entry__meta">
+        <p>Examples: <code>BA0001</code> <code>AC861</code></p>
+        <p>12&#x202f;m encoded values &middot; 24 bits required</p>
+        <p>Source: IATA, <cite>Standard Schedules Information Manual</cite>; airline designators
+          per IATA Resolution 762</p>
+      </div>
+      <p>
+        Airline flight designators comprise two characters (letter-letter, letter-digit or digit-letter),
+        followed by a flight number from 1 to 9999.
+      </p>
+      <p>
+        The treatment of leading zeros in the flight number varies by context: 
+        tickets omit leading zeros, e.g. <code>AC861</code>,
+        whereas IT systems usually include them, e.g. <code>AC0861</code>.
+        The definition of <strong>naxp</strong> encoding means that 
+        these two different formats result in different encoded values, and
+        therefore only one of these forms can be canonical.
+      </p>
+      <p>
+        The approach taken here is that the version <em>including</em> leading zeros is
+        the canonical format, 
+        which has the incidental (minor) benefit that encoded values sort by flight number within an airline.
+      </p>
+      <div class="table-scroll">
+        <table class="datatable">
+          <thead>
+            <tr>
+              <th scope="col">Variant</th>
+              <th scope="col"><strong>naxp</strong></th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Tolerate leading zeros</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">(\A\A|\A\9|\9\A) #[0!0!0!1-9999]</span>
+                </code>
+              </td>
+              <td>
+                <em>Accepts</em> a designator with or without leading zeros,
+                e.g. <code>AC0861</code> or <code>AC861</code>.
+                <br/>
+                <em>Prints</em> <strong>with</strong> leading zeros, e.g. <code>AC0861</code>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Strict four-digit format</th>
+              <td class="naxp--wrap">
+                <code class="naxp">
+                  <span class="naxp__token">(\A\A|\A\9|\9\A) #[0001-9999]</span>
+                </code>
+              </td>
+              <td>Four digits are always required, so <code>AC861</code> is treated as invalid.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 6: credits and licensing -->
+<!-- sitefooter -->
+
+</body>
+</html>

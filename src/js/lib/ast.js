@@ -4,23 +4,23 @@
 /**
  * A node in the abstract syntax tree of a naxp.
  *
- * The tree keeps the structure the source was written in. Intervals and digits ranges are
+ * The tree keeps the structure the pattern was written in. Intervals and decimal ranges are
  * deliberately *not* expanded here. The cap on an interval count exists so that an implementation
- * can reject a naxp before expanding it, and expanding at parse time would throw that away:
- * `(A{99}){99}` is eleven characters of source and nearly ten thousand characters of expansion.
+ * can find a naxp invalid before expanding it, and expanding at parse time would throw that away:
+ * `(A{99}){99}` is eleven characters of pattern and nearly ten thousand characters of expansion.
  *
  * Groups do not survive parsing. `(A)` and `A` give the same tree, and the two abbreviated
- * replaceable forms are expanded into the general one, since version 0.4 defines them structurally
- * rather than textually.
+ * unified forms are expanded into the general one, since the specification defines them
+ * structurally rather than textually.
  */
 export class Ast {
 	constructor() {
 		/**
-		 * The offset in the source at which this node starts. Diagnostics only.
+		 * The offset in the pattern at which this node starts. Diagnostics only.
 		 *
 		 * @type {number}
 		 */
-		this.sourceOffset = 0;
+		this.patternOffset = 0;
 	}
 }
 
@@ -40,7 +40,7 @@ export class AstChars extends Ast {
 }
 
 /**
- * A digits range, written `#[`*lo*`-`*hi*`]`.
+ * A decimal range, written `#[`*lo*`-`*hi*`]`.
  *
  * The digit counts are the counts *as written*, which is what fixes the widths generated:
  * `#[00-105]` does not match `7` while `#[0-105]` does.
@@ -49,7 +49,7 @@ export class AstChars extends Ast {
  * which the specification chose precisely because that is what a double holds exactly, so no bound
  * can reach the point where a number stops being able to represent it.
  */
-export class AstDigitsRange extends Ast {
+export class AstDecimalRange extends Ast {
 	/**
 	 * @param {number} low The lower bound.
 	 * @param {number} lowDigitCount How many digits the lower bound was written with.
@@ -114,22 +114,30 @@ export class AstInterval extends Ast {
 }
 
 /**
- * How a replaceable element was written, which is needed only so that a well-formedness message
+ * How a unified element was written, which is needed only so that a well-formedness message
  * can name the form the author used rather than the form it expands to.
  *
  * @enum {string}
  */
-export const ReplaceableForm = Object.freeze({
+export const UnifiedForm = Object.freeze({
 	/** `x!y`. */
 	Explicit: 'Explicit',
 	/** `x!!`, which expands to `x?!(x)`. */
 	Reproduced: 'Reproduced',
 	/** `x!?`, which expands to `x?!()`. */
 	Dropped: 'Dropped',
+	/**
+	 * One branch of a case fold, such as the `[Aa]!A` that `\CA` expands to.
+	 *
+	 * The form records where the branch came from and changes no rule. An outer fold reaches a
+	 * fold branch like any other unified element, so where two folds meet the outer governs and
+	 * `\C(AB\cC)` prints `ABC`.
+	 */
+	Fold: 'Fold',
 });
 
 /**
- * A replaceable element, written `x!y`. Which of the strings the subject accepts was matched is not
+ * A unified element, written `x!y`. Which of the strings the subject accepts was matched is not
  * part of the encoding, and the rendering is printed in its place.
  *
  * For the two abbreviated forms the subject is the {@link AstOptional} wrapping what was written,
@@ -137,11 +145,11 @@ export const ReplaceableForm = Object.freeze({
  * subtree between `subject` and `rendering`; nothing in the tree is mutated after parsing, so that
  * is safe.
  */
-export class AstReplaceable extends Ast {
+export class AstUnified extends Ast {
 	/**
 	 * @param {Ast} subject The expression whose choice goes unencoded.
 	 * @param {Ast} rendering What is printed in its place.
-	 * @param {string} form How it was written, one of {@link ReplaceableForm}.
+	 * @param {string} form How it was written, one of {@link UnifiedForm}.
 	 */
 	constructor(subject, rendering, form) {
 		super();
@@ -152,24 +160,24 @@ export class AstReplaceable extends Ast {
 }
 
 /**
- * Whether a tree holds a replaceable element anywhere.
+ * Whether a tree holds a unified element anywhere.
  *
  * This decides two things at once, which is why it is one function rather than living with either
- * of them. Without a replaceable element ρ is the identity, so W3 holds for nothing and the
+ * of them. Without a unified element ρ is the identity, so W3 holds for nothing and the
  * canonical language is the accepted one.
  *
  * @param {Ast} node The node to search from.
  * @returns {boolean} Whether one was found.
  */
-export function containsReplaceable(node) {
-	if (node instanceof AstReplaceable) { return true; }
+export function containsUnified(node) {
+	if (node instanceof AstUnified) { return true; }
 
 	if (node instanceof AstSequence || node instanceof AstAlternation) {
-		return node.children.some(containsReplaceable);
+		return node.children.some(containsUnified);
 	}
 
 	if (node instanceof AstOptional || node instanceof AstInterval) {
-		return containsReplaceable(node.child);
+		return containsUnified(node.child);
 	}
 
 	return false;

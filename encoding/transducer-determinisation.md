@@ -1,9 +1,20 @@
 # Determinising ρ into a machine
 
+
+> **Superseded in part, 2026-08-31.** The exponential lower bound below holds for
+> a machine whose only memory is its states. The specification now gives the
+> canonicalising machine a register: a character read but not yet placed is held as
+> a reference to how far back it was read rather than as its value. The family this
+> document leans on, `[ab]{k}c|([ab]!a){k}d`, is linear under that construction --
+> 18 states at k = 16, where it needed 131 072 -- so the bound is escaped rather
+> than contradicted. The reasoning about W3 and the square is unaffected: the square
+> never held the characters, which is why it was polynomial all along. See the
+> specification, section 11, *Building the machines*.
+
 **Status: working note, 2026-08-18.** This is an adversarial review of the construction in
 `src/cs/Naxp/TxMachine.cs`, which determinises the canonicalising transduction ρ so that the
-language emitters have a table to write out. Grammar references are to version 0.4 of the grammar, which is not published yet;
-the composition definition of the encoding is in `encoding/canonicity.md`; the squaring
+language emitters have a table to write out. Grammar references are to the draft of the
+specification current when it was written; the composition definition of the encoding is in `encoding/canonicity.md`; the squaring
 construction that decides W3, and the exponential lower bound this review leans on, are in
 `encoding/w3-functionality.md`. Every figure quoted below was measured, not predicted: a scratch
 program outside the repo compiled the `src/cs/Naxp` sources directly, ran the builder on each naxp
@@ -16,7 +27,7 @@ what terminates the construction is acyclicity, since every transition consumes 
 `MaxLength` strictly decreases, and the delay bound the doc comment cites is true but carries no
 weight. The size half fails. The number of states is exponential on a legal naxp:
 `[ab]{k}c|([ab]!a){k}d` builds exactly 2<sup>k+1</sup> states, measured from k = 4 to 15, so at
-k = 16 the builder refuses a naxp the compiler has just accepted. That family comes from
+k = 16 the builder rules out a naxp the compiler has just accepted. That family comes from
 `encoding/w3-functionality.md`, and its lower-bound argument applies here in full, because this
 construction is exactly the determinisation the W3 check was moved off. The code is not at
 fault; an online finite-state canonicaliser for that family needs those states. The consequence
@@ -50,7 +61,7 @@ The identity proved in `encoding/w3-functionality.md` carries over unchanged. Af
 prefix *u* the live branch set F(*u*) satisfies ρ̂(*u·v*) = { c(*u*)·p·(emissions over *v*) }
 ranging over branches and parses, where c(*u*) is the committed output. The builder's states are
 the LCP-stripped branch sets K(*u*), its transition outputs realise c, and `EndOutput` realises
-the set {p·f} over accepting branches, refused unless it is a singleton. Lemmas 1 to 3 of that
+the set {p·f} over accepting branches, invalid unless it is a singleton. Lemmas 1 to 3 of that
 review (commit safety, verdict invariance, sharing safety) were proved for exactly this
 stripping, so correctness of the machine on a W3-passing naxp follows from them plus the two
 things this review checks fresh: the marker mechanics, which the earlier review did not have in
@@ -71,9 +82,9 @@ common case.
 input projection of every branch residual strictly drops its `MaxLength`, so all branches of a
 state at depth *j* have `MaxLength` at most the longest accepted string less *j*. The reachable
 graph is therefore a DAG of depth at most the longest string of *L*, and the BFS visits each
-state once. The doc comment's reason, that a finite language bounds the delay, is true — a
+state once. The doc comment's reason, that a finite language bounds the delay, is true – a
 pending is a suffix of the output of a partial parse, every residual is completable, so a
-pending never exceeds the longest string of *C* — but it is neither what stops the recursion nor
+pending never exceeds the longest string of *C* – but it is neither what stops the recursion nor
 what bounds the machine. Bounded delay with unboundedly many residual sets would still be
 infinite, and bounded delay with exponentially many stripped branch sets is exactly what
 happens next.
@@ -99,14 +110,14 @@ singletons. This is the intrinsic cost of finite-state output, at a size that is
 affordable; the k-family is the same cost at a size that is not.
 
 **The `MaxSkippedCopies` interaction.** The cap of 64 bounds the per-step fan-out where skipping
-a copy of an interval emits, which needs a replaceable with a nullable subject inside an
+a copy of an interval emits, which needs a unified with a nullable subject inside an
 interval whose count can vary. It plays no part in the 2<sup>k</sup> blow-up, whose branches come
 from alternation, and it cannot be reached by the builder on a compiled naxp at all: the checker
-computes the same derivatives first, so `(A!!){66}` is refused during compilation, while
-`(A!!){65}` compiles and builds a machine of 66 states. Two things are off about that refusal,
-though neither is in `TxMachine.cs`. The naxp is legal — every parse of `(A!!){66}` emits
-exactly 66 `A`s, so it passes W3 — and the message it gets is the checker's pair-state message,
-which blames a count of pair states when the cause was the skip cap.
+computes the same derivatives first, so `(A!!){66}` is invalid during compilation, while
+`(A!!){65}` compiles and builds a machine of 66 states. One thing is off about that fault,
+though it is not in `TxMachine.cs`: the message it gets is the checker's pair-state message,
+which blames a count of pair states when the cause was the skip cap. The naxp passes W3 – every
+parse of `(A!!){66}` emits exactly 66 `A`s – and W6 is what rules it out.
 
 ## Question 2: the marker rule
 
@@ -125,7 +136,7 @@ consumed, which is the character every parse meant.
 
 **The rule is sufficient.** If a marker falls at or beyond the LCP, the builder retries the step
 one character at a time, and a singleton block produces concrete emissions, so the retry cannot
-recur — the guard that throws on a single-character block is genuinely unreachable. After the
+recur – the guard that throws on a single-character block is genuinely unreachable. After the
 subtraction, every surviving pending is a suffix of a marker-free-or-committed string beyond the
 LCP, so `Branch.Pending` stays marker-free, which closes the invariant.
 
@@ -136,8 +147,8 @@ one. So no representation that keeps this runtime can narrow less. Nor is the na
 in a way a cleverer rule could fix: whenever a marker survives past the LCP, the machine owes
 the concrete character as future output, so its states must distinguish which character was
 read whether the transition was narrowed or not. The ten digit states of the postcode are forced
-by the function, and so is the k-family. The only way out is a different machine model — output
-registers, or a buffer the emitted code copies input spans from — which is a design question for
+by the function, and so is the k-family. The only way out is a different machine model – output
+registers, or a buffer the emitted code copies input spans from – which is a design question for
 the emitters, noted at the end, and no criticism of this construction.
 
 ## Question 3: the dedupe
@@ -145,10 +156,10 @@ the emitters, noted at the end, and no criticism of this construction.
 **Confirmed, given the non-emptiness invariant.** The reasoning in `TryStep` is: two parses of
 one input reach the same residual owing different outputs, so any accepted continuation gives
 one input two canonical forms. The step the question probes is "any accepted continuation": if
-the residual's language were empty there would be none, and the refusal would be wrong. It
-cannot be empty. Both factories normalise emptiness away structurally — an empty character set
+the residual's language were empty there would be none, and the fault would be wrong. It
+cannot be empty. Both factories normalise emptiness away structurally – an empty character set
 becomes the `EmptySet` node, an `EmptySet` child annihilates a concatenation, a union of
-nothing is `EmptySet`, and derivatives return `EmptySet` where nothing follows — so by induction
+nothing is `EmptySet`, and derivatives return `EmptySet` where nothing follows – so by induction
 every other node denotes a non-empty language, and moves are only ever created with such
 residuals. A completion therefore exists; fix one parse of it, run it from the shared residual,
 and both branches append the same suffix to different pendings. The state being stepped is
@@ -161,24 +172,24 @@ denote equal strings whatever was read. Textually unequal pendings, each holding
 marker as its final character, cannot denote equal strings for more than one character of the
 block, and a block that produced a marker holds at least two; move existence is uniform over a
 minterm, so the differing character realises both parses. A textual mismatch therefore implies a
-genuine one. No false refusal, and no missed one.
+genuine one. No false fault, and no missed one.
 
-## Question 4: the refusal paths
+## Question 4: the fault paths
 
-**The `Violation()` paths are unreachable on a compiled naxp.** Each of the three triggers — an
-`EotKind.Multiple`, a disagreement between accepting branches' end outputs, and the dedupe —
+**The `Violation()` paths are unreachable on a compiled naxp.** Each of the three triggers – an
+`EotKind.Multiple`, a disagreement between accepting branches' end outputs, and the dedupe – 
 certifies an input with two canonical forms, by the arguments above and the `SkipsAmbiguously`
 remark in `Tx.cs`. The checker is complete, per `encoding/w3-functionality.md`, so any naxp that
-would trip them was refused before the builder ran. The scratch program confirmed the other half: with
-`W3Checker` bypassed, the builder alone refused all six of `[ab]|[ab]!a`, `A!!|()`, `A!?|A!!`,
+would trip them was invalid before the builder ran. The scratch program confirmed the other half: with
+`W3Checker` bypassed, the builder alone ruled out all six of `[ab]|[ab]!a`, `A!!|()`, `A!?|A!!`,
 `A!!A?`, `AB!!B?C` and `(A!!){0,2}`. They should stay. `TryBuild` is callable on any `Tx`, the
 checks cost almost nothing, and a machine built from an unchecked expression would be silently
-wrong rather than refused, which is what the class remark already argues.
+wrong rather than invalid, which is what the class remark already argues.
 
 **`TooLarge()` is reachable, and the class remark is false.** `[ab]{16}c|([ab]!a){16}d`
-compiles and then fails `TryBuild` at the state cap. The remark on `TxMachineBuilder` — "Every
+compiles and then fails `TryBuild` at the state cap. The remark on `TxMachineBuilder` – "Every
 failure this reports is one `W3Checker` would already have reported, since both decide
-single-valuedness over the same derivatives" — conflates the violation paths, where it is true,
+single-valuedness over the same derivatives" – conflates the violation paths, where it is true,
 with the size path, where it is not: the square decides that family in a few dozen pair states
 precisely because it tracks less than the determinisation must. The `TooLong` route into
 `TooLarge()` is dead on a compiled naxp, since every builder-reachable residual appears as a
@@ -195,8 +206,8 @@ denote the same transduction after their first character. After `AQ` the live br
 `Repl·X·(B|C)`; after `BQ` it is `Repl·(XB|XC)`; structurally distinct residuals, identical
 behaviour. One step later the first arm holds the single branch `(B|C)` where the second holds
 the pair {`B`, `C`}, distinct again. The built machine has 8 states; a bottom-up behavioural
-merge — reverse topological order, hash-consing on end output plus the transition list with
-targets replaced by their merged class — leaves 5.
+merge – reverse topological order, hash-consing on end output plus the transition list with
+targets replaced by their merged class – leaves 5.
 
 **Measured impact: nil on everything realistic.** With that merge implemented exactly in the
 program, every other naxp tested was already minimal: the postcode (19 states), `(A|a)!A`,
@@ -204,9 +215,9 @@ program, every other naxp tested was already minimal: the postcode (19 states), 
 `(A|a)!A(B|b)!B|(A|a)!A(C|c)!C`, and `[ab]{8}c|([ab]!a){8}d` at 512 of 512, since the k-family's
 states are all behaviourally distinct. Duplication needs the same transduction region written
 two structurally different ways on converging paths, which real naxps have little reason to
-contain. So a minimisation pass is worth having before the C# emitter — every duplicate state
+contain. So a minimisation pass is worth having before the C# emitter – every duplicate state
 becomes a duplicated `switch` case in generated code, the pass is around fifty lines on an
-acyclic machine, and it also enables re-merging transitions that share an output and a target —
+acyclic machine, and it also enables re-merging transitions that share an output and a target – 
 but it is insurance, and it does not gate the emitter's design the way the size question does.
 
 **A minimal machine here would still not be canonical.** `StateMap` is canonical because
@@ -215,7 +226,7 @@ The merged transducer is minimal only relative to this construction's emission t
 "commit when every live parse agrees", and live parses are parses of the spelling. Choffrut's
 canonical minimal sequential transducer requires output normalisation on top: pushing every
 output as early as the function allows, with an initial output string. This machine is visibly
-not in that form — for `(A|BB|CCC)!(BB)` the whole language canonicalises to `BB`, and an onward
+not in that form – for `(A|BB|CCC)!(BB)` the whole language canonicalises to `BB`, and an onward
 machine would emit `BB` on the first transition where this one emits nothing until end of text.
 Choffrut normalisation would buy a spelling-independent machine at the cost of longer lookahead
 in the delays, and nothing on the project's critical path wants it: the encoding's canonicity
@@ -240,15 +251,15 @@ Three doc comments claim more than the code does.
   the sentence invites the affordability misreading that question 1 refutes.
 
 One message defect sits next door: `W3Checker`'s `TooLarge()` text blames the pair-state budget,
-but the same error is returned for a `TooLong` derivative, so `(A!!){66}` — refused because of
-`TxFactory.MaxSkippedCopies`, with two pair states explored — is told it needed more than
+but the same error is returned for a `TooLong` derivative, so `(A!!){66}` – invalid because of
+`TxFactory.MaxSkippedCopies`, with two pair states explored – is told it needed more than
 100 000 pair states.
 
 And one decision belongs above this file but blocks the emitter. A legal naxp can now compile
 and still have no machine. The emitters cannot be written until the pipeline says what happens
-then: refuse the naxp at compile time by running the builder eagerly, fall back to the tree walk
+then: find the naxp invalid at compile time by running the builder eagerly, fall back to the tree walk
 at runtime and have the generator decline only the generated-canonicaliser feature, or emit
-canonicalisation in a different model — a buffered mark-and-copy pass escapes the
+canonicalisation in a different model – a buffered mark-and-copy pass escapes the
 2<sup>k</sup> bound entirely, because the bound is about finite-state online emission, and it
 would also dissolve the per-character states the narrowing creates. That choice shapes what the
 C# generator emits, so it comes first.
@@ -257,19 +268,19 @@ C# generator emits, so it comes first.
 
 Naxps this review adds, with the observed outcome and the reason each earns a place.
 
-- `[ab]{16}c|([ab]!a){16}d` — compiles, then `TryBuild` fails at the state cap. The one
+- `[ab]{16}c|([ab]!a){16}d` – compiles, then `TryBuild` fails at the state cap. The one
   reachable failure of the builder on a legal naxp; pins whatever pipeline behaviour is chosen.
   With a lowered cap the family exercises the same path cheaply at small k.
-- `[ab]{k}c|([ab]!a){k}d` for a small k — builds 2<sup>k+1</sup> states; a regression pin on
+- `[ab]{k}c|([ab]!a){k}d` for a small k – builds 2<sup>k+1</sup> states; a regression pin on
   the growth rate, and on the fact that behavioural merging cannot shrink it.
-- `A(Q|q)!QX(B|C)|B(Q|q)!Q(XB|XC)` — well formed, 8 states, 5 after merging. The
+- `A(Q|q)!QX(B|C)|B(Q|q)!Q(XB|XC)` – well formed, 8 states, 5 after merging. The
   non-minimality witness; becomes the merge pass's first test if one is written.
-- `(A!!){65}` and `(A!!){66}` — the first compiles and builds 66 states; the second is legal
-  but refused during compilation by the skip cap, with a message that misstates the cause.
-- The six bypass cases `[ab]|[ab]!a`, `A!!|()`, `A!?|A!!`, `A!!A?`, `AB!!B?C`, `(A!!){0,2}` —
-  each refused by the builder alone with `W3Checker` skipped, which is the only way the
+- `(A!!){65}` and `(A!!){66}` – the first compiles and builds 66 states; the second passes W3
+  but breaks W6 by the skip cap, with a message that misstates the cause.
+- The six bypass cases `[ab]|[ab]!a`, `A!!|()`, `A!?|A!!`, `A!!A?`, `AB!!B?C`, `(A!!){0,2}` – 
+  each ruled out by the builder alone with `W3Checker` skipped, which is the only way the
   `Violation()` paths can be exercised and the reason they stay.
-- The postcode `\A\A?\9\X?\s!!\9\A\A` — 19 states with ten single-digit states; pins the
+- The postcode `\A\A?\9\X?\s!!\9\A\A` – 19 states with ten single-digit states; pins the
   narrowing behaviour and the intrinsic cost it pays.
 
 ## What should change in `src/cs/Naxp/TxMachine.cs`
@@ -281,8 +292,8 @@ Naxps this review adds, with the observed outcome and the reason each earns a pl
 3. Replace the termination sentence in `TxMachine`'s remark with the acyclicity argument, and
    state plainly that the number of states can be exponential in the naxp's length even when
    both language machines are small, with the pointer into `encoding/w3-functionality.md`.
-4. Decide, above this file, what a compiled naxp with no buildable machine does — eager build
-   at compile time, runtime fallback to the tree walk, or a buffered emitter model — and record
+4. Decide, above this file, what a compiled naxp with no buildable machine does – eager build
+   at compile time, runtime fallback to the tree walk, or a buffered emitter model – and record
    the decision where the emitters will find it. This precedes the C# emitter.
 5. Add a bottom-up behavioural merge pass over the built machine, in reverse topological order,
    hash-consing on end output and the transition list with merged targets, and re-merge
@@ -290,7 +301,7 @@ Naxps this review adds, with the observed outcome and the reason each earns a pl
    into generated `switch` cases; not urgent on the measured evidence.
 6. Add the test cases above, including the bypass cases that exercise `Violation()`.
 7. Optionally, give the builder's `Violation()` a witness string as `W3Checker` has, so that a
-   defence-in-depth refusal is debuggable if it ever fires. Low value while unreachable.
+   defence-in-depth fault is debuggable if it ever fires. Low value while unreachable.
 
 ## Postscript
 

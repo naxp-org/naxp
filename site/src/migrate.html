@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrate a naxp</title>
+<meta name="description" content="Check whether replacing one naxp with another keeps the meaning of data already encoded with it.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<script type="module" src="/js/migrate.js"></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Migrate a naxp">
+<meta property="og:description" content="Check whether replacing one naxp with another keeps the meaning of data already encoded with it.">
+<meta property="og:url" content="https://naxp.org/migrate/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main data-reserve="migrate">
+
+<!-- Band 2: title and the two naxps -->
+<section class="band">
+  <div class="band__inner">
+
+    <h1 class="bandtitle">Migrate a <strong>naxp</strong></h1>
+
+    <noscript>
+      <p class="status__line status__line--bad">
+        <span class="status__flag">No script</span>
+        This page compares the two <strong>naxp</strong>s in your browser, so it needs
+        JavaScript. Everything else on the site reads without it.
+      </p>
+    </noscript>
+
+    <p>
+      Even a small edit to a <strong>naxp</strong> can change the meaning of its encoded values.
+    </p>
+    <p>
+      Use this page to check what happens if you
+      <em>migrate from <strong>naxp</strong> <code>old</code> to <strong>naxp</strong>
+      <code>new</code>, including what happens to existing encoded values</em>.
+    </p>
+
+    <div class="dev__grid">
+      <div class="field field--pattern">
+        <label class="field__label field__label--exact" for="naxp-a"><strong>naxp</strong> <code>old</code>, which the data was encoded with</label>
+        <div class="field__stack">
+          <textarea id="naxp-a" class="input input--naxp" rows="1" spellcheck="false" data-remember="migrate.old"
+            autocapitalize="off" autocorrect="off" autocomplete="off">\9\9\9\9 \s!! \A\A</textarea>
+        </div>
+      </div>
+      <div class="field field--pattern">
+        <label class="field__label field__label--exact" for="naxp-b"><strong>naxp</strong> <code>new</code>, proposed to replace it</label>
+        <div class="field__stack">
+          <textarea id="naxp-b" class="input input--naxp" rows="1" spellcheck="false" data-remember="migrate.new"
+            autocapitalize="off" autocorrect="off" autocomplete="off">\9\9\9\9 (\s|\-)?!(\s) \A\A</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- The swap acts on both boxes, so it sits below them rather than beside either. -->
+    <div class="dev__chips">
+      <button type="button" id="naxp-swap" class="chip" title="Swap the two naxps">Swap</button>
+      <button type="button" id="naxp-clear" class="chip" title="Clear both">Clear</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- Band 3: the verdict -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+
+    <div id="compare-verdict" class="status" role="status" aria-live="polite"></div>
+
+    <div id="compare-axes-table" class="table-scroll">
+      <table class="datatable">
+        <thead>
+          <tr>
+            <th scope="col">Set</th>
+            <th scope="col">Relationship</th>
+            <th scope="col">What it means here</th>
+          </tr>
+        </thead>
+        <tbody id="compare-axes"></tbody>
+      </table>
+    </div>
+
+    <div id="compare-counts" class="entry__meta"></div>
+
+  </div>
+</section>
+
+<!-- Band 4: the witness -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+
+    <h2 class="section__title">Where decoding differs</h2>
+
+    <p id="compare-divergence"></p>
+
+    <div id="compare-divergence-table" class="table-scroll" hidden>
+      <table class="datatable">
+        <thead>
+          <tr>
+            <th scope="col" class="num">Encoded value</th>
+            <th scope="col">Under <strong>naxp</strong> <code>old</code></th>
+            <th scope="col">Under <strong>naxp</strong> <code>new</code></th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody id="compare-divergence-rows"></tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 6: credits and licensing -->
+<!-- restore -->
+<!-- sitefooter -->
+
+</body>
+</html>

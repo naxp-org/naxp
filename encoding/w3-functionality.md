@@ -1,11 +1,22 @@
 # Deciding W3 at construction time
 
+
+> **Superseded in part, 2026-08-31.** The exponential lower bound below holds for
+> a machine whose only memory is its states. The specification now gives the
+> canonicalising machine a register: a character read but not yet placed is held as
+> a reference to how far back it was read rather than as its value. The family this
+> document leans on, `[ab]{k}c|([ab]!a){k}d`, is linear under that construction --
+> 18 states at k = 16, where it needed 131 072 -- so the bound is escaped rather
+> than contradicted. The reasoning about W3 and the square is unaffected: the square
+> never held the characters, which is why it was polynomial all along. See the
+> specification, section 11, *Building the machines*.
+
 **Status: working note, 2026-08-11.** This is an adversarial review of the proposed
 procedure for checking W3 when a naxp is compiled: a transducer algebra built alongside
 `Rx`, determinised by a subset construction over (residual, pending) pairs, with the
 longest common prefix of the pendings committed at each step. Grammar references are to
-version 0.4 of the grammar, which is not published yet; the encoding definition and the failure of the earlier weighted
-design are in `encoding/canonicity.md`; code references are to `src/cs/Naxp`. Every naxp
+the draft of the specification current when it was written; the encoding definition and the
+failure of the earlier weighted design are in `encoding/canonicity.md`; code references are to `src/cs/Naxp`. Every naxp
 cited below was run against the current per-string canonicaliser
 (`Canonicaliser.TryCanonicalise`) via a scratch program outside the repo, so the
 outcomes quoted are observed rather than predicted.
@@ -28,8 +39,8 @@ transducer literature: MaxLength strictly decreases along every derivative, so t
 construction bottoms out at a depth bounded by the longest accepted string, and pendings
 are bounded by the longest canonical string. Affordability is false. The well-formed
 naxp `[ab]{17}c|([ab]!a){17}d` compiles to machines of 19 and 36 states, yet drives the
-subset construction through more than 2^17 configurations, so the procedure would refuse
-a legal naxp at `MaxStates`. The ill-formed `([ab]|[ab]!a){17}` is refused the same way
+subset construction through more than 2^17 configurations, so the procedure would rule out
+a legal naxp at `MaxStates`. The ill-formed `([ab]|[ab]!a){17}` is invalid the same way
 instead of being diagnosed, although the diagnosis fits in about 2 × 18 states. The
 blow-up is intrinsic: the subset construction computes the online canonicaliser, and for
 the first family that object provably needs 2^17 states. The corrected procedure tracks
@@ -46,19 +57,19 @@ implementation, and all should join the test data.
 
 The facts the review rests on, confirmed against the spec rather than assumed: a naxp
 has no unbounded repetition, so its accepted language *L* is finite and non-empty
-(v0.4, "Three languages"); W1 makes the rendering of every replaceable element a single
-fixed string; ρ maps an accepted string to that string with each replaceable element's
+(v0.4, "Three languages"); W1 makes the rendering of every unified element a single
+fixed string; ρ maps an accepted string to that string with each unified element's
 match replaced by its rendering; and W3 is exactly the requirement that ρ is
 single-valued.
 
 A parse of an input *w* is one way the tree matches *w*. Each parse yields one output:
-the input with each replaceable match replaced by its rendering. Write ρ̂(*w*) for the
+the input with each unified match replaced by its rendering. Write ρ̂(*w*) for the
 set of outputs over all parses of *w*. W3 says |ρ̂(*w*)| = 1 for every *w* in *L*.
 
 The transducer algebra Tx mirrors `Rx` with one extra node. `repl(s, y)` carries the
-residual *s* of a replaceable subject (an input-only expression) and the rendering *y*
+residual *s* of a unified subject (an input-only expression) and the rendering *y*
 (a fixed string, by W1, recoverable with `Matcher.TryGetSingleString`). This node is the
-pairing that `RxConverter` discards at line 79, where a replaceable becomes either its
+pairing that `RxConverter` discards at line 79, where a unified becomes either its
 subject or its rendering; the W3 check is precisely about keeping the two together.
 
 Two functions matter. The derivative δ_b(t) of a Tx *t* by an input block *b* is a
@@ -66,7 +77,7 @@ finite set of pairs (emitted string, residual). The end-of-text set eot(*t*) is 
 of strings emitted by accepting the empty string from *t*, one element per ε-parse:
 
 - eot(ε) = {ε}; eot of a character set is empty.
-- eot(repl(s, y)) = {y} when *s* is nullable, else empty. Completing a replaceable
+- eot(repl(s, y)) = {y} when *s* is nullable, else empty. Completing a unified
   emits its rendering even though nothing is consumed.
 - eot of a concatenation is the elementwise product of the children's eots; of a union,
   the union; of an interval t{m,n}, the products of j copies of eot(t) for each legal
@@ -81,7 +92,7 @@ The derivative rules put mid-string emissions in the right place:
 - δ_b of a concatenation t1…tn is the union over i, taken while t1…t(i-1) are all
   nullable, of {(f1⋯f(i-1)·e, concat(t′, t(i+1)…tn))} for fj ∈ eot(tj) and
   (e, t′) ∈ δ_b(ti). Skipping a nullable element means choosing one of its ε-parses,
-  and that choice can emit: this is where a completed replaceable's rendering enters
+  and that choice can emit: this is where a completed unified's rendering enters
   the stream, triggered by the next consumed character.
 - Intervals behave as bounded concatenations under the same skip rule.
 
@@ -137,7 +148,7 @@ The proposal derives by "character-set minterms", meaning minterms of the first 
 `StateMapBuilder.Minterms` computes for the language machines. For input behaviour that
 is exactly right: every character of a minterm has the same continuations. For output
 behaviour it is too coarse, because a character-set node emits the character actually
-read, while a replaceable emits a fixed string, and whether the two agree depends on
+read, while a unified element emits a fixed string, and whether the two agree depends on
 which character of the minterm was read.
 
 `[ab]|[ab]!a` is the minimal case. Its first sets give the single minterm `[ab]`. The
@@ -158,7 +169,7 @@ accepted; it only multiplies transitions, and renderings are few and short in pr
 
 One comparison shape survives refinement: a copied character against a copied character
 from a different input position. That arises only when one branch's output is ahead of
-the other's (a replaceable whose rendering is longer or shorter than what it consumed)
+the other's (a unified whose rendering is longer or shorter than what it consumed)
 and both branches subsequently copy. Within a multi-character block the outcome then
 genuinely varies by character. A sound and simple treatment is to concretise: when a
 configuration or pair state carries a non-empty delay and a copy lands in the
@@ -253,10 +264,9 @@ itself, so the stripped configuration determines v, and at depth j it determines
 there are exactly 2^j distinct configurations at depth j, and Σ over j ≤ 17 gives
 2^18 − 1 = 262 143. The cumulative count crosses `MaxStates` = 100 000 during depth 16.
 No violation can be reported earlier, because G{m} is not nullable until m = 0, so the
-first acceptance check sits at depth 17. The construction therefore refuses this naxp as
-an implementation limit, where the per-string check diagnoses it from a one-`b` input in
-microseconds. For a compiler that naxp.org will point at strangers' input, an
-exponential path that ends in refusal is also a denial-of-service surface.
+first acceptance check sits at depth 17. The construction therefore rules this naxp out under
+W6, where the per-string check diagnoses it from a one-`b` input in microseconds. For a compiler that naxp.org will point at strangers' input, an
+exponential path that ends in fault is also a denial-of-service surface.
 
 **The well-formed family: `[ab]{k}c|([ab]!a){k}d`.** The first alternative copies k
 letters and demands a final `c`; the second replaces each letter with `a` and demands a
@@ -274,7 +284,7 @@ whose LCP is aᵗ, leaving stripped pendings (bv, a^(|v|+1)). Distinct v at a gi
 give distinct configurations, and the all-`a` prefix gives one more, so again 2^j
 configurations at depth j and about 2^(k+1) in total: over 260 000 for k = 17, against a
 budget of 100 000. Each configuration holds just two branches; the blow-up is in how
-many configurations exist, not in how big any one is. **The subset construction refuses
+many configurations exist, not in how big any one is. **The subset construction rules out
 a legal naxp whose machines have a few dozen states.** That is the counterexample Claim
 B asked for, and it should be a test case for whatever procedure replaces the proposal.
 
@@ -345,8 +355,8 @@ in length by the longest canonical string. Whether their variety can be made lar
 enough to hurt is open; the routes that suggest themselves force the copied region to
 equal a fixed rendering and then collapse the remaining choice by periodicity, which is
 the shape of the twinning arguments in the literature. The budget makes the question
-non-blocking: a naxp that exceeds it is refused as an implementation limit, exactly as
-now, and no naxp anyone has a reason to write goes anywhere near it.
+non-blocking: a naxp that exceeds it breaks W6, exactly as now, and no naxp anyone has a
+reason to write goes anywhere near it.
 
 ### What the transducer literature is for here
 
@@ -366,7 +376,7 @@ ship without that proof.
 The interaction is non-local, and a pair of naxps pins that down. `AB!!B?C` breaks W3 on
 `ABC` (observed Ambiguous), while `AB!!BC`, the same naxp with the `?` removed three
 tokens after the `!!`, is well formed (observed Single "ABBC" for both its inputs). Any
-purely local condition on a replaceable and its neighbours judges these two alike. So
+purely local condition on a unified and its neighbours judges these two alike. So
 there is no complete local check, confirming the intuition in the task.
 
 Two shortcuts are worth having, and one is worth avoiding.
@@ -375,7 +385,7 @@ The shortcut that costs nothing: a naxp with no `!` satisfies W3 vacuously, sinc
 the identity. Most naxps will take this path, and it is trivially sound.
 
 The shortcut to treat with suspicion: the spec's by-eye rule, disjointness between a
-replaceable's characters and the characters legal at its position when it is omitted,
+unified's characters and the characters legal at its position when it is omitted,
 generalises to a checkable condition on first and follow sets. It is sufficient only,
 it goes inconclusive on anything interesting (`AB!!BC` trips it and is well formed),
 and, most importantly, a precise statement covering alternation, nesting under
@@ -400,27 +410,27 @@ side effect.
 
 Naxps this review adds, with the observed outcome and the reason each earns a place.
 
-- `A!!A?`, `A?A!!`, `A!?A?` — Ambiguous on `A`. Five-character W3 violations, smaller
+- `A!!A?`, `A?A!!`, `A!?A?` – Ambiguous on `A`. Five-character W3 violations, smaller
   than `AB!!B?C`; the first two need end-of-text emissions on one side to be caught.
-- `A!!|()` — Ambiguous on the empty string. Violation witnessed by ε alone; any checker
+- `A!!|()` – Ambiguous on the empty string. Violation witnessed by ε alone; any checker
   that ignores end-of-text emissions passes it. `A!?|A!!` is the same point with both
   canonical forms produced by eots, and a single-residual configuration.
-- `(B|BA)!(BA)|BA!!` — well formed, |C| = 1. Accepting branches with pendings ε and `B`
+- `(B|BA)!(BA)|BA!!` – well formed, |C| = 1. Accepting branches with pendings ε and `B`
   whose totals agree; flags any checker that compares pendings instead of totals.
   `(B|BA)!(BA)X|BA!!X` is the same shape with a tail, so the disagreement-then-agreement
   survives past a consumed character.
-- `A!!B`, `BA!!`, `A!?A`, `A!!A` — well formed. Four-character near misses bracketing
+- `A!!B`, `BA!!`, `A!?A`, `A!!A` – well formed. Four-character near misses bracketing
   the five-character violations.
-- `[ab]|[ab]!a` — Single on `a`, Ambiguous on `b`. Minimal witness that emissions are
+- `[ab]|[ab]!a` – Single on `a`, Ambiguous on `b`. Minimal witness that emissions are
   not uniform over first-set minterms; the correct verdict needs `[ab]` split into
   `[a]` and `[b]`.
-- `AB!!BC` alongside `AB!!B?C` — the non-locality pair; a `?` three tokens away flips
+- `AB!!BC` alongside `AB!!B?C` – the non-locality pair; a `?` three tokens away flips
   the verdict.
-- `([ab]|[ab]!a){17}` — ill formed; machines of 18 states; subset construction exceeds
+- `([ab]|[ab]!a){17}` – ill formed; machines of 18 states; subset construction exceeds
   100 000 configurations before its first possible acceptance check; square decides it
   in about 36 states. Also the per-string TooLarge case on all-`b` input.
-- `[ab]{17}c|([ab]!a){17}d` — well formed; machines of 19 and 36 states; subset
-  construction exceeds 100 000 configurations, so the proposal refuses a legal naxp;
+- `[ab]{17}c|([ab]!a){17}d` – well formed; machines of 19 and 36 states; subset
+  construction exceeds 100 000 configurations, so the proposal rules out a legal naxp;
   square passes it in O(k) states. The Claim B counterexample.
-- `\A\A?\9\X?\s!!\9\A\A` — the postcode, well formed; the benign case every procedure
+- `\A\A?\9\X?\s!!\9\A\A` – the postcode, well formed; the benign case every procedure
   must pass quickly.

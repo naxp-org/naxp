@@ -1,2 +1,5 @@
 node_modules/
 _site/
+
+# Written by eleventy.config.js from ../spec/ on every build; edit the spec there.
+src/spec/

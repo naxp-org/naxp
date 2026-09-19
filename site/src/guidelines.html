@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guidelines for designing new naxps</title>
+<meta name="description" content="Advice for writing a naxp: tight character sets, canonical forms, ordering, and changing a naxp without breaking its data.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Guidelines for designing new naxps">
+<meta property="og:description" content="Advice for writing a naxp: tight character sets, canonical forms, ordering, and changing a naxp without breaking its data.">
+<meta property="og:url" content="https://naxp.org/guidelines/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle">Guidelines for designing new <strong>naxp</strong>s</h1>
+  </div>
+</section>
+
+<!-- Band 3: the advice -->
+<section class="band">
+  <div class="band__inner tour">
+
+    <section>
+      <p>
+        A <strong>naxp</strong>
+        and, in particular, its encoded values
+        are likely to end up embedded in lots of places, 
+        which means picking a definition is a long-lived decision.
+      </p>
+      <p>
+        The guidelines on this page are to help you get it right first time.
+      </p>
+    </section>
+
+    <section>
+      <h2>Pick one encoding</h2>
+      <p>
+        <strong>Do <em>not</em> use naxps that produce different encodings for the same thing</strong>
+        &ndash; this is asking for trouble.
+      </p>
+      <p>
+        <strong>If there is a <a href="/pre-defined/">standard naxp</a> then use it.</strong>
+      </p>
+      <p>
+        If you are contemplating changing a <strong>naxp</strong>, e.g. to tolerate different but
+        equivalent text, then <a href="/migrate/">test whether it preserves previous
+        encodings</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Don't go overboard on fault tolerance</h2>
+      <p>
+        It can be tempting to build fault tolerance into a <strong>naxp</strong>,
+        but this is best 
+        <strong>limited to forms widely regarded as legitimate and therefore likely to be encountered in data transfer</strong>.
+        Separators in postcodes and leading zeros fall into this category.
+      </p>
+      <p class="example">
+        Example: Royal Mail officially mandates a space
+        between the outward and inward parts of a UK postcode, but
+        postcodes are (notoriously) stored in a variety of conflicting text formats,
+        of which simply stripping spaces is the simplest.
+        So it's reasonable to adjust the standard form
+        <code class="naxp">\A\A?\9\X? \s \9\A\A</code>
+        to tolerate a missing space, while retaining the version with the space as the canonical form,
+        i.e. <code class="naxp">\A\A?\9\X? \s!! \9\A\A</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Don't hard-code restrictions that may later be relaxed</h2>
+      <p>
+        When designing a <strong>naxp</strong> it is tempting to incorporate all
+        the current restrictions on the text patterns 
+        in pursuit of stronger validation.
+        But, when a <strong>naxp</strong> relates to something that can grow,
+        history shows that complex restrictions have a tendency to be removed over time
+        in order to increase capacity.
+        And in such cases, the codes typically require separate validation against a database 
+        and so the supposed strong validation benefit is illusory.
+      </p>
+      <p class="example">
+        Example:
+        The Netherlands' original 1977 postcode format 
+        strictly excluded the letters <code>FIOQUY</code>
+        &ndash; an engineering decision to aid character recognition.
+        But in 2005 that exclusion was dropped 
+        and new postcodes started to be issued using the previously banned letters,
+        resulting in a lot of software validation failures.
+      </p>
+      <p>
+        So, unless you are absolutely sure that the specification is fixed for all time,
+        <strong>prefer simpler naxps with fewer restrictions</strong>, because they are
+      </p>
+      <ul>
+        <li>robust to future relaxation of standards, and</li>
+        <li>less error prone.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Consider the storage required</h2>
+      <p>
+        Sometimes <strong>naxp</strong> design choices
+        have a material impact on the storage required for the encoded value.
+        This matters because only a few numerical types are universally available and robust to exchange.
+      </p>
+      <p>
+        The <strong>important thresholds to consider are:</strong>
+      </p>
+      <ul>
+        <li><strong>up to 31&nbsp;bits means a signed integer can be used</strong>, and</li>
+        <li>
+          <strong>up to 53&nbsp;bits means a double precision floating point number can be used</strong>
+          &ndash; this is often the safe upper limit, e.g. in MS Excel, JavaScript and R.
+        </li>
+      </ul>
+      <p>
+        This guidance can be in tension with the above guidance to 
+        avoid over-engineered <strong>naxp</strong>s, so judgement can be required.
+      </p>
+        
+      <p class="example">
+        Example:
+        The 'unique identifier' part of an Eircode (Ireland's postcode) is 
+        four alphanumeric characters.
+        Encoding this as <code class="naxp">\X{4}</code> would mean 
+        that an Eircode would require
+        33&nbsp;bits, forcing the use of 64&#x2011;bit storage.
+        The official specification actually restricts the letters to only fifteen.
+        Incorporating this by instead using <code class="naxp">[\9AC-FHKNPRTV-Y]{4}</code> 
+        reduces the storage so that it fits in a standard 31&#x2011;bit signed integer.
+        The legitimate concern that these restrictions may be lifted in the future 
+        is mitigated by the built-in massive headroom for expansion
+        &ndash; the postcodes in use comprise less than 0.5% of those available.
+     </p>
+    </section>
+
+    <section>
+      <h2>Including leading zeros may help with sorting</h2>
+      <p>
+        If encoded values are required to sort in the same order as
+        the numbers they contain
+        then <strong>include leading zeros in the canonical form</strong>.
+      </p>
+      <p class="example">
+        Example:
+        <code class="naxp">#[001-999]</code> and <code class="naxp">#[0!0!1-999]</code> sort numerically,
+        e.g. <code>001</code> &lt; <code>003</code> &lt; <code>020</code>.
+        In contrast, <code class="naxp">#[1-999]</code> and <code class="naxp">#[0?0?1-999]</code> do not,
+        e.g. <code>1</code> &lt; <code>20</code> &lt; <code>3</code>.
+     </p>
+    </section>
+
+    <section>
+      <h2>Don't use <strong>naxp</strong>s for pure numbers</h2>
+      <p>
+        If a code relates to a pure numerical mapping then 
+        a <strong>naxp</strong> may add little and there may be better tools already in place.
+        Bear in mind also that <strong>naxp</strong>s reserve <code>0</code> for invalid text,
+        which may not be a good fit for your use case.
+      </p>
+      <p>
+        Examples of pure numerical mappings are 
+        decimal numbers, 
+        hexadecimal numbers, 
+        Base64 and 
+        Unicode code points.
+      </p>
+      <p>
+        <strong>
+          Before using a naxp for purely numerical text
+          consider whether a standard parsing approach 
+          might be more appropriate.
+        </strong>
+      </p>
+    </section>
+
+    <section>
+      <h2>Use whitespace for clarity</h2>
+      <p>
+        Ordinary whitespace carries no meaning (<code class="naxp">\s</code> is the only thing that means a space), 
+        and a <strong>naxp</strong>
+        with space between its components is far easier to review than the same expression run together.
+        So <strong>use whitespace for clarity</strong>.
+      </p>
+    </section>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 4: credits and licensing -->
+<!-- sitefooter -->
+
+</body>
+</html>

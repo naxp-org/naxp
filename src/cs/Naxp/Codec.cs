@@ -28,7 +28,7 @@ namespace LogMu;
 static class Codec
 {
 	/// <summary>
-	/// The value of a canonical string, or zero if the machine does not accept it.
+	/// The encoded value of a canonical string, or zero if the string is invalid.
 	/// </summary>
 	/// <param name="map">The machine for the canonical language.</param>
 	/// <param name="text">The string, which must already be in canonical form.</param>
@@ -47,7 +47,7 @@ static class Codec
 
 			foreach (Transition transition in state.Transitions)
 			{
-				ulong count = transition.Next.ValueCount;
+				ulong count = transition.Next.StringCount;
 
 				if (transition.Set.Contains(c))
 				{
@@ -81,8 +81,8 @@ static class Codec
 
 		text = null;
 
-		// Zero is reserved for a string the naxp does not accept, so it decodes to nothing.
-		if (value == 0UL || value > map.ValueCount) { return false; }
+		// Zero is reserved for invalid text, so it decodes to nothing.
+		if (value == 0UL || value > map.StringCount) { return false; }
 
 		var builder = new StringBuilder();
 		State state = map.Start;
@@ -102,7 +102,7 @@ static class Codec
 					continue;
 				}
 
-				ulong perCharacter = transition.Next.ValueCount;
+				ulong perCharacter = transition.Next.StringCount;
 				ulong block = (ulong)transition.Set.Count * perCharacter;
 
 				if (remaining <= block)

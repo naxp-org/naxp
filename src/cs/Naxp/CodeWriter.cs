@@ -7,14 +7,16 @@ using System.Text;
 namespace LogMu;
 
 /// <summary>
-/// Writes source text a line at a time, indenting each line to the current block depth.
+/// Writes pattern text a line at a time, indenting each line to the current block depth.
 /// </summary>
 /// <remarks>
-/// Written for the language emitters, which all build text the same way. Block and indent
-/// syntax are options so one writer serves both brace languages and indentation languages: the
-/// defaults on <see cref="Emitter"/> suit C# and its relatives, while a Python emitter would
-/// pass four spaces and no block lines, ending each block's header with a colon before
-/// <see cref="OpenBlock"/>. The derived classes supply the target: <see cref="CodeWriterSB"/>
+/// Written for the language emitters, which all build text the same way. Block syntax comes from
+/// the emitter and indentation from the caller, so one writer serves both brace languages and
+/// indentation languages: a Python emitter would pass no block lines, ending each block's header
+/// with a colon before <see cref="OpenBlock"/>, and a caller wanting spaces would say so. The
+/// newline is the caller's too, so a fragment is the same text on every machine, where
+/// <see cref="System.Environment.NewLine"/> would make it the platform's.
+/// The derived classes supply the target: <see cref="CodeWriterSB"/>
 /// appends to a <see cref="StringBuilder"/> and <see cref="CodeWriterTW"/> writes to a
 /// <see cref="TextWriter"/>, so the emitters serve both through identical code.
 /// </remarks>
@@ -24,6 +26,7 @@ abstract class CodeWriter
 	readonly string indent;
 	readonly string? blockOpen;
 	readonly string? blockClose;
+	readonly string newLine;
 	int depth;
 
 	/// <summary>
@@ -42,12 +45,17 @@ abstract class CodeWriter
 	/// The line <see cref="CloseBlock"/> writes after outdenting, or <see langword="null"/> for
 	/// none.
 	/// </param>
-	protected CodeWriter(string initialIndent, string indent, string? blockOpen, string? blockClose)
+	/// <param name="newLine">
+	/// What ends every line. The caller's choice rather than the platform's, so that one naxp
+	/// gives the same fragment on every machine.
+	/// </param>
+	protected CodeWriter(string initialIndent, string indent, string? blockOpen, string? blockClose, string newLine)
 	{
 		this.initialIndent = initialIndent;
 		this.indent = indent;
 		this.blockOpen = blockOpen;
 		this.blockClose = blockClose;
+		this.newLine = newLine;
 	}
 
 	/// <summary>Writes an empty line, with no indentation.</summary>
@@ -90,8 +98,8 @@ abstract class CodeWriter
 	/// <summary>Writes text within the current line.</summary>
 	protected abstract void Append(string text);
 
-	/// <summary>Terminates the current line.</summary>
-	protected abstract void EndLine();
+	/// <summary>Terminates the current line with the chosen newline.</summary>
+	void EndLine() => this.Append(this.newLine);
 }
 
 /// <summary>A <see cref="CodeWriter"/> that appends to a <see cref="StringBuilder"/>.</summary>
@@ -99,15 +107,13 @@ sealed class CodeWriterSB : CodeWriter
 {
 	readonly StringBuilder builder;
 
-	public CodeWriterSB(StringBuilder builder, string initialIndent, string indent, string? blockOpen, string? blockClose)
-		: base(initialIndent, indent, blockOpen, blockClose)
+	public CodeWriterSB(StringBuilder builder, string initialIndent, string indent, string? blockOpen, string? blockClose, string newLine)
+		: base(initialIndent, indent, blockOpen, blockClose, newLine)
 	{
 		this.builder = builder;
 	}
 
 	protected override void Append(string text) => this.builder.Append(text);
-
-	protected override void EndLine() => this.builder.AppendLine();
 }
 
 /// <summary>A <see cref="CodeWriter"/> that writes to a <see cref="TextWriter"/>.</summary>
@@ -115,13 +121,11 @@ sealed class CodeWriterTW : CodeWriter
 {
 	readonly TextWriter writer;
 
-	public CodeWriterTW(TextWriter writer, string initialIndent, string indent, string? blockOpen, string? blockClose)
-		: base(initialIndent, indent, blockOpen, blockClose)
+	public CodeWriterTW(TextWriter writer, string initialIndent, string indent, string? blockOpen, string? blockClose, string newLine)
+		: base(initialIndent, indent, blockOpen, blockClose, newLine)
 	{
 		this.writer = writer;
 	}
 
 	protected override void Append(string text) => this.writer.Write(text);
-
-	protected override void EndLine() => this.writer.WriteLine();
 }

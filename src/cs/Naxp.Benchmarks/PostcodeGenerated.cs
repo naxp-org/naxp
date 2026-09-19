@@ -11,13 +11,15 @@ namespace LogMu.Benchmarks;
 
 internal static class PostcodeGenerated
 {
-	/// <summary>The count of values this naxp encodes, which is the largest value it can produce.</summary>
-	public const ulong ValueCount = 1_755_842_400UL;
+	/// <summary>The largest encoded value this naxp produces, which is also how many it has.</summary>
+	public const ulong MaxEncodedValue = 1_755_842_400UL;
 
 	/// <summary>The length of the longest string this naxp can decode a value to.</summary>
 	public const int MaxLength = 8;
 
 	/// <summary>Whether this naxp accepts the specified string.</summary>
+	/// <param name="text">The string to test.</param>
+	/// <returns>Whether the naxp accepts it.</returns>
 	public static bool Accepts(global::System.ReadOnlySpan<char> text)
 	{
 		int state = 0;
@@ -33,6 +35,8 @@ internal static class PostcodeGenerated
 	}
 
 	/// <summary>Whether this naxp accepts the specified ASCII text. A byte outside ASCII is never accepted.</summary>
+	/// <param name="text">The ASCII text to test.</param>
+	/// <returns>Whether the naxp accepts it.</returns>
 	public static bool Accepts(global::System.ReadOnlySpan<byte> text)
 	{
 		int state = 0;
@@ -47,7 +51,9 @@ internal static class PostcodeGenerated
 		return IsAccepting(state);
 	}
 
-	/// <summary>The value of a string, from 1 to <see cref="ValueCount"/>, or zero where this naxp does not accept it.</summary>
+	/// <summary>The encoded value of a string.</summary>
+	/// <param name="text">The string to encode.</param>
+	/// <returns>The encoded value, from 1 to <see cref="MaxEncodedValue"/>, or zero where the string is invalid.</returns>
 	public static ulong Encode(global::System.ReadOnlySpan<char> text)
 	{
 		int state = 0;
@@ -63,7 +69,9 @@ internal static class PostcodeGenerated
 		return IsAccepting(state) ? total + 1UL : 0UL;
 	}
 
-	/// <summary>The value of ASCII text, from 1 to <see cref="ValueCount"/>, or zero where this naxp does not accept it.</summary>
+	/// <summary>The encoded value of ASCII text.</summary>
+	/// <param name="text">The ASCII text to encode.</param>
+	/// <returns>The encoded value, from 1 to <see cref="MaxEncodedValue"/>, or zero where the text is invalid.</returns>
 	public static ulong Encode(global::System.ReadOnlySpan<byte> text)
 	{
 		int state = 0;
@@ -79,11 +87,13 @@ internal static class PostcodeGenerated
 		return IsAccepting(state) ? total + 1UL : 0UL;
 	}
 
-	/// <summary>The string a value stands for, which is in canonical form.</summary>
+	/// <summary>The string a value stands for.</summary>
+	/// <param name="value">The encoded value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <returns>The string, which is in canonical form.</returns>
 	/// <exception cref="global::System.ArgumentOutOfRangeException">The value is not one this naxp produces.</exception>
 	public static string Decode(ulong value)
 	{
-		if (value < 1UL || value > ValueCount)
+		if (value < 1UL || value > MaxEncodedValue)
 		{
 			throw new global::System.ArgumentOutOfRangeException(nameof(value), value, "This naxp encodes the values 1 to 1755842400.");
 		}
@@ -94,10 +104,12 @@ internal static class PostcodeGenerated
 	}
 
 	/// <summary>The string a value stands for, as ASCII bytes.</summary>
+	/// <param name="value">The encoded value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <returns>The bytes, which spell the string in canonical form.</returns>
 	/// <exception cref="global::System.ArgumentOutOfRangeException">The value is not one this naxp produces.</exception>
 	public static byte[] DecodeToBytes(ulong value)
 	{
-		if (value < 1UL || value > ValueCount)
+		if (value < 1UL || value > MaxEncodedValue)
 		{
 			throw new global::System.ArgumentOutOfRangeException(nameof(value), value, "This naxp encodes the values 1 to 1755842400.");
 		}
@@ -111,11 +123,14 @@ internal static class PostcodeGenerated
 		return result;
 	}
 
-	/// <summary>Tries to write the string a value stands for. False where the value is not one
-	/// this naxp produces, or the destination is too short for the string.</summary>
+	/// <summary>Tries to write the string a value stands for.</summary>
+	/// <param name="value">The encoded value.</param>
+	/// <param name="destination">Where the string is written.</param>
+	/// <param name="charsWritten">How many characters were written, or zero where none were.</param>
+	/// <returns>False where the value is not one this naxp produces, or the destination is too short.</returns>
 	public static bool TryDecode(ulong value, global::System.Span<char> destination, out int charsWritten)
 	{
-		if (value < 1UL || value > ValueCount)
+		if (value < 1UL || value > MaxEncodedValue)
 		{
 			charsWritten = 0;
 			return false;
@@ -141,11 +156,14 @@ internal static class PostcodeGenerated
 		return true;
 	}
 
-	/// <summary>Tries to write the string a value stands for, as ASCII bytes. False where the value
-	/// is not one this naxp produces, or the destination is too short for the string.</summary>
+	/// <summary>Tries to write the string a value stands for, as ASCII bytes.</summary>
+	/// <param name="value">The encoded value.</param>
+	/// <param name="destination">Where the bytes are written.</param>
+	/// <param name="bytesWritten">How many bytes were written, or zero where none were.</param>
+	/// <returns>False where the value is not one this naxp produces, or the destination is too short.</returns>
 	public static bool TryDecode(ulong value, global::System.Span<byte> destination, out int bytesWritten)
 	{
-		if (value < 1UL || value > ValueCount)
+		if (value < 1UL || value > MaxEncodedValue)
 		{
 			bytesWritten = 0;
 			return false;
@@ -166,7 +184,7 @@ internal static class PostcodeGenerated
 		return true;
 	}
 
-	/// <summary>Writes the string of a value that was already checked against <see cref="ValueCount"/>, and returns its length.</summary>
+	/// <summary>Writes the string of a value that was already checked against <see cref="MaxEncodedValue"/>, and returns its length.</summary>
 	static int DecodeCore(ulong value, global::System.Span<char> destination)
 	{
 		ulong remaining = value;
@@ -188,35 +206,35 @@ internal static class PostcodeGenerated
 		{
 			case 0:
 				if (c >= 'A' && c <= 'Z') { return 1; }
-				return -1;
+				break;
 			case 1:
 				if (c >= '0' && c <= '9') { return 2; }
 				if (c >= 'A' && c <= 'Z') { return 3; }
-				return -1;
+				break;
 			case 2:
 				if (c == ' ') { return 4; }
 				if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')) { return 5; }
-				return -1;
+				break;
 			case 3:
 				if (c >= '0' && c <= '9') { return 2; }
-				return -1;
+				break;
 			case 4:
 				if (c >= '0' && c <= '9') { return 6; }
-				return -1;
+				break;
 			case 5:
 				if (c == ' ') { return 4; }
-				return -1;
+				break;
 			case 6:
 				if (c >= 'A' && c <= 'Z') { return 7; }
-				return -1;
+				break;
 			case 7:
 				if (c >= 'A' && c <= 'Z') { return 8; }
-				return -1;
+				break;
 			case 8:
-				return -1;
-			default:
-				return -1;
+				break;
 		}
+
+		return -1;
 	}
 
 	/// <summary>Whether the input may end in this state.</summary>
@@ -238,36 +256,36 @@ internal static class PostcodeGenerated
 		{
 			case 0:
 				if (c >= 'A' && c <= 'Z') { total += 67_532_400UL * (ulong)(c - 'A'); return 1; }
-				return -1;
+				break;
 			case 1:
 				if (c >= '0' && c <= '9') { total += 250_120UL * (ulong)(c - '0'); return 2; }
 				if (c >= 'A' && c <= 'Z') { total += 2_501_200UL + 2_501_200UL * (ulong)(c - 'A'); return 3; }
-				return -1;
+				break;
 			case 2:
 				if (c == ' ') { return 4; }
 				if (c >= '0' && c <= '9') { total += 6760UL + 6760UL * (ulong)(c - '0'); return 5; }
 				if (c >= 'A' && c <= 'Z') { total += 74_360UL + 6760UL * (ulong)(c - 'A'); return 5; }
-				return -1;
+				break;
 			case 3:
 				if (c >= '0' && c <= '9') { total += 250_120UL * (ulong)(c - '0'); return 2; }
-				return -1;
+				break;
 			case 4:
 				if (c >= '0' && c <= '9') { total += 676UL * (ulong)(c - '0'); return 6; }
-				return -1;
+				break;
 			case 5:
 				if (c == ' ') { return 4; }
-				return -1;
+				break;
 			case 6:
 				if (c >= 'A' && c <= 'Z') { total += 26UL * (ulong)(c - 'A'); return 7; }
-				return -1;
+				break;
 			case 7:
 				if (c >= 'A' && c <= 'Z') { total += (ulong)(c - 'A'); return 8; }
-				return -1;
+				break;
 			case 8:
-				return -1;
-			default:
-				return -1;
+				break;
 		}
+
+		return -1;
 	}
 
 	/// <summary>One step of decoding: appends at most one character and returns the next state, or -1 when the string is complete.</summary>
@@ -353,8 +371,8 @@ internal static class PostcodeGenerated
 			{
 				return -1;
 			}
-			default:
-				return -1;
 		}
+
+		return -1;
 	}
 }

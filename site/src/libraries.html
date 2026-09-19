@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Libraries for naxp</title>
+<meta name="description" content="naxp packages, the reference implementations, and the conformance test data an implementation is validated against.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Libraries for naxp">
+<meta property="og:description" content="naxp packages, the reference implementations, and the conformance test data an implementation is validated against.">
+<meta property="og:url" content="https://naxp.org/libraries/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle">Libraries for <strong>naxp</strong></h1>
+  </div>
+</section>
+
+<!-- Band 3: the libraries, then how to add one -->
+<section class="band">
+  <div class="band__inner">
+    <p>
+      A library provides the following run-time functionality given a <strong>naxp</strong> as text:
+    </p>
+    <ul>
+      <li><em>encoding</em>, i.e. mapping text to its encoded value,</li>
+      <li><em>decoding</em>, i.e. mapping an encoded value back to (canonical) text,</li>
+      <li><em>validation</em> and other checks, and</li>
+      <li><em>code generation</em> for a specific <strong>naxp</strong>.</li>
+    </ul>
+
+    <p class="admonition admonition--tip">
+      <span class="admonition__flag">Tip</span>
+      If you want to implement a <em>specific</em> <strong>naxp</strong> without linking a library
+      or paying a run-time cost, the <a href="/code-gen/">generate code</a> page writes the
+      functions for you.
+    </p>
+
+    <p>
+      The following standard libraries are provided:
+    </p>
+
+    <table class="datatable datatable--prose">
+      <thead>
+        <tr>
+          <th scope="col">Language</th>
+          <th scope="col">Install options</th>
+          <th scope="col">Notes</th>
+          <th scope="col">Source code</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row"><strong>C++ / C</strong></th>
+          <td data-label="Install options">
+            <ul class="options">
+              <li class="is-pending"><code>naxp</code> on vcpkg</li>
+              <li class="is-pending"><code>naxp</code> on Conan</li>
+              <li class="is-pending">Copy <code>naxp.cpp</code> plus <code>naxp.hpp</code> or <code>naxp.h</code> from the latest release</li>
+            </ul>
+          </td>
+          <td data-label="Notes">
+            <p>A C++17 library, plus a plain C interface for C programs and for any language that can call C.</p>
+            <p>
+              For builds not using CMake, use the self-contained amalgamated source <code>naxp.cpp</code> plus 
+              <code>naxp.hpp</code> (C++) or 
+              <code>naxp.h</code> (C).
+            </p>
+          </td>
+          <td data-label="Source code"><a href="https://github.com/naxp-org/naxp/tree/main/src/cpp"><code>src/cpp</code></a></td>
+        </tr>
+        <tr>
+          <th scope="row"><strong>C# / .NET</strong></th>
+          <td data-label="Install options">
+            <ul class="options">
+              <li class="is-pending"><code>naxp</code> on NuGet</li>
+            </ul>
+          </td>
+          <td data-label="Notes">
+            <p>Targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too.</p>
+            <p>Includes a source generator that compiles a <strong>naxp</strong> at build time, as C# does for regexes.</p>
+          </td>
+          <td data-label="Source code"><a href="https://github.com/naxp-org/naxp/tree/main/src/cs"><code>src/cs</code></a></td>
+        </tr>
+        <tr>
+          <th scope="row"><strong>JavaScript</strong></th>
+          <td data-label="Install options">
+            <ul class="options">
+              <li class="is-pending"><code>@naxp/naxp</code> on npm</li>
+            </ul>
+          </td>
+          <td data-label="Notes">
+            <p>Zero dependencies and no build step: plain ES modules with TypeScript declarations, for Node 18 or later and for the browser. This is the library that runs the interactive pages on this website.</p>
+            <p><code>encode</code> returns a <code>bigint</code>, since a <strong>naxp</strong> may hold up to 2<sup>64</sup>&nbsp;&minus;&nbsp;1 values; <code>decode</code> accepts a <code>bigint</code> or a safe integer.</p>
+          </td>
+          <td data-label="Source code"><a href="https://github.com/naxp-org/naxp/tree/main/src/js"><code>src/js</code></a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Install options that are <span class="is-pending">greyed out</span> in the above table are awaiting publication.
+    </p>
+
+    <p>
+      Implementations in R and Python are also planned.
+    </p>
+
+  </div>
+</section>
+
+<!-- Band 4: adding an implementation -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="section__title">Create a new implementation</h2>
+    <p>
+      If you want to write an implementation in a language not already covered then:
+    </p>
+    <ol>
+      <li>
+        Please <em>open an issue on <a href="https://github.com/naxp-org/naxp/issues">GitHub</a></em>
+        so that work is not duplicated.
+      </li>
+      <li>
+        Take a <em>look at the existing implementations</em> above to understand how they work.
+      </li>
+      <li>
+        <em>Test your implementation against the
+        <a href="/conformance/naxp-v0.10.json">conformance data</a></em>, a JSON file per
+        specification version that is generated from the specification itself rather than from
+        any implementation, so an implementation cannot define its own truth by passing it. It
+        comprises
+        <ul>
+          <li>
+            well-formed <strong>naxp</strong>s, each with its value count and a set of texts with
+            their encoded values and canonical forms (every accepted string, for the smaller cases),
+          </li>
+          <li>invalid text for those <strong>naxp</strong>s, and</li>
+          <li>invalid <strong>naxp</strong>s, each tagged with the rule it breaks.</li>
+        </ul>
+        <p>
+          Counts and encoded values are written as decimal strings, because they legitimately
+          reach 2<sup>64</sup>&nbsp;&minus;&nbsp;1 and most JSON parsers read a number into a
+          double.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+</main>
+
+<!-- Band 5: credits and licensing -->
+<!-- sitefooter -->
+
+</body>
+</html>

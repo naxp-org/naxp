@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert } from '../lib/rx-converter.js';
+import { convert } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { tryBuild } from '../lib/state-map.js';
 import { check } from '../lib/well-formedness.js';
@@ -16,7 +16,7 @@ const data = loadConformanceData();
 /**
  * Both machines for a naxp, built from one factory so derivatives stay interned across the two.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {{canonical: import('../lib/state-map.js').StateMap,
  *   accepted: import('../lib/state-map.js').StateMap}} The machines.
  */
@@ -27,8 +27,8 @@ function machines(naxp) {
 	assert.equal(check(ast), null, `${naxp} failed well-formedness`);
 
 	const factory = new RxFactory();
-	const canonical = tryBuild(convert(ast, factory, NaxpLanguage.Canonical), factory);
-	const accepted = tryBuild(convert(ast, factory, NaxpLanguage.Accepted), factory);
+	const canonical = tryBuild(convert(ast, factory, true), factory);
+	const accepted = tryBuild(convert(ast, factory, false), factory);
 
 	assert.ok(canonical.map !== null, `${naxp} canonical: ${canonical.error}`);
 	assert.ok(accepted.map !== null, `${naxp} accepted: ${accepted.error}`);
@@ -46,11 +46,11 @@ test('the canonical machine holds the value count the test data states', () => {
 
 	for (const item of data.cases) {
 		const { canonical } = machines(item.naxp);
-		const expected = BigInt(item.valueCount);
+		const expected = BigInt(item.maxEncodedValue);
 
-		if (canonical.valueCount !== expected) {
+		if (canonical.stringCount !== expected) {
 			failures.push(
-				`${item.naxp} counts ${canonical.valueCount}, and the test data says ${expected}.`);
+				`${item.naxp} counts ${canonical.stringCount}, and the test data says ${expected}.`);
 		}
 
 		if (canonical.countSaturated) {
@@ -72,12 +72,12 @@ test('the accepted machine holds the accepted count the test data states', () =>
 		const { accepted } = machines(item.naxp);
 		const expected = BigInt(item.acceptedCount);
 
-		if (accepted.valueCount !== expected) {
+		if (accepted.stringCount !== expected) {
 			failures.push(
-				`${item.naxp} accepts ${accepted.valueCount}, and the test data says ${expected}.`);
+				`${item.naxp} accepts ${accepted.stringCount}, and the test data says ${expected}.`);
 		}
 
-		if (item.acceptedCount !== item.valueCount) { ++differing; }
+		if (item.acceptedCount !== item.maxEncodedValue) { ++differing; }
 	}
 
 	assert.deepEqual(failures, [], failures.join('\n'));
@@ -103,11 +103,11 @@ test('the accepted machine accepts exactly what the test data says it does', () 
 			}
 		}
 
-		for (const refused of item.notAccepted) {
+		for (const invalid of item.invalid) {
 			++checked;
 
-			if (accepted.accepts(refused)) {
-				failures.push(`${item.naxp} accepts '${refused}', and the test data says not.`);
+			if (accepted.accepts(invalid)) {
+				failures.push(`${item.naxp} accepts '${invalid}', and the test data says not.`);
 			}
 		}
 	}
@@ -135,19 +135,19 @@ test('the canonical machine accepts every canonical form the test data gives', (
 	assert.deepEqual(failures, [], failures.join('\n'));
 });
 
-test('the naxp the test data refuses for W5 saturates', () => {
+test('the naxp the test data marks invalid for W5 saturates', () => {
 	// W5 itself is not checked yet, because that belongs to the compiler. The mechanism it will
 	// read is here, so this pins that the mechanism fires.
-	const w5 = data.rejected.filter(item => item.rule === 'W5');
+	const w5 = data.invalidNaxps.filter(item => item.rule === 'W5');
 
 	assert.equal(w5.length, 1);
 
 	for (const item of w5) {
 		const { ast } = tryParse(item.naxp);
 		const factory = new RxFactory();
-		const { map } = tryBuild(convert(ast, factory, NaxpLanguage.Canonical), factory);
+		const { map } = tryBuild(convert(ast, factory, true), factory);
 
-		assert.ok(map !== null, `${item.naxp} was refused before it could saturate`);
+		assert.ok(map !== null, `${item.naxp} was invalid before it could saturate`);
 		assert.equal(map.countSaturated, true, item.naxp);
 	}
 });

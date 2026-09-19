@@ -1,0 +1,76 @@
+name: Release the amalgamation
+
+# Runs when a version tag is pushed, such as v0.10.0, in the public repository: the tag is
+# made and pushed in naxp after copy-to-public.ps1 has brought the release across. The
+# release it creates is a draft, so the notes can be read and the assets checked before
+# anything is public; publishing it is one click on GitHub, and that is what makes
+# releases/latest resolve, which the libraries page, vcpkg and Conan all depend on.
+#
+# The library is built and its whole test suite run on the tag first, the amalgamation
+# tests included, so no release ever attaches a single file that was not proved to be the
+# library. The tag must name the version CMakeLists.txt states, or the run fails before it
+# builds anything.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the tag names the project version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(sed -n 's/^[[:space:]]*VERSION[[:space:]]\+\([0-9.]\+\)[[:space:]]*$/\1/p' src/cpp/CMakeLists.txt)"
+          if [ "$tag" != "$version" ]; then
+            echo "The tag is v$tag but src/cpp/CMakeLists.txt says $version." >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Build and test the library
+        run: |
+          cmake -S src/cpp -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+
+      - name: Amalgamate
+        run: |
+          node src/cpp/tools/amalgamate.js --out release
+          cd release
+          sha256sum naxp.cpp naxp.h naxp.hpp > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Write the release notes
+        run: |
+          cat > release/notes.md <<EOF
+          naxp $VERSION for C and C++, as one file.
+
+          \`naxp.cpp\` is the whole library. Compile it as C++17; it needs no include path. Your
+          own code includes \`naxp.hpp\` from C++ or \`naxp.h\` from C. \`SHA256SUMS\` holds the
+          digest of each file.
+
+          The same library builds from source with CMake under \`src/cpp\`, and the JavaScript
+          and C# implementations are under \`src/js\` and \`src/cs\`. Every implementation passes
+          the conformance data for specification version $(echo "$VERSION" | sed 's/\.[0-9]*$//').
+          EOF
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "naxp $VERSION" \
+            --notes-file release/notes.md \
+            release/naxp.cpp release/naxp.h release/naxp.hpp release/SHA256SUMS

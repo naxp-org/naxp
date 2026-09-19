@@ -1,13 +1,13 @@
 // Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
-import { containsReplaceable } from './ast.js';
+import { containsUnified } from './ast.js';
 import { encode as rank, tryDecode as unrank } from './codec.js';
 import { NaxpError } from './naxp-error.js';
 import { NaxpMessage } from './naxp-message.js';
 import { NaxpLimits } from './naxp-limits.js';
 import { tryParse as parseNaxp } from './parser.js';
-import { NaxpLanguage, convert as convertRx } from './rx-converter.js';
+import { convert as convertRx } from './rx-converter.js';
 import { RxFactory } from './rx.js';
 import { tryBuild as buildStateMap } from './state-map.js';
 import { tryBuildTxMachine } from './tx-machine.js';
@@ -20,7 +20,7 @@ import { check as checkWellFormedness } from './well-formedness.js';
  */
 export class Compilation {
 	/**
-	 * @param {string} source The source the naxp was parsed from.
+	 * @param {string} pattern The pattern the naxp was parsed from.
 	 * @param {import('./ast.js').Ast} ast The tree.
 	 * @param {import('./state-map.js').StateMap} accepted The machine for the accepted language.
 	 * @param {import('./state-map.js').StateMap} canonical The machine for the canonical language.
@@ -28,8 +28,8 @@ export class Compilation {
 	 * @param {import('./tx-machine.js').TxMachine | null} canonicalMachine The machine that
 	 * canonicalises, or null where ρ is the identity.
 	 */
-	constructor(source, ast, accepted, canonical, canonicalIsIdentity, canonicalMachine) {
-		this.source = source;
+	constructor(pattern, ast, accepted, canonical, canonicalIsIdentity, canonicalMachine) {
+		this.pattern = pattern;
 		this.ast = ast;
 
 		/** The machine for the accepted language *L*. */
@@ -41,7 +41,7 @@ export class Compilation {
 		/**
 		 * Whether ρ is the identity, so that every accepted string is its own canonical form.
 		 *
-		 * True exactly when the tree holds no replaceable element, since that is the only thing
+		 * True exactly when the tree holds no unified element, since that is the only thing
 		 * that makes the canonical form differ from the input. Then *C* and *L* are the same
 		 * language and encoding is a walk of the machine, with no canonicalisation.
 		 */
@@ -51,28 +51,28 @@ export class Compilation {
 		 * The machine that canonicalises, or null where ρ is the identity and there is nothing to
 		 * canonicalise.
 		 *
-		 * Non-null exactly when `canonicalIsIdentity` is false. The compiler builds it and refuses
+		 * Non-null exactly when `canonicalIsIdentity` is false. The compiler builds it, and the naxp is invalid
 		 * the naxp where it will not fit the budget, so a compilation that succeeded always has
 		 * one when it needs one.
 		 */
 		this.canonicalMachine = canonicalMachine;
 	}
 
-	/** The count of encodable values, which is the size of *C*. */
-	get valueCount() {
-		return this.canonical.valueCount;
+	/** The largest encoded value, which is the size of *C*. */
+	get maxEncodedValue() {
+		return this.canonical.stringCount;
 	}
 
 	/** The count of strings the naxp accepts, which is the size of *L*. */
 	get acceptedCount() {
-		return this.accepted.valueCount;
+		return this.accepted.stringCount;
 	}
 
 	/**
 	 * Whether the naxp accepts a string.
 	 *
 	 * This walks the machine for *L*, which is one transition per character. {@link encode}
-	 * answers the same question, but where the naxp has a replaceable element it canonicalises
+	 * answers the same question, but where the naxp has a unified element it canonicalises
 	 * first and then ranks, so it is two walks rather than one and the wrong way round to ask it.
 	 *
 	 * @param {string} text The string to test.
@@ -83,13 +83,13 @@ export class Compilation {
 	}
 
 	/**
-	 * The value of a string, which is zero exactly when the naxp does not accept it.
+	 * The encoded value of a string, which is zero exactly when the string is invalid.
 	 *
 	 * Encoding cannot fail. Every rule is decided when the naxp is compiled, W3 among them, so the
 	 * string either has one value or is not in the language.
 	 *
 	 * @param {string} text The string to encode.
-	 * @returns {bigint} The value, from 1 to the value count, or zero.
+	 * @returns {bigint} The encoded value, from 1 to the largest encoded value, or zero.
 	 */
 	encode(text) {
 		if (this.canonicalIsIdentity) { return rank(this.canonical, text); }
@@ -102,7 +102,7 @@ export class Compilation {
 	/**
 	 * The string a value stands for, which is a canonical form.
 	 *
-	 * @param {bigint} value The value, from 1 to the value count.
+	 * @param {bigint} value The encoded value, from 1 to the largest encoded value.
 	 * @returns {string | null} The string, or null if the value is not one this naxp produces.
 	 */
 	tryDecode(value) {
@@ -110,11 +110,11 @@ export class Compilation {
 	}
 
 	/**
-	 * The canonical form of a string, which is the string with the match of each replaceable
+	 * The canonical form of a string, which is the string with the match of each unified
 	 * element replaced by that element's rendering.
 	 *
 	 * @param {string} text The string.
-	 * @returns {string | null} The canonical form, or null if the naxp does not accept the string.
+	 * @returns {string | null} The canonical form, or null if the string is invalid.
 	 */
 	tryGetCanonicalForm(text) {
 		// Where ρ is the identity an accepted string is its own canonical form, so the answer is
@@ -136,9 +136,9 @@ export class Compilation {
  * in the checker and W5 from the size of the canonical language. A compilation that succeeds is a
  * well-formed naxp.
  *
- * @param {string} text The source of the naxp.
+ * @param {string} text The pattern of the naxp.
  * @returns {{compilation: Compilation | null, error: NaxpError | null}} The compilation, or why it
- * was refused.
+ * was invalid.
  */
 export function tryCompile(text) {
 	const parsed = parseNaxp(text);
@@ -155,14 +155,14 @@ export function tryCompile(text) {
 	const factory = new RxFactory();
 
 	// Everything below turns on this, so the tree is walked for it once.
-	const hasReplaceable = containsReplaceable(ast);
+	const hasUnified = containsUnified(ast);
 
 	// The transduction is wanted twice, by the W3 check and then by the machine that
 	// canonicalises, so it is converted once and both are given it.
 	let txFactory = null;
 	let txRoot = null;
 
-	if (hasReplaceable) {
+	if (hasUnified) {
 		txFactory = new TxFactory(factory);
 		txRoot = convertTx(ast, txFactory, factory);
 
@@ -173,12 +173,12 @@ export function tryCompile(text) {
 		if (w3 !== null) { return { compilation: null, error: w3 }; }
 	}
 
-	// A replaceable element is the only node the converter reads the language at, so without one
+	// A unified element is the only node the converter reads the language at, so without one
 	// the two conversions would give the same expression and the same machine.
-	const canonicalIsIdentity = !hasReplaceable;
+	const canonicalIsIdentity = !hasUnified;
 
 	const canonicalBuild = buildStateMap(
-		convertRx(ast, factory, NaxpLanguage.Canonical),
+		convertRx(ast, factory, true),
 		factory);
 
 	if (canonicalBuild.map === null) {
@@ -190,7 +190,7 @@ export function tryCompile(text) {
 	if (canonical.countSaturated) {
 		return {
 			compilation: null,
-			error: new NaxpError(NaxpMessage.NAXP1047_TooManyValues),
+			error: new NaxpError(NaxpMessage.NAXP1046_TooManyValues),
 		};
 	}
 
@@ -200,7 +200,7 @@ export function tryCompile(text) {
 
 	if (!canonicalIsIdentity) {
 		const acceptedBuild = buildStateMap(
-			convertRx(ast, factory, NaxpLanguage.Accepted),
+			convertRx(ast, factory, false),
 			factory);
 
 		if (acceptedBuild.map === null) {
@@ -210,12 +210,11 @@ export function tryCompile(text) {
 		accepted = acceptedBuild.map;
 	}
 
-	// Last, because it is the only budget a naxp can fail after passing every rule, and the
-	// cheaper refusals should come first. Where it fails the naxp is legal and this implementation
-	// is declining it.
+	// Last, because it is the part of W6 a naxp can fail after passing every other rule, and the
+	// cheaper checks should come first.
 	let canonicalMachine = null;
 
-	if (hasReplaceable) {
+	if (hasUnified) {
 		const built = tryBuildTxMachine(txRoot, txFactory, NaxpLimits.maxCanonicalStates);
 
 		if (built.machine === null) { return { compilation: null, error: built.error }; }

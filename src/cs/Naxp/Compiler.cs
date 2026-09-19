@@ -11,14 +11,14 @@ namespace LogMu;
 sealed class Compilation
 {
 	internal Compilation(
-		string source,
+		string pattern,
 		Ast ast,
 		StateMap accepted,
 		StateMap canonical,
 		bool canonicalIsIdentity,
 		TxMachine? canonicalMachine)
 	{
-		this.Source = source;
+		this.Pattern = pattern;
 		this.Ast = ast;
 		this.Accepted = accepted;
 		this.Canonical = canonical;
@@ -26,7 +26,7 @@ sealed class Compilation
 		this.CanonicalMachine = canonicalMachine;
 	}
 
-	public string Source { get; }
+	public string Pattern { get; }
 
 	public Ast Ast { get; }
 
@@ -36,17 +36,17 @@ sealed class Compilation
 	/// <summary>The machine for the canonical language <i>C</i>, which the encoding ranks over.</summary>
 	public StateMap Canonical { get; }
 
-	/// <summary>The count of encodable values, which is the size of <i>C</i>.</summary>
-	public ulong ValueCount => this.Canonical.ValueCount;
+	/// <summary>The largest encoded value, which is the size of <i>C</i>.</summary>
+	public ulong MaxEncodedValue => this.Canonical.StringCount;
 
 	/// <summary>The count of strings the naxp accepts, which is the size of <i>L</i>.</summary>
-	public ulong AcceptedCount => this.Accepted.ValueCount;
+	public ulong AcceptedCount => this.Accepted.StringCount;
 
 	/// <summary>
 	/// Whether &#961; is the identity, so that every accepted string is its own canonical form.
 	/// </summary>
 	/// <remarks>
-	/// True exactly when the tree holds no replaceable element, since that is the only thing
+	/// True exactly when the tree holds no unified element, since that is the only thing
 	/// that makes the canonical form differ from the input. Then <i>C</i> and <i>L</i> are the
 	/// same language and encoding is a walk of the machine, with no canonicalisation and nothing
 	/// allocated.
@@ -59,7 +59,7 @@ sealed class Compilation
 	/// </summary>
 	/// <remarks>
 	/// Non-null exactly when <see cref="CanonicalIsIdentity"/> is false. <see cref="Compiler"/>
-	/// builds it while compiling and refuses the naxp where it will not fit
+	/// builds it while compiling, and the naxp is invalid where it will not fit
 	/// <see cref="NaxpLimits.MaxCanonicalStates"/>, so a compilation that succeeded always has
 	/// one when it needs one.
 	/// </remarks>
@@ -70,7 +70,7 @@ sealed class Compilation
 	/// </summary>
 	/// <remarks>
 	/// This walks the machine for <i>L</i>, which is one transition per character.
-	/// <see cref="Encode"/> answers the same question, but where the naxp has a replaceable
+	/// <see cref="Encode"/> answers the same question, but where the naxp has a unified
 	/// element it canonicalises first and then ranks, so it is two walks rather than one and the
 	/// wrong way round to ask it.
 	/// </remarks>
@@ -79,14 +79,14 @@ sealed class Compilation
 	public bool Accepts(ReadOnlySpan<char> text) => this.Accepted.Accepts(text);
 
 	/// <summary>
-	/// The value of a string, which is zero exactly when the naxp does not accept it.
+	/// The encoded value of a string, which is zero exactly when the string is invalid.
 	/// </summary>
 	/// <remarks>
 	/// Encoding cannot fail. Every rule is decided when the naxp is compiled, W3 among them, so
 	/// the string either has one value or is not in the language.
 	/// </remarks>
 	/// <param name="text">The string to encode.</param>
-	/// <returns>The value, from 1 to <see cref="ValueCount"/>, or zero.</returns>
+	/// <returns>The value, from 1 to <see cref="MaxEncodedValue"/>, or zero.</returns>
 	public ulong Encode(ReadOnlySpan<char> text)
 		=> this.CanonicalIsIdentity
 			? Codec.Encode(this.Canonical, text)
@@ -98,18 +98,18 @@ sealed class Compilation
 	/// <summary>
 	/// The string a value stands for, which is a canonical form.
 	/// </summary>
-	/// <param name="value">The value, from 1 to <see cref="ValueCount"/>.</param>
+	/// <param name="value">The value, from 1 to <see cref="MaxEncodedValue"/>.</param>
 	/// <param name="text">The string, or <see langword="null"/> if the value is out of range.</param>
 	/// <returns>Whether the value is one this naxp can produce.</returns>
 	public bool TryDecode(ulong value, out string? text) => Codec.TryDecode(this.Canonical, value, out text);
 
 	/// <summary>
-	/// The canonical form of a string, which is the string with the match of each replaceable
+	/// The canonical form of a string, which is the string with the match of each unified
 	/// element replaced by that element's rendering.
 	/// </summary>
 	/// <param name="text">The string.</param>
 	/// <param name="canonical">
-	/// The canonical form, or <see langword="null"/> if the naxp does not accept the string.
+	/// The canonical form, or <see langword="null"/> if the string is invalid.
 	/// </param>
 	/// <returns>Whether the naxp accepts the string.</returns>
 	public bool TryGetCanonicalForm(ReadOnlySpan<char> text, out string? canonical)
@@ -153,14 +153,14 @@ static class Compiler
 		var factory = new RxFactory();
 
 		// Everything below turns on this, so the tree is walked for it once.
-		bool hasReplaceable = Ast.ContainsReplaceable(ast!);
+		bool hasUnified = Ast.ContainsUnified(ast!);
 
 		// The transduction is wanted twice, by the W3 check and then by the machine that
 		// canonicalises, so it is converted once and both are given it.
 		TxFactory? txFactory = null;
 		Tx? txRoot = null;
 
-		if (hasReplaceable)
+		if (hasUnified)
 		{
 			txFactory = new TxFactory(factory);
 			txRoot = TxConverter.Convert(ast!, txFactory, factory);
@@ -170,16 +170,16 @@ static class Compiler
 			if (!W3Checker.TryCheck(txRoot, txFactory, out error)) { return false; }
 		}
 
-		// A replaceable element is the only node RxConverter reads the language at, so without one
+		// A unified element is the only node RxConverter reads the language at, so without one
 		// the two conversions would give the same expression and the same machine.
-		bool canonicalIsIdentity = !hasReplaceable;
+		bool canonicalIsIdentity = !hasUnified;
 
-		Rx canonicalExpression = RxConverter.Convert(ast!, factory, NaxpLanguage.Canonical);
+		Rx canonicalExpression = RxConverter.Convert(ast!, factory, isCanonical: true);
 		if (!StateMapBuilder.TryBuild(canonicalExpression, factory, out StateMap? canonical, out error)) { return false; }
 
 		if (canonical!.CountSaturated)
 		{
-			error = new NaxpError(NaxpMessage.NAXP1047_TooManyValues);
+			error = new NaxpError(NaxpMessage.NAXP1046_TooManyValues);
 			return false;
 		}
 
@@ -193,16 +193,15 @@ static class Compiler
 		}
 		else
 		{
-			Rx acceptedExpression = RxConverter.Convert(ast!, factory, NaxpLanguage.Accepted);
+			Rx acceptedExpression = RxConverter.Convert(ast!, factory, isCanonical: false);
 			if (!StateMapBuilder.TryBuild(acceptedExpression, factory, out accepted, out error)) { return false; }
 		}
 
-		// Last, because it is the only budget a naxp can fail after passing every rule, and the
-		// cheaper refusals should come first. Where it fails the naxp is legal and this
-		// implementation is declining it; see NaxpLimits.MaxCanonicalStates.
+		// Last, because it is the part of W6 a naxp can fail after passing every other rule, and
+		// the cheaper checks should come first; see NaxpLimits.MaxCanonicalStates.
 		TxMachine? canonicalMachine = null;
 
-		if (hasReplaceable
+		if (hasUnified
 			&& !TxMachineBuilder.TryBuild(
 				txRoot!,
 				txFactory!,

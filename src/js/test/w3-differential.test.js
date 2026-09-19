@@ -5,20 +5,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert } from '../lib/rx-converter.js';
+import { convert } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { tryBuild } from '../lib/state-map.js';
 import { checkW3 } from '../lib/w3-checker.js';
 import { check } from '../lib/well-formedness.js';
 import { ReferenceOutcome, tryCanonicalise } from './reference-canonicaliser.js';
-import { isImplementationLimit, ruleOf } from './naxp-message-rules.js';
+import { isStateBudget, ruleOf } from './naxp-message-rules.js';
 
 /** Naxps with more strings than this are skipped rather than enumerated. */
 const MAX_LANGUAGE = 4096n;
 
 /**
- * Sequences and alternations over a pool of elements chosen to put replaceable and
- * non-replaceable ways of matching the same characters next to one another.
+ * Sequences and alternations over a pool of elements chosen to put unified and
+ * non-unified ways of matching the same characters next to one another.
  *
  * The naxps are generated rather than listed, because the interesting cases are the ones nobody
  * thinks to write down.
@@ -71,9 +71,9 @@ function generatedNaxps() {
  */
 function enumerateLanguage(ast) {
 	const factory = new RxFactory();
-	const { map } = tryBuild(convert(ast, factory, NaxpLanguage.Accepted), factory);
+	const { map } = tryBuild(convert(ast, factory, false), factory);
 
-	if (map === null || map.countSaturated || map.valueCount > MAX_LANGUAGE) { return null; }
+	if (map === null || map.countSaturated || map.stringCount > MAX_LANGUAGE) { return null; }
 
 	const language = [];
 	const walk = (state, prefix) => {
@@ -92,7 +92,7 @@ function enumerateLanguage(ast) {
 
 	assert.equal(
 		BigInt(language.length),
-		map.valueCount,
+		map.stringCount,
 		'the walk of the machine and its own count disagree');
 
 	return language;
@@ -102,7 +102,7 @@ test('the static rule agrees with the per-string rule over generated naxps', () 
 	// The reference canonicaliser decides ambiguity for one string by walking the tree and
 	// carrying every output, which shares no reasoning with the square. A naxp's language is
 	// finite and can be enumerated, so the two can be compared exhaustively: the square must
-	// refuse a naxp exactly when some string of its language has more than one canonical form.
+	// rule out a naxp exactly when some string of its language has more than one canonical form.
 	const failures = [];
 	let compared = 0;
 
@@ -127,14 +127,14 @@ test('the static rule agrees with the per-string rule over generated naxps', () 
 
 		const error = checkW3(ast, new RxFactory());
 
-		if (error !== null && isImplementationLimit(error.message)) { continue; }
+		if (error !== null && isStateBudget(error.message)) { continue; }
 
 		++compared;
 
 		if (error === null && ambiguous !== null) {
 			failures.push(`${naxp} was accepted, but '${ambiguous}' has more than one canonical form.`);
 		} else if (error !== null && ambiguous === null) {
-			failures.push(`${naxp} was refused (${error}), but no string of its language is ambiguous.`);
+			failures.push(`${naxp} was invalid (${error}), but no string of its language is ambiguous.`);
 		}
 	}
 
@@ -202,14 +202,14 @@ test('the static rule agrees with the per-string rule over naxps with character 
 
 		const error = checkW3(ast, new RxFactory());
 
-		if (error !== null && isImplementationLimit(error.message)) { continue; }
+		if (error !== null && isStateBudget(error.message)) { continue; }
 
 		++compared;
 
 		if (error === null && ambiguous !== null) {
 			failures.push(`${naxp} was accepted, but '${ambiguous}' has more than one canonical form.`);
 		} else if (error !== null && ambiguous === null) {
-			failures.push(`${naxp} was refused (${error}), but no string of its language is ambiguous.`);
+			failures.push(`${naxp} was invalid (${error}), but no string of its language is ambiguous.`);
 		}
 	}
 
@@ -236,7 +236,7 @@ test('an undecided copy is compared against a delay rather than guessed', () => 
 		assert.ok(error !== null, `${naxp} was accepted`);
 		assert.equal(ruleOf(error.message), 'W3', `${naxp}: ${error.text}`);
 
-		// And the oracle agrees, so the refusal is right rather than merely present.
+		// And the oracle agrees, so the fault is right rather than merely present.
 		const language = enumerateLanguage(ast);
 		const ambiguous = language.filter(
 			text => tryCanonicalise(ast, text).outcome === ReferenceOutcome.Ambiguous);
@@ -249,7 +249,7 @@ test('the reference canonicaliser sees the ambiguity the specification describes
 	// A guard on the oracle itself. If it stopped finding this it would agree with anything.
 	const { ast } = tryParse('AB!!B?C');
 
-	// ABC is the string the specification works through: read the B as the replaceable element
+	// ABC is the string the specification works through: read the B as the unified element
 	// with the optional one absent and the form is ABC, read it the other way round and it is
 	// ABBC.
 	assert.equal(tryCanonicalise(ast, 'ABC').outcome, ReferenceOutcome.Ambiguous);
@@ -259,7 +259,7 @@ test('the reference canonicaliser sees the ambiguity the specification describes
 		tryCanonicalise(ast, 'ABBC'),
 		{ outcome: ReferenceOutcome.Single, canonical: 'ABBC' });
 
-	// A replaceable emits its rendering even where it matched nothing, so AC gains a B.
+	// A unified emits its rendering even where it matched nothing, so AC gains a B.
 	assert.deepEqual(
 		tryCanonicalise(ast, 'AC'),
 		{ outcome: ReferenceOutcome.Single, canonical: 'ABC' });
@@ -285,8 +285,8 @@ test('the reference canonicaliser agrees with the specification on a well-formed
 
 test('an abandoned derivative does not blame the pair state budget', () => {
 	// (A!!){66} passes more skipped copies of an interval than the derivative will follow, so it
-	// gives up. The naxp is legal and the message has to say so, and must not claim to have run
-	// out of pair states, which is a different limit and was not the one hit.
+	// gives up. That is W6, and the message must not claim to have run out of pair states, which
+	// is the other way of reaching W6 and was not the one hit.
 	const { ast } = tryParse('(A!!){66}');
 
 	assert.equal(check(ast), null);
@@ -294,9 +294,9 @@ test('an abandoned derivative does not blame the pair state budget', () => {
 	const error = checkW3(ast, new RxFactory());
 
 	assert.ok(error !== null, 'accepted');
-	assert.equal(ruleOf(error.message), 'ImplementationLimit');
+	assert.equal(ruleOf(error.message), 'W6');
 	assert.ok(!error.text.includes('pair states'), error.text);
-	assert.ok(error.text.includes('may well be legal'), error.text);
+	assert.ok(error.text.includes('intermediate string'), error.text);
 });
 
 test('a spent pair state budget says so', () => {
@@ -307,7 +307,7 @@ test('a spent pair state budget says so', () => {
 	const error = checkW3(ast, new RxFactory(), { maxStates: 8 });
 
 	assert.ok(error !== null, 'accepted');
-	assert.equal(ruleOf(error.message), 'ImplementationLimit');
+	assert.equal(ruleOf(error.message), 'W6');
 	assert.ok(error.text.includes('pair states'), error.text);
 });
 

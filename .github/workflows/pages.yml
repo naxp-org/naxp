@@ -1,0 +1,58 @@
+name: Build and deploy naxp.org
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# The site lives in site/, not at the root, because this repository is the
+# whole of naxp: the implementations, the conformance data and the site
+# together. Pages serves naxp.org from here, so no separate site repository
+# is needed and none exists.
+# Development happens in the private naxp-draft, which carries this file
+# too but has no Pages site, so the jobs run only in the public repository.
+jobs:
+  build:
+    if: github.repository == 'naxp-org/naxp'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/_site
+
+  deploy:
+    if: github.repository == 'naxp-org/naxp'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -77,3 +77,10 @@ _site/
 .jekyll-cache/
 .jekyll-metadata
 dist/
+
+# Claude Code
+.claude/
+
+# Python bytecode
+__pycache__/
+*.pyc

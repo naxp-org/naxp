@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive naxp design</title>
+<meta name="description" content="Write a naxp and see it parse, encode text to encoded values and decode them back to text, in the browser.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Interactive naxp design">
+<meta property="og:description" content="Write a naxp and see it parse, encode text to encoded values and decode them back to text.">
+<meta property="og:url" content="https://naxp.org/interactive/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="modulepreload" href="/naxp/index.js">
+<script type="module" src="/js/interactive.js"></script>
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main data-reserve="interactive">
+
+<!-- Band 2: title and the naxp being worked on -->
+<section class="band">
+  <div class="band__inner">
+
+    <h1 class="bandtitle">Interactive <strong>naxp</strong> design</h1>
+
+    <p>
+      Write a <strong>naxp</strong> below and it is parsed as you type.
+    </p>
+
+    <p>
+      Before you start, please read
+      <a href="/#quick-tour">the quick tour</a> and the
+      <a href="/guidelines/">design guidelines</a>.
+    </p>
+
+    <p>
+      Everything runs locally on this page (using the <strong>naxp</strong> JavaScript library) 
+      so nothing you write here is sent anywhere else.
+    </p>
+
+    <noscript>
+      <p class="status__line status__line--bad">
+        This page needs JavaScript. The <strong>naxp</strong> is parsed in your browser rather
+        than on a server, so there is nothing to fall back to.
+      </p>
+    </noscript>
+
+    <div class="dev__chips">
+      <span class="field__label" id="naxp-examples-label">Load an example</span>
+      <div id="naxp-examples" class="chips" role="group" aria-labelledby="naxp-examples-label"></div>
+      <button type="button" id="naxp-share" class="chip chip--share">Copy link</button>
+    </div>
+
+    <div class="field field--pattern">
+      <label class="field__label" for="naxp-pattern"><strong>naxp</strong></label>
+      <!-- The box and the layer that marks a fault in it are stacked, so the squiggle lands
+           under the text being edited rather than in a box of its own. -->
+      <div class="field__stack">
+        <div id="naxp-underlay" class="input input--naxp field__underlay" aria-hidden="true"></div>
+        <textarea id="naxp-pattern" class="input input--naxp" rows="1" spellcheck="false" data-remember="interactive.pattern"
+          autocapitalize="off" autocorrect="off" autocomplete="off"
+          placeholder="Type a naxp here to begin"></textarea>
+      </div>
+    </div>
+
+    <div id="naxp-status" class="status" role="status" aria-live="polite"></div>
+
+    <div class="dev__chips">
+      <!-- An anchor rather than a button, because it navigates. It is disabled by dropping the
+           href, which is what puts a link out of reach of the keyboard as well as the mouse;
+           aria-disabled then says so, and the chip rule dims it. The naxp travels in the
+           fragment, the way this page's own Copy link chip writes it, and generate.js reads it
+           back out. -->
+      <a id="naxp-generate" class="chip" aria-disabled="true">Generate code for this <strong>naxp</strong></a>
+    </div>
+
+    </div>
+</section>
+
+<!-- Band 3: encoding and decoding, side by side -->
+<section class="band band--edge-top">
+  <div class="band__inner dev__grid">
+
+    <section class="dev__pane">
+      <h2 class="dev__paneTitle">Encode</h2>
+      <p class="dev__paneNote">One piece of text per line.</p>
+
+      <div class="field">
+        <label class="field__label" for="naxp-tests">Text</label>
+        <div class="field__stack">
+          <textarea id="naxp-tests" class="input input--naxp" rows="1" spellcheck="false" data-remember="interactive.tests"
+            autocapitalize="off" autocorrect="off" autocomplete="off"></textarea>
+        </div>
+      </div>
+
+      <div id="naxp-test-results" class="dev__results"></div>
+    </section>
+
+    <section class="dev__pane">
+      <h2 class="dev__paneTitle">Decode</h2>
+      <p class="dev__paneNote">
+        An encoded value always decodes to the canonical form, which is why text
+        and its canonical form share one.
+      </p>
+
+      <div class="field field--value">
+        <label class="field__label" for="naxp-value">Encoded value</label>
+        <div class="field__stack">
+          <input id="naxp-value" class="input input--naxp" type="text" inputmode="numeric" data-remember="interactive.value"
+            spellcheck="false" autocomplete="off" placeholder="1">
+        </div>
+      </div>
+
+      <div id="naxp-value-result" class="dev__results"></div>
+
+      <h3 class="dev__subTitle">Across the range</h3>
+      <div id="naxp-samples" class="dev__results"></div>
+    </section>
+
+  </div>
+</section>
+
+</main>
+
+<!-- Band 4: credits and licensing -->
+<!-- restore -->
+<!-- sitefooter -->
+
+</body>
+</html>

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { encode, tryDecode } from '../lib/codec.js';
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert } from '../lib/rx-converter.js';
+import { convert } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { tryBuild } from '../lib/state-map.js';
 import { checkW3 } from '../lib/w3-checker.js';
@@ -17,7 +17,7 @@ const POSTCODE = '\\A \\A? \\9 \\X? \\s!! \\9 \\A \\A';
 /**
  * The machine for a naxp's canonical language, which is the one the encoding ranks.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {import('../lib/state-map.js').StateMap} The machine.
  */
 function canonicalMap(naxp) {
@@ -30,7 +30,7 @@ function canonicalMap(naxp) {
 
 	assert.equal(checkW3(ast, factory), null, `${naxp} failed W3`);
 
-	const built = tryBuild(convert(ast, factory, NaxpLanguage.Canonical), factory);
+	const built = tryBuild(convert(ast, factory, true), factory);
 
 	assert.ok(built.map !== null, `${naxp} has no machine: ${built.error}`);
 
@@ -64,7 +64,7 @@ function enumerate(map) {
 
 // #region The specification's worked values
 
-test('an unpadded digits range puts the wider matches last', () => {
+test('an unpadded decimal range puts the wider matches last', () => {
 	// The case the Ordering section warns about: '1' sorts above '9' because it is the only
 	// leading digit that can carry a second.
 	const map = canonicalMap('#[0-10]');
@@ -92,7 +92,7 @@ test('the order is neither lexicographic nor shortlex', () => {
 	assert.equal(encode(map, 'B'), 2n);
 });
 
-test('a string the machine does not accept encodes to zero', () => {
+test('invalid text encodes to zero', () => {
 	assert.equal(encode(canonicalMap('#[0-10]'), '11'), 0n);
 	assert.equal(encode(canonicalMap('#[0-10]'), ''), 0n);
 	assert.equal(encode(canonicalMap('A'), 'B'), 0n);
@@ -104,7 +104,7 @@ test('a string the machine does not accept encodes to zero', () => {
 test('the postcode values run from one to the count', () => {
 	const map = canonicalMap(POSTCODE);
 
-	assert.equal(map.valueCount, 1755842400n);
+	assert.equal(map.stringCount, 1755842400n);
 	assert.equal(encode(map, 'A0 0AA'), 1n);
 	assert.equal(encode(map, 'ZZ9Z 9ZZ'), 1755842400n);
 });
@@ -130,7 +130,7 @@ test('the worked postcodes take the values the specification states', () => {
 test('a value outside the range decodes to nothing', () => {
 	const map = canonicalMap(POSTCODE);
 
-	// Zero is reserved for a string the naxp does not accept.
+	// Zero is reserved for invalid text.
 	assert.equal(tryDecode(map, 0n), null);
 	assert.equal(tryDecode(map, -1n), null);
 	assert.equal(tryDecode(map, 1755842401n), null);
@@ -157,7 +157,7 @@ test('decoding and encoding are inverse across a whole language', () => {
 
 	for (const naxp of naxps) {
 		const map = canonicalMap(naxp);
-		const count = map.valueCount;
+		const count = map.stringCount;
 
 		assert.ok(count <= 2000n, `${naxp} has ${count} values, too many to walk`);
 
@@ -181,7 +181,7 @@ test('the values are the position of the string in the machine order', () => {
 		const map = canonicalMap(naxp);
 		const strings = enumerate(map);
 
-		assert.equal(BigInt(strings.length), map.valueCount, `${naxp} enumerated the wrong count`);
+		assert.equal(BigInt(strings.length), map.stringCount, `${naxp} enumerated the wrong count`);
 
 		for (let i = 0; i < strings.length; ++i) {
 			assert.equal(encode(map, strings[i]), BigInt(i + 1), `${naxp}: '${strings[i]}'`);
@@ -190,13 +190,13 @@ test('the values are the position of the string in the machine order', () => {
 });
 
 // #endregion
-// #region Replacement
+// #region Unification
 
-test('every string a replaceable element accepts takes the same value', () => {
+test('every string a unified element accepts takes the same value', () => {
 	// They share a canonical form, so the canonical language holds one of them.
 	const map = canonicalMap('(A|a)!A');
 
-	assert.equal(map.valueCount, 1n);
+	assert.equal(map.stringCount, 1n);
 	assert.equal(encode(map, 'A'), 1n);
 });
 

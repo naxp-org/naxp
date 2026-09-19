@@ -11,13 +11,13 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// &#961;(<i>w</i>) is <i>w</i> with the match of each replaceable element replaced by that
+/// &#961;(<i>w</i>) is <i>w</i> with the match of each unified element replaced by that
 /// element's rendering. The tree is where that is visible, since the machines have already
 /// resolved it one way or the other, so this works over the tree.
 /// </para>
 /// <para>
-/// It is <see cref="Matcher"/>'s set of positions with one output carried alongside each
-/// position. A replaceable element contributes its rendering whatever it matched, which is the
+/// It is <see cref="TreeWalker"/>'s set of positions with one output carried alongside each
+/// position. A unified element contributes its rendering whatever it matched, which is the
 /// whole of what makes the canonical form differ from the input.
 /// </para>
 /// <para>
@@ -26,7 +26,7 @@ namespace LogMu;
 /// follows depends on the position alone; so two partial parses that meet at one position either
 /// both reach the end or neither does. If both reach it they append the same remainder, and W3
 /// says the two totals agree, which forces the two outputs to have agreed already. Carrying the
-/// whole set would therefore only ever record the same string twice — and it was what made this
+/// whole set would therefore only ever record the same string twice – and it was what made this
 /// exponential, since <c>([ab]|[ab]!a){17}</c> reaches 2^17 outputs on an all-<c>b</c> input.
 /// </para>
 /// </remarks>
@@ -55,7 +55,7 @@ readonly ref struct Canonicaliser
 		canonical = null;
 
 		// A naxp within the state budget has a longest string shorter than this, so anything
-		// longer is not accepted rather than too costly to decide.
+		// longer is invalid rather than too costly to decide.
 		if (text.Length > NaxpLimits.MaxStringLength) { return false; }
 
 		var canonicaliser = new Canonicaliser(text);
@@ -93,8 +93,8 @@ readonly ref struct Canonicaliser
 				return result;
 			}
 
-			case AstDigitsRange:
-				// A digits range emits what it consumed.
+			case AstDecimalRange:
+				// A decimal range emits what it consumed.
 				return this.Consume(node, starts);
 
 			case AstSequence sequence:
@@ -150,16 +150,16 @@ readonly ref struct Canonicaliser
 				return result;
 			}
 
-			case AstReplaceable replaceable:
+			case AstUnified unified:
 			{
 				// This is the whole of the difference between a string and its canonical form:
 				// whatever the subject matched, the rendering is what comes out.
-				string rendering = this.RenderingOf(replaceable);
+				string rendering = this.RenderingOf(unified);
 				var result = new Dictionary<int, string>();
 
 				foreach (KeyValuePair<int, string> start in starts)
 				{
-					foreach (int end in Matcher.Advance(replaceable.Subject, this.text, new HashSet<int> { start.Key }))
+					foreach (int end in TreeWalker.Advance(unified.Subject, this.text, new HashSet<int> { start.Key }))
 					{
 						Put(result, end, start.Value + rendering);
 					}
@@ -182,7 +182,7 @@ readonly ref struct Canonicaliser
 
 		foreach (KeyValuePair<int, string> start in starts)
 		{
-			foreach (int end in Matcher.Advance(node, this.text, new HashSet<int> { start.Key }))
+			foreach (int end in TreeWalker.Advance(node, this.text, new HashSet<int> { start.Key }))
 			{
 				Put(result, end, start.Value + this.text.Slice(start.Key, end - start.Key).ToString());
 			}
@@ -191,17 +191,17 @@ readonly ref struct Canonicaliser
 		return result;
 	}
 
-	string RenderingOf(AstReplaceable replaceable)
+	string RenderingOf(AstUnified unified)
 	{
-		if (this.renderings.TryGetValue(replaceable, out string? cached)) { return cached; }
+		if (this.renderings.TryGetValue(unified, out string? cached)) { return cached; }
 
 		// W1 has already established that the rendering generates exactly one string.
-		if (Matcher.TryGetSingleString(replaceable.Rendering, out string? rendering) != SingleStringOutcome.Single)
+		if (TreeWalker.TryGetSingleString(unified.Rendering, out string? rendering) != SingleStringOutcome.Single)
 		{
-			throw new InvalidOperationException("A replaceable element passed W1 but has no single rendering.");
+			throw new InvalidOperationException("A unified element passed W1 but has no single rendering.");
 		}
 
-		this.renderings.Add(replaceable, rendering!);
+		this.renderings.Add(unified, rendering!);
 
 		return rendering!;
 	}
@@ -217,9 +217,9 @@ readonly ref struct Canonicaliser
 		if (!target.ContainsKey(end)) { target.Add(end, output); }
 	}
 
-	static void PutAll(Dictionary<int, string> target, Dictionary<int, string> source)
+	static void PutAll(Dictionary<int, string> target, Dictionary<int, string> pattern)
 	{
-		foreach (KeyValuePair<int, string> item in source) { Put(target, item.Key, item.Value); }
+		foreach (KeyValuePair<int, string> item in pattern) { Put(target, item.Key, item.Value); }
 	}
 
 	static bool SameAs(Dictionary<int, string> left, Dictionary<int, string> right)

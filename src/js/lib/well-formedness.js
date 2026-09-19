@@ -5,12 +5,12 @@ import {
 	AstAlternation,
 	AstInterval,
 	AstOptional,
-	AstReplaceable,
+	AstUnified,
 	AstSequence,
-	ReplaceableForm,
-	containsReplaceable,
+	UnifiedForm,
+	containsUnified,
 } from './ast.js';
-import { MAX_GENERATED_LENGTH, SingleStringOutcome, generates, tryGetSingleString } from './matcher.js';
+import { MAX_GENERATED_LENGTH, SingleStringOutcome, generates, tryGetSingleString } from './treewalker.js';
 import { NaxpError } from './naxp-error.js';
 import { NaxpMessage } from './naxp-message.js';
 
@@ -21,11 +21,11 @@ import { NaxpMessage } from './naxp-message.js';
  * transduction and W5 needs the size of the canonical language, so both wait on the state map;
  * neither is checked here and a naxp that breaks one is currently accepted.
  *
- * W1 asks whether a rendering is one of the strings its subject generates, which is the matcher's
+ * W1 asks whether a rendering is one of the strings its subject generates, which is the tree walker's
  * business rather than this module's.
  *
  * @param {import('./ast.js').Ast} ast The tree, as returned by `tryParse`.
- * @returns {NaxpError | null} The refusal, or null if the tree passes.
+ * @returns {NaxpError | null} The fault, or null if the tree passes.
  */
 export function check(ast) {
 	if (ast === null || ast === undefined) { throw new TypeError('ast is required.'); }
@@ -39,12 +39,12 @@ export function check(ast) {
  * W2: `!` may not nest.
  *
  * @param {import('./ast.js').Ast} node The node to check from.
- * @returns {NaxpError | null} The refusal, or null.
+ * @returns {NaxpError | null} The fault, or null.
  */
 function checkW2(node) {
-	if (node instanceof AstReplaceable
-		&& (containsReplaceable(node.subject) || containsReplaceable(node.rendering))) {
-		return new NaxpError(NaxpMessage.NAXP1040_ReplaceableNested);
+	if (node instanceof AstUnified
+		&& (containsUnified(node.subject) || containsUnified(node.rendering))) {
+		return new NaxpError(NaxpMessage.NAXP1039_UnifiedNested);
 	}
 
 	for (const child of children(node)) {
@@ -60,16 +60,16 @@ function checkW2(node) {
  * W1: a rendering must be one of the strings it replaces.
  *
  * @param {import('./ast.js').Ast} node The node to check from.
- * @returns {NaxpError | null} The refusal, or null.
+ * @returns {NaxpError | null} The fault, or null.
  */
 function checkW1(node) {
-	if (node instanceof AstReplaceable) {
+	if (node instanceof AstUnified) {
 		const { outcome, result: rendering } = tryGetSingleString(node.rendering);
 
 		if (outcome === SingleStringOutcome.TooLong) { return tooLongError(); }
 
 		if (outcome === SingleStringOutcome.Multiple) {
-			return new NaxpError(node.form === ReplaceableForm.Reproduced ? NaxpMessage.NAXP1041_ReproducedSubjectNotSingle : NaxpMessage.NAXP1042_RenderingNotSingle);
+			return new NaxpError(node.form === UnifiedForm.Reproduced ? NaxpMessage.NAXP1040_ReproducedSubjectNotSingle : NaxpMessage.NAXP1041_RenderingNotSingle);
 		}
 
 		const { matched, tooLong } = generates(node.subject, rendering);
@@ -77,7 +77,7 @@ function checkW1(node) {
 		if (!matched) {
 			if (tooLong) { return tooLongError(); }
 
-			return new NaxpError(rendering.length === 0 ? NaxpMessage.NAXP1043_ElementNotDeletable : NaxpMessage.NAXP1044_RenderingNotGenerated, rendering.length === 0 ? null : rendering);
+			return new NaxpError(rendering.length === 0 ? NaxpMessage.NAXP1042_ElementNotDeletable : NaxpMessage.NAXP1043_RenderingNotGenerated, rendering.length === 0 ? null : rendering);
 		}
 	}
 
@@ -91,15 +91,15 @@ function checkW1(node) {
 }
 
 /**
- * The refusal for an element this implementation declines to materialise.
+ * The fault for an element this implementation declines to materialise.
  *
  * The whole naxp is reported rather than the element, because the tree records where a node
  * starts and not where it ends. Narrowing this wants an end offset on every parser production.
  *
- * @returns {NaxpError} The refusal.
+ * @returns {NaxpError} The fault.
  */
 function tooLongError() {
-	return new NaxpError(NaxpMessage.NAXP1048_ElementTooLong);
+	return new NaxpError(NaxpMessage.NAXP1047_ElementTooLong);
 }
 
 /**
@@ -113,7 +113,7 @@ function children(node) {
 
 	if (node instanceof AstOptional || node instanceof AstInterval) { return [node.child]; }
 
-	if (node instanceof AstReplaceable) { return [node.subject, node.rendering]; }
+	if (node instanceof AstUnified) { return [node.subject, node.rendering]; }
 
 	return [];
 }

@@ -24,7 +24,7 @@ namespace LogMu;
 /// <para>
 /// Internal rather than public. Nothing on <see cref="Naxp"/> exposes a character set, so making
 /// this public would commit the package to thirty odd members that no caller can reach. If the
-/// source generator turns out to need it in the code it emits, widening it then is not a breaking
+/// pattern generator turns out to need it in the code it emits, widening it then is not a breaking
 /// change, whereas narrowing it later would be.
 /// </para>
 /// </remarks>
@@ -268,6 +268,8 @@ internal readonly struct AsciiCharSet : IEquatable<AsciiCharSet>, IComparable<As
 	public static readonly AsciiCharSet AllLowerCaseLetters = FromCharRange('a', 'z');
 	/// <summary>The digits and the upper case letters, written <c>\X</c> in a naxp.</summary>
 	public static readonly AsciiCharSet AllDigitsAndUpperCaseLetters = AllDigits | AllUpperCaseLetters;
+	/// <summary>The digits and the lower case letters, written <c>\x</c> in a naxp.</summary>
+	public static readonly AsciiCharSet AllDigitsAndLowerCaseLetters = AllDigits | AllLowerCaseLetters;
 	#endregion
 	#region Private helper methods
 	/// <summary>

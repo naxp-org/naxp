@@ -66,17 +66,20 @@ test('every message says something, and ends in a full stop', () => {
 test('the messages taking an argument are exactly those that use it', () => {
 	assert.deepEqual(ALL_NAXP_MESSAGES.filter(takesAnArgument), [
 		'NAXP1027_RangeReversed',
-		'NAXP1032_EscapeUndefined',
-		'NAXP1033_CharacterNotAllowed',
-		'NAXP1038_ReservedCharacterHere',
-		'NAXP1039_CharacterHere',
-		'NAXP1044_RenderingNotGenerated',
-		'NAXP1046_ReplacementNotSingleValuedWitness',
+		'NAXP1031_EscapeUndefined',
+		'NAXP1032_CharacterNotAllowed',
+		'NAXP1037_ReservedCharacterHere',
+		'NAXP1038_CharacterHere',
+		'NAXP1043_RenderingNotGenerated',
+		'NAXP1045_UnificationNotSingleValuedWitness',
+		'NAXP1052_FoldInCharacterSet',
+		'NAXP1059_RepetitionUnbounded',
+		'NAXP1061_Anchor',
 	]);
 });
 
 test('a message taking an argument interpolates every place it appears', () => {
-	// NAXP1038 uses its argument twice, once for the character and once for the escape that
+	// NAXP1037 uses its argument twice, once for the character and once for the escape that
 	// matches it, so a replace that stopped at the first would leave a placeholder behind.
 	for (const name of ALL_NAXP_MESSAGES) {
 		if (!takesAnArgument(name)) { continue; }
@@ -90,10 +93,11 @@ test('a message taking an argument interpolates every place it appears', () => {
 
 test('a message naming a budget names the real one', () => {
 	const named = {
-		NAXP1048_ElementTooLong: NaxpLimits.maxStringLength,
-		NAXP1049_TooManyStates: NaxpLimits.maxStates,
-		NAXP1050_TooManyCanonicalStates: NaxpLimits.maxCanonicalStates,
-		NAXP1051_TooManyPairStates: NaxpLimits.maxStates,
+		NAXP1047_ElementTooLong: NaxpLimits.maxStringLength,
+		NAXP1048_TooManyStates: NaxpLimits.maxStates,
+		NAXP1049_TooManyCanonicalStates: NaxpLimits.maxCanonicalStates,
+		NAXP1050_TooManyPairStates: NaxpLimits.maxStates,
+		NAXP1051_PairOutputAbandoned: NaxpLimits.maxStringLength,
 	};
 
 	for (const [name, budget] of Object.entries(named)) {
@@ -143,7 +147,7 @@ test('the C# says the same words', () => {
 });
 
 test('the code is the number alone, never the hint beside it', () => {
-	// A member is spelled NAXP1002_IntervalHyphen so that a line of the library says which refusal
+	// A member is spelled NAXP1002_IntervalHyphen so that a line of the library says which fault
 	// it is about at a glance. That half is a note to ourselves: it would read as a promise about
 	// wording nobody has made, so it stops at the boundary.
 	for (const name of ALL_NAXP_MESSAGES) {
@@ -167,8 +171,8 @@ test('no message quotes its own member name', () => {
 // #endregion
 // #region The whole-naxp convention
 
-test('a refusal with a position is not mistaken for the whole naxp', () => {
-	assert.equal(new NaxpError(NaxpMessage.NAXP1047_TooManyValues).isWholeNaxp, true);
+test('a fault with a position is not mistaken for the whole naxp', () => {
+	assert.equal(new NaxpError(NaxpMessage.NAXP1046_TooManyValues).isWholeNaxp, true);
 	assert.equal(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, null, 0, 1).isWholeNaxp, false);
 	assert.equal(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, null, 3, 1).isWholeNaxp, false);
 });

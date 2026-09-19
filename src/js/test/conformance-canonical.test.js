@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { containsReplaceable } from '../lib/ast.js';
+import { containsUnified } from '../lib/ast.js';
 import { tryCanonicalise as treeWalk } from '../lib/canonicaliser.js';
 import { tryParse } from '../lib/parser.js';
 import { RxFactory } from '../lib/rx.js';
@@ -17,11 +17,11 @@ import { loadConformanceData } from './conformance.js';
 const data = loadConformanceData();
 
 /**
- * The tree and, where the naxp holds a replaceable element, the canonicalisation machine.
+ * The tree and, where the naxp holds a unified element, the canonicalisation machine.
  *
  * Without a `!` there is no machine, because ρ is the identity and a machine would only copy.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {{ast: import('../lib/ast.js').Ast,
  *   machine: import('../lib/tx-machine.js').TxMachine | null}} What was built.
  */
@@ -35,7 +35,7 @@ function build(naxp) {
 
 	assert.equal(checkW3(ast, rxFactory), null, `${naxp} failed W3`);
 
-	if (!containsReplaceable(ast)) { return { ast, machine: null }; }
+	if (!containsUnified(ast)) { return { ast, machine: null }; }
 
 	const txFactory = new TxFactory(rxFactory);
 	const built = tryBuildTxMachine(convertTx(ast, txFactory, rxFactory), txFactory);
@@ -101,14 +101,14 @@ test('the machine gives the canonical form the test data states', () => {
 	assert.ok(checked > 0, 'no naxp in the data had a machine');
 });
 
-test('a naxp with no replaceable element leaves every string alone', () => {
+test('a naxp with no unified element leaves every string alone', () => {
 	// ρ is the identity there, so the canonical form is the input and the data agrees.
 	let checked = 0;
 
 	for (const item of data.cases) {
 		const { ast } = build(item.naxp);
 
-		if (containsReplaceable(ast)) { continue; }
+		if (containsUnified(ast)) { continue; }
 
 		for (const value of item.values) {
 			if (value.out === '0' || value.canon === undefined) { continue; }
@@ -120,18 +120,18 @@ test('a naxp with no replaceable element leaves every string alone', () => {
 		}
 	}
 
-	assert.ok(checked > 0, 'no naxp in the data was free of replaceable elements');
+	assert.ok(checked > 0, 'no naxp in the data was free of unified elements');
 });
 
-test('a string the test data marks as not accepted has no canonical form', () => {
+test('a string the test data marks invalid has no canonical form', () => {
 	for (const item of data.cases) {
 		const { ast, machine } = build(item.naxp);
 
-		for (const refused of item.notAccepted) {
-			assert.equal(treeWalk(ast, refused), null, `${item.naxp}: '${refused}'`);
+		for (const invalid of item.invalid) {
+			assert.equal(treeWalk(ast, invalid), null, `${item.naxp}: '${invalid}'`);
 
 			if (machine !== null) {
-				assert.equal(machine.tryCanonicalise(refused), null, `${item.naxp}: '${refused}'`);
+				assert.equal(machine.tryCanonicalise(invalid), null, `${item.naxp}: '${invalid}'`);
 			}
 		}
 	}

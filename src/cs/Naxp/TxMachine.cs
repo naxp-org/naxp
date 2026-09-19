@@ -76,7 +76,7 @@ sealed class TxState
 	/// What is emitted where the input ends here, or <see langword="null"/> where it may not.
 	/// </summary>
 	/// <remarks>
-	/// This is never empty of meaning: a replaceable element that has consumed its subject emits
+	/// This is never empty of meaning: a unified element that has consumed its subject emits
 	/// its whole rendering at this point, so the machine can emit more after the last character
 	/// than it did on any transition.
 	/// </remarks>
@@ -97,7 +97,7 @@ sealed class TxState
 /// The construction is the classical determinisation of a transducer: a state is a set of live
 /// parses, each with the output it owes beyond what the others have already emitted, and a
 /// transition emits the longest common prefix of what they all owe. That delay is needed because
-/// a replaceable element emits nothing until it completes, so two branches can disagree about
+/// a unified element emits nothing until it completes, so two branches can disagree about
 /// what has been emitted for as long as the input has not yet told them apart.
 /// </para>
 /// <para>
@@ -115,17 +115,18 @@ sealed class TxState
 /// buffering the input and copying spans from it.
 /// </para>
 /// <para>
-/// The machine is built only where a naxp holds a replaceable element. Without one &#961; is the
+/// The machine is built only where a naxp holds a unified element. Without one &#961; is the
 /// identity, which <see cref="Compilation.CanonicalIsIdentity"/> already reports and which needs
 /// no machine at all.
 /// </para>
 /// </remarks>
 sealed class TxMachine
 {
-	internal TxMachine(TxState start, IReadOnlyList<TxState> states)
+	internal TxMachine(TxState start, IReadOnlyList<TxState> states, int registerDepth)
 	{
 		this.Start = start;
 		this.States = states;
+		this.RegisterDepth = registerDepth;
 	}
 
 	public TxState Start { get; }
@@ -133,27 +134,34 @@ sealed class TxMachine
 	public IReadOnlyList<TxState> States { get; }
 
 	/// <summary>
-	/// The canonical form of a string, which is the string with each replaceable element replaced
+	/// How many characters a run has to keep, which is how far back the deepest reference in any
+	/// output reaches. Zero where no output holds one.
+	/// </summary>
+	public int RegisterDepth { get; }
+
+	/// <summary>
+	/// The canonical form of a string, which is the string with each unified element replaced
 	/// by its rendering.
 	/// </summary>
 	/// <param name="text">The string, which must be one the accepted language holds.</param>
 	/// <param name="canonical">The canonical form, or <see langword="null"/> where the string is
-	/// not accepted.</param>
+	/// invalid.</param>
 	/// <returns>Whether the string is accepted.</returns>
 	public bool TryCanonicalise(ReadOnlySpan<char> text, out string? canonical)
 	{
 		var builder = new StringBuilder();
 		TxState state = this.Start;
 
-		foreach (char c in text)
+		for (int i = 0; i < text.Length; ++i)
 		{
+			char c = text[i];
 			TxState? next = null;
 
 			foreach (TxTransition transition in state.Transitions)
 			{
 				if (!transition.Set.Contains(c)) { continue; }
 
-				AppendOutput(builder, transition.Output, c);
+				AppendOutput(builder, transition.Output, text, i);
 				next = transition.Next;
 				break;
 			}
@@ -173,19 +181,122 @@ sealed class TxMachine
 			return false;
 		}
 
-		builder.Append(state.EndOutput);
+		// The end output reaches back from the last character read, as a transition's does from
+		// the character that took it.
+		AppendOutput(builder, state.EndOutput, text, text.Length - 1);
 		canonical = builder.ToString();
 
 		return true;
 	}
 
-	/// <summary>Appends a transition's output, resolving the copy marker to the character read.</summary>
-	static void AppendOutput(StringBuilder builder, string output, char read)
+	/// <summary>Appends an output, resolving each reference to the character it stands for.</summary>
+	static void AppendOutput(StringBuilder builder, string output, ReadOnlySpan<char> text, int at)
 	{
-		foreach (char c in output)
+		for (int i = 0; i < output.Length; ++i)
 		{
-			builder.Append(c == Tx.CopyMarker ? read : c);
+			if (output[i] == Tx.CopyMarker)
+			{
+				builder.Append(text[at - (output[i + 1] - TxReference.DepthBase)]);
+				++i;
+			}
+			else
+			{
+				builder.Append(output[i]);
+			}
 		}
+	}
+}
+
+/// <summary>
+/// A character read but not yet placed, held in a pending output as how far back it was read
+/// rather than as its value.
+/// </summary>
+/// <remarks>
+/// A reference is <see cref="Tx.CopyMarker"/> followed by one character whose code is
+/// <see cref="DepthBase"/> plus the number of steps back, so a pending stays an ordinary string
+/// and the prefix, key and ordering all work on it unchanged. Depth zero is the character just
+/// read. Holding the character this way is what keeps two parses that hold different characters
+/// in the same shape to one state.
+/// </remarks>
+static class TxReference
+{
+	/// <summary>The code a depth of zero is written as, chosen so a pending stays printable.</summary>
+	public const int DepthBase = 33;
+
+	/// <summary>Turns each copy marker into a reference to the character read at this step.</summary>
+	public static string Symbolise(string emitted)
+	{
+		if (emitted.IndexOf(Tx.CopyMarker) < 0) { return emitted; }
+
+		var builder = new StringBuilder(emitted.Length * 2);
+
+		foreach (char c in emitted)
+		{
+			if (c == Tx.CopyMarker) { builder.Append(Tx.CopyMarker).Append((char)DepthBase); }
+			else { builder.Append(c); }
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>Every reference is one character older once another character has been read.</summary>
+	public static string Age(string pending)
+	{
+		if (pending.IndexOf(Tx.CopyMarker) < 0) { return pending; }
+
+		var builder = new StringBuilder(pending.Length);
+
+		for (int i = 0; i < pending.Length; ++i)
+		{
+			if (pending[i] == Tx.CopyMarker)
+			{
+				builder.Append(Tx.CopyMarker).Append((char)(pending[i + 1] + 1));
+				++i;
+			}
+			else
+			{
+				builder.Append(pending[i]);
+			}
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>How far back a pending reaches, which is what a run has to keep.</summary>
+	public static int DepthOf(string pending)
+	{
+		int depth = 0;
+
+		for (int i = pending.IndexOf(Tx.CopyMarker); i >= 0; i = pending.IndexOf(Tx.CopyMarker, i + 2))
+		{
+			depth = Math.Max(depth, pending[i + 1] - DepthBase + 1);
+		}
+
+		return depth;
+	}
+
+	/// <summary>How many characters a unit occupies: two for a reference, one for a literal.</summary>
+	public static int UnitLength(string pending, int at)
+		=> pending[at] == Tx.CopyMarker ? 2 : 1;
+
+	/// <summary>
+	/// Whether fixing the character being read could make two pendings agree.
+	/// </summary>
+	/// <remarks>
+	/// A reference to the character just read is the only thing a narrower block can turn into
+	/// something else, so it is the only thing that can close a difference: one branch pending
+	/// the literal <c>0</c> and the other the character read agree once the character is known
+	/// to be <c>0</c>.
+	/// </remarks>
+	public static bool CouldReconcile(string left, string right)
+	{
+		int at = left.IndexOf(Tx.CopyMarker);
+
+		if (at >= 0 && left[at + 1] == (char)DepthBase) { return true; }
+
+		at = right.IndexOf(Tx.CopyMarker);
+
+		return at >= 0 && right[at + 1] == (char)DepthBase;
 	}
 }
 
@@ -194,11 +305,11 @@ sealed class TxMachine
 /// </summary>
 /// <remarks>
 /// <para>
-/// The single-valuedness refusals here duplicate <see cref="W3Checker"/>, which decides the same
+/// The single-valuedness faults here duplicate <see cref="W3Checker"/>, which decides the same
 /// question over the same derivatives, so on an expression the checker has passed they are
 /// unreachable. They are kept as defence in depth, because the two walk different shapes - the
 /// checker walks pairs, this walks sets - and a machine built from an unchecked expression would
-/// otherwise be silently wrong rather than refused.
+/// otherwise be silently wrong rather than invalid.
 /// </para>
 /// <para>
 /// The state cap is <b>not</b> a duplicate, and it is reachable on a naxp that is entirely legal.
@@ -326,6 +437,9 @@ static class TxMachineBuilder
 		readonly List<AsciiCharSet> blocks = new();
 		readonly List<AsciiCharSet> firstSets = new();
 
+		/// <summary>How far back the deepest reference reaches, which is what a run has to keep.</summary>
+		int registerDepth;
+
 		public Builder(TxFactory factory, int maxStates)
 		{
 			this.factory = factory;
@@ -351,14 +465,31 @@ static class TxMachineBuilder
 				if (!this.TryExplore(index, queue, out error)) { return false; }
 			}
 
+			// W6 counts what the machine holds as well as what it is, because a register is
+			// memory the state count does not see. The depth is small next to the states:
+			// fifteen for the widest decimal range the language admits.
+			if (this.keys.Count + this.registerDepth > this.maxStates)
+			{
+				error = TooLarge(this.maxStates);
+				return false;
+			}
+
 			machine = TxMachineMerger.Merge(this.Materialise(start));
 			error = null;
 
 			return true;
 		}
 
+		/// <summary>Records how far back an output reaches.</summary>
+		void NoteDepth(string pending)
+		{
+			int depth = TxReference.DepthOf(pending);
+
+			if (depth > this.registerDepth) { this.registerDepth = depth; }
+		}
+
 		/// <summary>
-		/// Records what the state emits where the input ends, refusing where the parses disagree.
+		/// Records what the state emits where the input ends, failing where the parses disagree.
 		/// </summary>
 		bool TrySetEndOutput(int index, out NaxpError? error)
 		{
@@ -384,6 +515,8 @@ static class TxMachineBuilder
 					case EotKind.Single:
 					{
 						string candidate = branch.Pending + eot.Text;
+
+						this.NoteDepth(candidate);
 
 						if (endOutput is null)
 						{
@@ -465,9 +598,13 @@ static class TxMachineBuilder
 					return false;
 				}
 
+				// What was already owed is one character older now, and what this step emits
+				// owes the character being read.
+				string carried = TxReference.Age(branch.Pending);
+
 				foreach (TxMove move in derivative.Moves)
 				{
-					string pending = branch.Pending + move.Emitted;
+					string pending = carried + TxReference.Symbolise(move.Emitted);
 
 					if (!pendingOf.TryGetValue(move.Residual, out string? existing))
 					{
@@ -475,8 +612,17 @@ static class TxMachineBuilder
 					}
 					else if (!string.Equals(existing, pending, StringComparison.Ordinal))
 					{
-						// Same continuation, two outputs. Every string the continuation accepts
-						// would have two canonical forms.
+						// Same continuation, two outputs, which would give every string the
+						// continuation accepts two canonical forms. Unless one of them owes the
+						// character being read: fixing that character may make the two the same
+						// output rather than two different ones, so the block is narrowed before
+						// the verdict.
+						if (block.SingleCharacter is null
+							&& TxReference.CouldReconcile(existing, pending))
+						{
+							return this.TryNarrow(index, block, queue, out error);
+						}
+
 						error = Violation();
 						return false;
 					}
@@ -491,30 +637,17 @@ static class TxMachineBuilder
 
 			string common = LongestCommonPrefix(pendingOf.Values);
 
-			if (CarriesUndecidedCopy(pendingOf.Values, common.Length))
-			{
-				if (block.SingleCharacter is not null)
-				{
-					// A single character block decides every copy, so this cannot recur.
-					throw new InvalidOperationException("A copy stayed undecided on a single character.");
-				}
-
-				foreach (char c in block)
-				{
-					if (!this.TryStep(index, AsciiCharSet.FromSingleChar(c), queue, out error)) { return false; }
-				}
-
-				error = null;
-
-				return true;
-			}
+			this.NoteDepth(common);
 
 			var branches = new Branch[pendingOf.Count];
 			int at = 0;
 
 			foreach (KeyValuePair<Tx, string> entry in pendingOf)
 			{
-				branches[at++] = new Branch(entry.Key, entry.Value.Substring(common.Length));
+				string trimmed = entry.Value.Substring(common.Length);
+
+				this.NoteDepth(trimmed);
+				branches[at++] = new Branch(entry.Key, trimmed);
 			}
 
 			Array.Sort(
@@ -530,6 +663,22 @@ static class TxMachineBuilder
 			if (!this.TryAdd(new BranchSetKey(branches), queue, out int next, out error)) { return false; }
 
 			this.transitionsOf[index].Add(new PendingTransition(block, common, next));
+			error = null;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Retakes a step one character at a time, so that a reference to the character being
+		/// read becomes the character itself and two parses can be compared.
+		/// </summary>
+		bool TryNarrow(int index, AsciiCharSet block, Queue<int> queue, out NaxpError? error)
+		{
+			foreach (char c in block)
+			{
+				if (!this.TryStep(index, AsciiCharSet.FromSingleChar(c), queue, out error)) { return false; }
+			}
+
 			error = null;
 
 			return true;
@@ -589,7 +738,7 @@ static class TxMachineBuilder
 				states[i].Transitions = transitions;
 			}
 
-			return new TxMachine(states[start], states);
+			return new TxMachine(states[start], states, this.registerDepth);
 		}
 
 		static string LongestCommonPrefix(Dictionary<Tx, string>.ValueCollection pendings)
@@ -612,28 +761,27 @@ static class TxMachineBuilder
 				if (common == 0) { break; }
 			}
 
-			return shortest.Substring(0, common);
-		}
+			// A reference is two characters, so a prefix must not stop between them. Walking the
+			// units of the shortest pending cannot land inside one.
+			int unit = 0;
 
-		/// <summary>
-		/// Whether any parse would carry a copy marker past this step, where nothing could later
-		/// say which character it stood for.
-		/// </summary>
-		static bool CarriesUndecidedCopy(Dictionary<Tx, string>.ValueCollection pendings, int from)
-		{
-			foreach (string pending in pendings)
+			while (unit < common)
 			{
-				if (pending.IndexOf(Tx.CopyMarker, from) >= 0) { return true; }
+				int next = unit + TxReference.UnitLength(shortest, unit);
+
+				if (next > common) { break; }
+
+				unit = next;
 			}
 
-			return false;
+			return shortest.Substring(0, unit);
 		}
 
 		static NaxpError Violation()
-			=> new NaxpError(NaxpMessage.NAXP1045_ReplacementNotSingleValued);
+			=> new NaxpError(NaxpMessage.NAXP1044_UnificationNotSingleValued);
 
 		static NaxpError TooLarge(int maxStates)
-			=> new NaxpError(NaxpMessage.NAXP1050_TooManyCanonicalStates);
+			=> new NaxpError(NaxpMessage.NAXP1049_TooManyCanonicalStates);
 	}
 }
 
@@ -711,7 +859,7 @@ static class TxMachineMerger
 			representative[state] = created;
 		}
 
-		return new TxMachine(representative[machine.Start], merged);
+		return new TxMachine(representative[machine.Start], merged, machine.RegisterDepth);
 	}
 
 	/// <summary>

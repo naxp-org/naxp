@@ -37,11 +37,11 @@ readonly struct Transition
 /// </remarks>
 sealed class State
 {
-	internal State(int id, Transition[] transitions, ulong valueCount)
+	internal State(int id, Transition[] transitions, ulong stringCount)
 	{
 		this.Id = id;
 		this.Transitions = transitions;
-		this.ValueCount = valueCount;
+		this.StringCount = stringCount;
 	}
 
 	public int Id { get; }
@@ -52,7 +52,7 @@ sealed class State
 	/// <summary>
 	/// The count of strings the state's language holds, saturated at 2^64 - 1.
 	/// </summary>
-	public ulong ValueCount { get; }
+	public ulong StringCount { get; }
 
 	/// <summary>Whether this is the terminal state, whose language is the empty string alone.</summary>
 	public bool IsTerminal => this.Transitions.Length == 0;
@@ -79,10 +79,10 @@ sealed class StateMap
 	public IReadOnlyList<State> States { get; }
 
 	/// <summary>The size of the language, saturated at 2^64 - 1.</summary>
-	public ulong ValueCount => this.Start.ValueCount;
+	public ulong StringCount => this.Start.StringCount;
 
 	/// <summary>
-	/// Whether the true count exceeds 2^64 - 1, in which case <see cref="ValueCount"/> is that
+	/// Whether the true count exceeds 2^64 - 1, in which case <see cref="StringCount"/> is that
 	/// limit rather than the count.
 	/// </summary>
 	public bool CountSaturated { get; }
@@ -92,7 +92,7 @@ sealed class StateMap
 	/// </summary>
 	/// <remarks>
 	/// One transition per character and no allocation. A string longer than any the machine
-	/// generates runs out of transitions and is refused, so no length guard is needed.
+	/// generates runs out of transitions and is invalid, so no length guard is needed.
 	/// </remarks>
 	/// <param name="text">The string to test.</param>
 	/// <returns>Whether the language holds it.</returns>
@@ -163,8 +163,8 @@ sealed class StateMapBuilder
 	/// </summary>
 	/// <param name="start">The expression, as produced by <see cref="RxConverter"/>.</param>
 	/// <param name="factory">The factory that made it, reused so derivatives stay interned.</param>
-	/// <param name="map">The machine, or <see langword="null"/> if it was refused.</param>
-	/// <param name="error">The refusal, or <see langword="null"/>.</param>
+	/// <param name="map">The machine, or <see langword="null"/> if it was invalid.</param>
+	/// <param name="error">The fault, or <see langword="null"/>.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the machine was built.</returns>
 	public static bool TryBuild(Rx start, RxFactory factory, out StateMap? map, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
@@ -270,7 +270,7 @@ sealed class StateMapBuilder
 					{
 						explored = null;
 						edges = null;
-						error = new NaxpError(NaxpMessage.NAXP1049_TooManyStates);
+						error = new NaxpError(NaxpMessage.NAXP1048_TooManyStates);
 						return false;
 					}
 				}
@@ -373,7 +373,7 @@ sealed class StateMapBuilder
 		foreach (Transition transition in transitions)
 		{
 			ulong width = transition.Set.IsEmpty ? 1UL : (ulong)transition.Set.Count;
-			total = this.Add(total, this.Multiply(width, transition.Next.ValueCount));
+			total = this.Add(total, this.Multiply(width, transition.Next.StringCount));
 		}
 
 		return total;
@@ -386,10 +386,10 @@ sealed class StateMapBuilder
 	{
 		if (left == 0UL || right == 0UL) { return 0UL; }
 
-		if (left > NaxpLimits.MaxValueCount / right)
+		if (left > NaxpLimits.MaxEncodedValue / right)
 		{
 			this.saturated = true;
-			return NaxpLimits.MaxValueCount;
+			return NaxpLimits.MaxEncodedValue;
 		}
 
 		return left * right;
@@ -404,7 +404,7 @@ sealed class StateMapBuilder
 		if (sum < left)
 		{
 			this.saturated = true;
-			return NaxpLimits.MaxValueCount;
+			return NaxpLimits.MaxEncodedValue;
 		}
 
 		return sum;

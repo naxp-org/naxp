@@ -4,6 +4,10 @@
 // Driving a source generator needs Roslyn, which the test project only references on net8.0.
 #if NET8_0_OR_GREATER
 
+// The generator assembly carries its own copies of the library types it links, so it is
+// referenced under an alias and reached explicitly. See the Aliases metadata in the csproj.
+extern alias generator;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -49,9 +53,25 @@ public class GeneratorTests
 		string generated = result.SourceContaining("PostcodeAccepts");
 
 		Assert.Contains("internal partial class Codes", generated);
-		Assert.Contains("public const long PostcodeValueCount = 1_755_842_400L;", generated);
+		Assert.Contains("public const long PostcodeMaxEncodedValue = 1_755_842_400L;", generated);
 		Assert.Contains("public static bool PostcodeAccepts(global::System.ReadOnlySpan<char> text)", generated);
 		Assert.Contains("public static string PostcodeDecode(long value)", generated);
+	}
+
+	/// <summary>
+	/// The wrapper the generator writes and the fragment the emitter writes end their lines the
+	/// same way, and neither takes it from the platform, so the same sources give the same
+	/// generated file on every machine.
+	/// </summary>
+	[Fact]
+	public void AGeneratedFile_EndsEveryLineTheSameWay()
+	{
+		Run(Source($"[LogMu.Naxp(@\"{Postcode}\", typeof(long), Prefix = \"Postcode\")]", "internal partial class Codes"), out GeneratorResult result);
+
+		string generated = result.SourceContaining("PostcodeAccepts");
+
+		Assert.DoesNotContain("\r", generated, StringComparison.Ordinal);
+		Assert.Contains("\n", generated, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -106,7 +126,7 @@ public class GeneratorTests
 		string generated = result.SourceContaining("PostcodeAccepts");
 
 		Assert.Contains("public static bool ShortAccepts(global::System.ReadOnlySpan<char> text)", generated);
-		Assert.Contains("public const short ShortValueCount = 260;", generated);
+		Assert.Contains("public const short ShortMaxEncodedValue = 260;", generated);
 	}
 
 	[Fact]
@@ -124,7 +144,7 @@ public class GeneratorTests
 			CSharpSyntaxTree.ParseText(OtherSecond)));
 
 		IncrementalGeneratorRunStep[] steps = driver.GetRunResult().Results
-			.SelectMany(result => result.TrackedSteps.TryGetValue(Generator.NaxpGenerator.ModelStepName, out var tracked)
+			.SelectMany(result => result.TrackedSteps.TryGetValue(generator::LogMu.Generator.NaxpGenerator.ModelStepName, out var tracked)
 				? tracked
 				: [])
 			.ToArray();
@@ -137,7 +157,7 @@ public class GeneratorTests
 				$"The model was recomputed: {output.Reason}."));
 	}
 	#endregion
-	#region What it refuses
+	#region What it finds invalid
 	[Fact]
 	public void AClassThatIsNotPartial_IsNAXP0001()
 	{
@@ -245,13 +265,13 @@ public class GeneratorTests
 
 	/// <summary>
 	/// The point of mapping offsets: the squiggle lands on the character of the naxp that the
-	/// library refused, inside the literal and past its escapes. Here that is the hyphen of
-	/// <c>{2-5}</c>, which the parser refuses because an interval is written <c>{2,5}</c>. The
+	/// library invalid, inside the literal and past its escapes. Here that is the hyphen of
+	/// <c>{2-5}</c>, which is invalid because an interval is written <c>{2,5}</c>. The
 	/// naxp is written as an ordinary literal, so each of its backslashes is two characters of
 	/// source and the unmapped offset would land four characters early.
 	/// </summary>
 	[Fact]
-	public void ARefusal_PointsAtTheCharacterInTheLiteral()
+	public void AFault_PointsAtTheCharacterInTheLiteral()
 	{
 		string source = Source("[LogMu.Naxp(\"\\\\A\\\\9{2-5}\", typeof(long))]", "internal partial class Codes");
 
@@ -291,7 +311,7 @@ public class GeneratorTests
 
 	static GeneratorDriver Driver()
 		=> CSharpGeneratorDriver.Create(
-			[new Generator.NaxpGenerator().AsSourceGenerator()],
+			[new generator::LogMu.Generator.NaxpGenerator().AsSourceGenerator()],
 			driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true));
 
 	static CSharpCompilation Compile(params string[] sources)

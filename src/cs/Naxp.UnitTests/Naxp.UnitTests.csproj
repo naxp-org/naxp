@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net8.0;net472</TargetFrameworks>
@@ -31,8 +31,13 @@
 		<!--
 			GeneratorTests drives the source generator, so it references it as an ordinary library
 			rather than as an analyzer. net8.0 only, for the same reason as Roslyn above.
+
+			Aliased, because the generator compiles the library's sources into itself, so every
+			public library type it links exists in both assemblies and would be ambiguous here.
+			The alias puts the generator's copies behind `generator::`, leaving the plain names
+			meaning Naxp.dll's, which is what every test but GeneratorTests wants.
 		-->
-		<ProjectReference Include="..\Naxp.Generator\Naxp.Generator.csproj" />
+		<ProjectReference Include="..\Naxp.Generator\Naxp.Generator.csproj" Aliases="generator" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -53,7 +58,7 @@
 			The conformance test data is generated from the specification.
 			It's currently copied from there.
 		-->
-		<None Include="..\..\..\conformance\naxp-v0.5.json" Link="conformance\naxp-v0.5.json" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="..\..\..\conformance\naxp-v0.10.json" Link="conformance\naxp-v0.10.json" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>

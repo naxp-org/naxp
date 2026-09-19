@@ -61,7 +61,7 @@ export class TxState {
 		/**
 		 * What is emitted where the input ends here, or null where it may not.
 		 *
-		 * This is never empty of meaning: a replaceable element that has consumed its subject
+		 * This is never empty of meaning: a unified element that has consumed its subject
 		 * emits its whole rendering at this point, so the machine can emit more after the last
 		 * character than it did on any transition.
 		 *
@@ -87,7 +87,7 @@ export class TxState {
  * The construction is the classical determinisation of a transducer: a state is a set of live
  * parses, each with the output it owes beyond what the others have already emitted, and a
  * transition emits the longest common prefix of what they all owe. That delay is needed because a
- * replaceable element emits nothing until it completes, so two branches can disagree about what
+ * unified element emits nothing until it completes, so two branches can disagree about what
  * has been emitted for as long as the input has not yet told them apart.
  *
  * The state count can be **exponential in the length of the naxp**, even where both language
@@ -100,18 +100,21 @@ export class TxMachine {
 	/**
 	 * @param {TxState} start The start state.
 	 * @param {TxState[]} states Every state.
+	 * @param {number} registerDepth How many characters a run has to keep, which is how far back
+	 * the deepest reference in any output reaches. Zero where no output holds one.
 	 */
-	constructor(start, states) {
+	constructor(start, states, registerDepth) {
 		this.start = start;
 		this.states = states;
+		this.registerDepth = registerDepth;
 	}
 
 	/**
-	 * The canonical form of a string, which is the string with each replaceable element replaced
+	 * The canonical form of a string, which is the string with each unified element replaced
 	 * by its rendering.
 	 *
 	 * @param {string} text The string, which must be one the accepted language holds.
-	 * @returns {string | null} The canonical form, or null where the string is not accepted.
+	 * @returns {string | null} The canonical form, or null where the string is invalid.
 	 */
 	tryCanonicalise(text) {
 		const parts = [];
@@ -124,7 +127,7 @@ export class TxMachine {
 			for (const transition of state.transitions) {
 				if (!transition.set.contains(code)) { continue; }
 
-				parts.push(resolveOutput(transition.output, text[i]));
+				parts.push(resolveOutput(transition.output, text, i));
 				next = transition.next;
 				break;
 			}
@@ -136,23 +139,94 @@ export class TxMachine {
 
 		if (state.endOutput === null) { return null; }
 
-		parts.push(state.endOutput);
+		// The end output reaches back from the last character read, as a transition's does from
+		// the character that took it.
+		parts.push(resolveOutput(state.endOutput, text, text.length - 1));
 
 		return parts.join('');
 	}
 }
 
 /**
- * A transition's output, with the copy marker resolved to the character read.
+ * An output, with each reference resolved to the character it stands for.
  *
  * @param {string} output The output.
- * @param {string} read The character read.
+ * @param {string} text The whole input.
+ * @param {number} at The index of the character just read, which a reference counts back from.
  * @returns {string} The resolved output.
  */
-function resolveOutput(output, read) {
-	if (!output.includes(COPY_MARKER)) { return output; }
+function resolveOutput(output, text, at) {
+	if (output.indexOf(COPY_MARKER) < 0) { return output; }
 
-	return output.split(COPY_MARKER).join(read);
+	let resolved = '';
+
+	for (let i = 0; i < output.length; ++i) {
+		if (output[i] === COPY_MARKER) {
+			resolved += text[at - (output.charCodeAt(i + 1) - DEPTH_BASE)];
+			++i;
+		}
+		else { resolved += output[i]; }
+	}
+
+	return resolved;
+}
+
+/**
+ * A reference to the character read at this step, which is what a pending holds in place of a
+ * character it has read and cannot yet place.
+ *
+ * A reference is the copy marker followed by one character whose code is how many steps back the
+ * character was read, so a pending stays an ordinary string and the prefix, key and ordering all
+ * work on it unchanged. Depth zero is the character just read.
+ */
+export const DEPTH_BASE = 33;
+
+const DEPTH_ZERO = COPY_MARKER + String.fromCharCode(DEPTH_BASE);
+
+/**
+ * @param {string} emitted What a move emits, where a copy marker means the character read now.
+ * @returns {string} The same, with each copy marker made a reference at depth zero.
+ */
+function symbolise(emitted) {
+	return emitted.indexOf(COPY_MARKER) < 0 ? emitted : emitted.split(COPY_MARKER).join(DEPTH_ZERO);
+}
+
+/**
+ * Every reference in a pending is one character older once another character has been read.
+ *
+ * @param {string} pending The pending output.
+ * @returns {string} The pending, aged by one step.
+ */
+function age(pending) {
+	if (pending.indexOf(COPY_MARKER) < 0) { return pending; }
+
+	let aged = '';
+
+	for (let i = 0; i < pending.length; ++i) {
+		if (pending[i] === COPY_MARKER) {
+			aged += COPY_MARKER + String.fromCharCode(pending.charCodeAt(i + 1) + 1);
+			++i;
+		}
+		else { aged += pending[i]; }
+	}
+
+	return aged;
+}
+
+/**
+ * How far back a pending reaches, which is how many characters a run has to keep.
+ *
+ * @param {string} pending The pending output.
+ * @returns {number} The depth, zero where it holds no reference.
+ */
+function depthOf(pending) {
+	let depth = 0;
+
+	for (let i = pending.indexOf(COPY_MARKER); i >= 0; i = pending.indexOf(COPY_MARKER, i + 2)) {
+		depth = Math.max(depth, pending.charCodeAt(i + 1) - DEPTH_BASE + 1);
+	}
+
+	return depth;
 }
 
 /**
@@ -161,9 +235,11 @@ function resolveOutput(output, read) {
 class Branch {
 	/**
 	 * @param {import('./tx.js').Tx} residual What is left to consume.
-	 * @param {string} pending What this parse has emitted that the machine has not. Never holds a
-	 * copy marker: the builder narrows a block to single characters rather than carry one past
-	 * the step that read it, since nothing downstream could resolve it.
+	 * @param {string} pending What this parse has emitted that the machine has not. A character
+	 * read but not yet placed is held as a reference to how far back it was read rather than as
+	 * its value, so two parses holding different characters in the same shape are one state.
+	 * That is what keeps a padded decimal range to a handful of states instead of one per
+	 * distinct held string.
 	 */
 	constructor(residual, pending) {
 		this.residual = residual;
@@ -179,11 +255,11 @@ class Branch {
 /**
  * Builds a {@link TxMachine} from a transduction by determinisation.
  *
- * The single-valuedness refusals here duplicate the W3 checker, which decides the same question
+ * The single-valuedness faults here duplicate the W3 checker, which decides the same question
  * over the same derivatives, so on an expression the checker has passed they are unreachable. They
- * are kept as defence in depth, because the two walk different shapes — the checker walks pairs,
- * this walks sets — and a machine built from an unchecked expression would otherwise be silently
- * wrong rather than refused.
+ * are kept as defence in depth, because the two walk different shapes – the checker walks pairs,
+ * this walks sets – and a machine built from an unchecked expression would otherwise be silently
+ * wrong rather than invalid.
  *
  * The state cap is **not** a duplicate, and it is reachable on a naxp that is entirely legal.
  * `[ab]{16}c|([ab]!a){16}d` passes every rule, compiles, and then has no machine.
@@ -205,6 +281,9 @@ class Builder {
 		this.transitionsOf = [];
 		/** @type {Array<string | null>} */
 		this.endOutputOf = [];
+
+		/** How far back the deepest reference reaches, which is what a run has to keep. */
+		this.registerDepth = 0;
 	}
 
 	/**
@@ -230,14 +309,21 @@ class Builder {
 			if (explored !== null) { return { machine: null, error: explored }; }
 		}
 
+		// W6 counts what the machine holds as well as what it is, because a register is memory
+		// the state count does not see. The depth is small next to the states: fifteen for the
+		// widest decimal range the language admits.
+		if (this.branchSets.length + this.registerDepth > this.maxStates) {
+			return { machine: null, error: tooLarge(this.maxStates) };
+		}
+
 		return { machine: merge(this.materialise(start.index)), error: null };
 	}
 
 	/**
-	 * Records what the state emits where the input ends, refusing where the parses disagree.
+	 * Records what the state emits where the input ends, failing where the parses disagree.
 	 *
 	 * @param {number} index The state.
-	 * @returns {NaxpError | null} The refusal, or null.
+	 * @returns {NaxpError | null} The fault, or null.
 	 */
 	setEndOutput(index) {
 		let endOutput = null;
@@ -257,6 +343,8 @@ class Builder {
 
 			const candidate = branch.pending + eot.text;
 
+			this.noteDepth(candidate);
+
 			if (endOutput === null) { endOutput = candidate; }
 			else if (endOutput !== candidate) { return violation(); }
 		}
@@ -271,7 +359,7 @@ class Builder {
 	 *
 	 * @param {number} index The state.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The refusal, or null.
+	 * @returns {NaxpError | null} The fault, or null.
 	 */
 	explore(index, queue) {
 		const firstSets = [];
@@ -298,7 +386,7 @@ class Builder {
 	 * @param {number} index The state.
 	 * @param {AsciiCharSet} block The block to step by.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The refusal, or null.
+	 * @returns {NaxpError | null} The fault, or null.
 	 */
 	step(index, block, queue) {
 		/** @type {Map<import('./tx.js').Tx, string>} */
@@ -311,14 +399,28 @@ class Builder {
 
 			if (derivative.skipsAmbiguously) { return violation(); }
 
+			// What was already owed is one character older now, and what this step emits owes
+			// the character being read.
+			const carried = age(branch.pending);
+
 			for (const move of derivative.moves) {
-				const pending = branch.pending + move.emitted;
+				const pending = carried + symbolise(move.emitted);
 				const existing = pendingOf.get(move.residual);
 
 				if (existing === undefined) { pendingOf.set(move.residual, pending); }
 				else if (existing !== pending) {
-					// Same continuation, two outputs. Every string the continuation accepts would
-					// have two canonical forms.
+					// Same continuation, two outputs, which would give every string the
+					// continuation accepts two canonical forms. Unless one of them owes the
+					// character being read: fixing that character may make the two the same
+					// output rather than two different ones, so the block is narrowed before the
+					// verdict. Whether a well-formed naxp can reach this is not known: W3 is
+					// decided first, by the pair machine, and no naxp in the conformance data
+					// narrows a block here.
+					if (block.singleCharacter === null
+						&& narrowingCouldReconcile(existing, pending)) {
+						return this.narrow(index, block, queue);
+					}
+
 					return violation();
 				}
 			}
@@ -329,26 +431,15 @@ class Builder {
 		const pendings = [...pendingOf.values()];
 		const common = longestCommonPrefix(pendings);
 
-		if (carriesUndecidedCopy(pendings, common.length)) {
-			if (block.singleCharacter !== null) {
-				// A single character block decides every copy, so this cannot recur.
-				throw new Error('A copy stayed undecided on a single character.');
-			}
-
-			for (const code of block) {
-				const error = this.step(index, AsciiCharSet.fromSingleChar(code), queue);
-
-				if (error !== null) { return error; }
-			}
-
-			return null;
-		}
-
 		const branches = [...pendingOf].map(
 			([residual, pending]) => new Branch(residual, pending.slice(common.length)));
 
 		branches.sort((left, right) => (left.residual.id - right.residual.id)
 			|| compareOrdinal(left.pending, right.pending));
+
+		this.noteDepth(common);
+
+		for (const branch of branches) { this.noteDepth(branch.pending); }
 
 		const next = this.add(branches, queue);
 
@@ -360,11 +451,42 @@ class Builder {
 	}
 
 	/**
+	 * Retakes a step one character at a time, so that a reference to the character being read
+	 * becomes the character itself and two parses can be compared.
+	 *
+	 * @param {number} index The state.
+	 * @param {AsciiCharSet} block The block to split.
+	 * @param {number[]} queue The queue to append to.
+	 * @returns {NaxpError | null} The fault, or null.
+	 */
+	narrow(index, block, queue) {
+		for (const code of block) {
+			const error = this.step(index, AsciiCharSet.fromSingleChar(code), queue);
+
+			if (error !== null) { return error; }
+		}
+
+		return null;
+	}
+
+	/**
+	 * Records how far back the machine has to reach, which is what a run has to keep and what W6
+	 * counts beside the states.
+	 *
+	 * @param {string} pending The pending output or transition output.
+	 */
+	noteDepth(pending) {
+		const depth = depthOf(pending);
+
+		if (depth > this.registerDepth) { this.registerDepth = depth; }
+	}
+
+	/**
 	 * Finds a state, adding it and queueing it where it is new.
 	 *
 	 * @param {Branch[]} branches The branch set, already sorted and deduplicated.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {{index: number, error: NaxpError | null}} Its index, or the refusal.
+	 * @returns {{index: number, error: NaxpError | null}} Its index, or the fault.
 	 */
 	add(branches, queue) {
 		const key = branches.map(branch => branch.key()).join(';');
@@ -412,7 +534,7 @@ class Builder {
 			states[i].transitions = transitions;
 		}
 
-		return new TxMachine(states[start], states);
+		return new TxMachine(states[start], states, this.registerDepth);
 	}
 }
 
@@ -439,23 +561,45 @@ function longestCommonPrefix(pendings) {
 		if (common === 0) { break; }
 	}
 
-	return shortest.slice(0, common);
+	// A reference is two characters, so a prefix must not stop between them. Walking the units
+	// of the shortest pending is cheaper than checking afterwards and cannot land inside one.
+	let unit = 0;
+
+	while (unit < common) {
+		const next = unit + unitLength(shortest, unit);
+
+		if (next > common) { break; }
+
+		unit = next;
+	}
+
+	return shortest.slice(0, unit);
 }
 
 /**
- * Whether any parse would carry a copy marker past this step, where nothing could later say which
- * character it stood for.
+ * How many characters a unit of a pending occupies: two for a reference, one for a literal.
  *
- * @param {string[]} pendings The outputs owed.
- * @param {number} from Where the committed prefix ends.
- * @returns {boolean} Whether one would be carried.
+ * @param {string} pending The pending output.
+ * @param {number} at Where the unit starts.
+ * @returns {number} Its length.
  */
-function carriesUndecidedCopy(pendings, from) {
-	for (const pending of pendings) {
-		if (pending.indexOf(COPY_MARKER, from) >= 0) { return true; }
-	}
+function unitLength(pending, at) {
+	return pending[at] === COPY_MARKER ? 2 : 1;
+}
 
-	return false;
+/**
+ * Whether fixing the character being read could make two pendings agree.
+ *
+ * A reference to the character just read is the only thing a narrower block can turn into
+ * something else, so it is the only thing that can close a difference: one branch pending the
+ * literal `0` and the other the character read agree once the character is known to be `0`.
+ *
+ * @param {string} left The first pending.
+ * @param {string} right The second pending.
+ * @returns {boolean} Whether narrowing might reconcile them.
+ */
+function narrowingCouldReconcile(left, right) {
+	return left.indexOf(DEPTH_ZERO) >= 0 || right.indexOf(DEPTH_ZERO) >= 0;
 }
 
 /**
@@ -469,17 +613,17 @@ function compareOrdinal(left, right) {
 	return left < right ? -1 : 1;
 }
 
-/** @returns {NaxpError} The refusal. */
+/** @returns {NaxpError} The fault. */
 function violation() {
-	return new NaxpError(NaxpMessage.NAXP1045_ReplacementNotSingleValued);
+	return new NaxpError(NaxpMessage.NAXP1044_UnificationNotSingleValued);
 }
 
 /**
  * @param {number} maxStates The budget.
- * @returns {NaxpError} The refusal.
+ * @returns {NaxpError} The fault.
  */
 function tooLarge(maxStates) {
-	return new NaxpError(NaxpMessage.NAXP1050_TooManyCanonicalStates);
+	return new NaxpError(NaxpMessage.NAXP1049_TooManyCanonicalStates);
 }
 
 /**
@@ -550,7 +694,7 @@ function merge(machine) {
 		representative.set(state, created);
 	}
 
-	return new TxMachine(representative.get(machine.start), merged);
+	return new TxMachine(representative.get(machine.start), merged, machine.registerDepth);
 }
 
 /**
@@ -572,8 +716,8 @@ function mergedKey(endOutput, transitions) {
 /**
  * Post-order, so that every successor is ordered before the state that reaches it.
  *
- * Iterative rather than recursive. A naxp is allowed to be a long chain — `(\A!A){99}` is legal,
- * linear and ten thousand states — and recursing over that overflows the stack, which cannot be
+ * Iterative rather than recursive. A naxp is allowed to be a long chain – `(\A!A){99}` is legal,
+ * linear and ten thousand states – and recursing over that overflows the stack, which cannot be
  * caught.
  *
  * @param {TxState} start The start state.

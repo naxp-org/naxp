@@ -12,7 +12,7 @@ namespace LogMu.UnitTests;
 /// </summary>
 enum ReferenceOutcome
 {
-	/// <summary>The naxp does not accept the string, so it has no canonical form.</summary>
+	/// <summary>The string is invalid, so it has no canonical form.</summary>
 	NotAccepted,
 
 	/// <summary>The string has exactly one canonical form.</summary>
@@ -37,8 +37,8 @@ enum ReferenceOutcome
 /// </para>
 /// <para>
 /// That is why this lives here. <see cref="W3Tests"/> needs an oracle that shares no reasoning
-/// with the square — a walk of the tree carrying full outputs, against a walk of an automaton
-/// carrying pairs and a delay — and the production code is no longer able to be one. The cost
+/// with the square – a walk of the tree carrying full outputs, against a walk of an automaton
+/// carrying pairs and a delay – and the production code is no longer able to be one. The cost
 /// this pays for saying more is the exponential the production one was simplified to escape, so
 /// it is only ever pointed at small naxps.
 /// </para>
@@ -112,7 +112,7 @@ static class ReferenceCanonicaliser
 					return this.Guard(result);
 				}
 
-				case AstDigitsRange:
+				case AstDecimalRange:
 					return this.Guard(this.Consume(node, starts));
 
 				case AstSequence sequence:
@@ -167,14 +167,14 @@ static class ReferenceCanonicaliser
 					return this.Guard(result);
 				}
 
-				case AstReplaceable replaceable:
+				case AstUnified unified:
 				{
-					string rendering = this.RenderingOf(replaceable);
+					string rendering = this.RenderingOf(unified);
 					var result = new HashSet<Partial>();
 
 					foreach (Partial partial in starts)
 					{
-						foreach (int end in Matcher.Advance(replaceable.Subject, this.text, new HashSet<int> { partial.End }))
+						foreach (int end in TreeWalker.Advance(unified.Subject, this.text, new HashSet<int> { partial.End }))
 						{
 							result.Add(partial.Extend(end, rendering));
 						}
@@ -194,7 +194,7 @@ static class ReferenceCanonicaliser
 
 			foreach (Partial partial in starts)
 			{
-				foreach (int end in Matcher.Advance(node, this.text, new HashSet<int> { partial.End }))
+				foreach (int end in TreeWalker.Advance(node, this.text, new HashSet<int> { partial.End }))
 				{
 					result.Add(partial.Extend(end, this.text.Substring(partial.End, end - partial.End)));
 				}
@@ -203,16 +203,16 @@ static class ReferenceCanonicaliser
 			return result;
 		}
 
-		string RenderingOf(AstReplaceable replaceable)
+		string RenderingOf(AstUnified unified)
 		{
-			if (this.renderings.TryGetValue(replaceable, out string? cached)) { return cached; }
+			if (this.renderings.TryGetValue(unified, out string? cached)) { return cached; }
 
-			if (Matcher.TryGetSingleString(replaceable.Rendering, out string? rendering) != SingleStringOutcome.Single)
+			if (TreeWalker.TryGetSingleString(unified.Rendering, out string? rendering) != SingleStringOutcome.Single)
 			{
-				throw new InvalidOperationException("A replaceable element passed W1 but has no single rendering.");
+				throw new InvalidOperationException("A unified element passed W1 but has no single rendering.");
 			}
 
-			this.renderings.Add(replaceable, rendering!);
+			this.renderings.Add(unified, rendering!);
 
 			return rendering!;
 		}

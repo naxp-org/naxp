@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { AsciiCharSet } from '../lib/ascii-char-set.js';
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert } from '../lib/rx-converter.js';
+import { convert } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { minterms, tryBuild } from '../lib/state-map.js';
 import { check } from '../lib/well-formedness.js';
@@ -19,36 +19,36 @@ import { ruleOf } from './naxp-message-rules.js';
  * Parses, checks, converts and builds. The compiler that ties these together is not ported yet,
  * so the wiring lives here.
  *
- * @param {string} naxp The source.
- * @param {string} language One of {@link NaxpLanguage}.
+ * @param {string} naxp The pattern.
+ * @param {boolean} isCanonical Whether the canonical language is wanted rather than the accepted one.
  * @param {number} [maxStates] The state budget.
  * @returns {{map: import('../lib/state-map.js').StateMap | null,
- *   error: import('../lib/naxp-error.js').NaxpError | null}} The machine, or the refusal.
+ *   error: import('../lib/naxp-error.js').NaxpError | null}} The machine, or the fault.
  */
-function build(naxp, language, maxStates) {
+function build(naxp, isCanonical, maxStates) {
 	const { ast, error } = tryParse(naxp);
 
 	assert.ok(ast !== null, `${naxp} did not parse: ${error}`);
 
 	const wellFormedness = check(ast);
 
-	assert.equal(wellFormedness, null, `${naxp} was refused: ${wellFormedness}`);
+	assert.equal(wellFormedness, null, `${naxp} was invalid: ${wellFormedness}`);
 
 	const factory = new RxFactory();
 
-	return tryBuild(convert(ast, factory, language), factory, maxStates);
+	return tryBuild(convert(ast, factory, isCanonical), factory, maxStates);
 }
 
 /**
  * The machine for the canonical language, which is the one the encoding ranks over.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {import('../lib/state-map.js').StateMap} The machine.
  */
 function canonical(naxp) {
-	const { map, error } = build(naxp, NaxpLanguage.Canonical);
+	const { map, error } = build(naxp, true);
 
-	assert.ok(map !== null, `${naxp} was refused: ${error}`);
+	assert.ok(map !== null, `${naxp} was invalid: ${error}`);
 
 	return map;
 }
@@ -56,13 +56,13 @@ function canonical(naxp) {
 /**
  * The machine for the accepted language.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {import('../lib/state-map.js').StateMap} The machine.
  */
 function accepted(naxp) {
-	const { map, error } = build(naxp, NaxpLanguage.Accepted);
+	const { map, error } = build(naxp, false);
 
-	assert.ok(map !== null, `${naxp} was refused: ${error}`);
+	assert.ok(map !== null, `${naxp} was invalid: ${error}`);
 
 	return map;
 }
@@ -107,7 +107,7 @@ function describe(map) {
 	const lines = [];
 
 	for (const state of order) {
-		let line = `${numbers.get(state)} count=${state.valueCount}`;
+		let line = `${numbers.get(state)} count=${state.stringCount}`;
 
 		for (const transition of state.transitions) {
 			line += ` <${transition.set.toString()}>->${numbers.get(transition.next)}`;
@@ -128,7 +128,7 @@ test("the worked example matches the specification", () => {
 	// [02-9] and [1].
 	const map = canonical('#[0-10]');
 
-	assert.equal(map.valueCount, 11n);
+	assert.equal(map.stringCount, 11n);
 
 	const start = map.start;
 
@@ -142,7 +142,7 @@ test("the worked example matches the specification", () => {
 
 	const afterOne = start.transitions[1].next;
 
-	assert.equal(afterOne.valueCount, 2n);
+	assert.equal(afterOne.stringCount, 2n);
 	assert.equal(afterOne.transitions.length, 2);
 	assert.equal(afterOne.transitions[0].set.isEmpty, true);
 	assert.equal(afterOne.transitions[0].next.isTerminal, true);
@@ -150,12 +150,12 @@ test("the worked example matches the specification", () => {
 	assert.equal(afterOne.transitions[1].next.isTerminal, true);
 });
 
-test('a padded digits range has one width', () => {
+test('a padded decimal range has one width', () => {
 	// Padding the lower bound fixes one width, so every match takes the same route and numeric
 	// order is preserved.
 	const map = canonical('#[00-10]');
 
-	assert.equal(map.valueCount, 11n);
+	assert.equal(map.stringCount, 11n);
 	assert.equal(map.start.acceptsEndOfText, false);
 	assert.equal(map.start.transitions[0].set.equals(setOf('0')), true);
 	assert.equal(map.start.transitions[1].set.equals(setOf('1')), true);
@@ -175,7 +175,7 @@ test('naxps denoting the same language give the same machine', () => {
 		['A{2,4}', 'AAA?A?'],
 		['A|A', 'A'],
 		['#[0-9]', '[0-9]'],
-		['A{0}', '()'],
+		['()?', '()'],
 	];
 
 	for (const [left, right] of pairs) {
@@ -194,8 +194,8 @@ test('different renderings give different machines', () => {
 
 test('equal values do not mean equal text', () => {
 	// Both give every string they accept the value 1, and they print nothing and a hyphen.
-	assert.equal(canonical('[\\s\\-]!?').valueCount, 1n);
-	assert.equal(canonical('[\\s\\-]?!\\-').valueCount, 1n);
+	assert.equal(canonical('[\\s\\-]!?').stringCount, 1n);
+	assert.equal(canonical('[\\s\\-]?!\\-').stringCount, 1n);
 	assert.notEqual(describe(canonical('[\\s\\-]!?')), describe(canonical('[\\s\\-]?!\\-')));
 });
 
@@ -214,16 +214,16 @@ test('value counts are what the arithmetic says', () => {
 	];
 
 	for (const [naxp, expected] of cases) {
-		assert.equal(canonical(naxp).valueCount, expected, naxp);
+		assert.equal(canonical(naxp).stringCount, expected, naxp);
 	}
 });
 
 test('a count above 2^53 is exact, and one above 2^63 keeps its top bit', () => {
 	// The two places a number would have gone wrong. 10^19 is past both, and is the largest
 	// interval of digits W5 admits.
-	assert.equal(canonical('\\9{16}').valueCount, 10000000000000000n);
-	assert.equal(canonical('\\9{19}').valueCount, 10000000000000000000n);
-	assert.ok(canonical('\\9{19}').valueCount > (2n ** 63n) - 1n);
+	assert.equal(canonical('\\9{16}').stringCount, 10000000000000000n);
+	assert.equal(canonical('\\9{19}').stringCount, 10000000000000000000n);
+	assert.ok(canonical('\\9{19}').stringCount > (2n ** 63n) - 1n);
 	assert.equal(canonical('\\9{19}').countSaturated, false);
 });
 
@@ -231,7 +231,7 @@ test('a count past 2^64 - 1 saturates and says so', () => {
 	const map = canonical('\\9{20}');
 
 	assert.equal(map.countSaturated, true);
-	assert.equal(map.valueCount, (2n ** 64n) - 1n);
+	assert.equal(map.stringCount, (2n ** 64n) - 1n);
 });
 
 test('a product of two legal halves can saturate', () => {
@@ -258,21 +258,21 @@ test('a count exactly at the limit does not saturate', () => {
 // #endregion
 // #region The state budget
 
-test('a machine too large to build is refused, and the naxp may still be legal', () => {
-	const { map, error } = build('A{99}', NaxpLanguage.Canonical, 10);
+test('a machine too large to build breaks W6', () => {
+	const { map, error } = build('A{99}', true, 10);
 
 	assert.equal(map, null);
 	// The code, not the prose. The message names the budget this implementation ships with,
 	// which is not the lowered one a test builds against.
-	assert.equal(error.message, NaxpMessage.NAXP1049_TooManyStates);
-	assert.ok(error.text.includes('may well be legal'), error.text);
+	assert.equal(error.message, NaxpMessage.NAXP1048_TooManyStates);
+	assert.ok(error.text.includes('W6'), error.text);
 });
 
 test('a machine inside the budget is built', () => {
-	const { map } = build('A{99}', NaxpLanguage.Canonical, 200);
+	const { map } = build('A{99}', true, 200);
 
 	assert.ok(map !== null);
-	assert.equal(map.valueCount, 1n);
+	assert.equal(map.stringCount, 1n);
 });
 
 // #endregion
@@ -289,7 +289,7 @@ test('the machine accepts what the naxp accepts', () => {
 	assert.equal(postcode.accepts(''), false);
 });
 
-test('the canonical machine refuses what only the accepted one takes', () => {
+test('the canonical machine rules out what only the accepted one takes', () => {
 	// The space is optional on input and printed on the way out, so the canonical language holds
 	// only the spaced form.
 	const naxp = '\\A \\9 \\s!! \\9 \\A';

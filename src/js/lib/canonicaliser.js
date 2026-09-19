@@ -4,25 +4,25 @@
 import {
 	AstAlternation,
 	AstChars,
-	AstDigitsRange,
+	AstDecimalRange,
 	AstEmpty,
 	AstInterval,
 	AstOptional,
-	AstReplaceable,
+	AstUnified,
 	AstSequence,
 } from './ast.js';
-import { SingleStringOutcome, advance, tryGetSingleString } from './matcher.js';
+import { SingleStringOutcome, advance, tryGetSingleString } from './treewalker.js';
 import { NaxpLimits } from './naxp-limits.js';
 
 /**
  * Computes ρ, the map from an accepted string to its canonical form.
  *
- * ρ(*w*) is *w* with the match of each replaceable element replaced by that element's rendering.
+ * ρ(*w*) is *w* with the match of each unified element replaced by that element's rendering.
  * The tree is where that is visible, since the machines have already resolved it one way or the
  * other, so this works over the tree.
  *
- * It is the matcher's set of positions with one output carried alongside each position. A
- * replaceable element contributes its rendering whatever it matched, which is the whole of what
+ * It is the tree walker's set of positions with one output carried alongside each position. A
+ * unified element contributes its rendering whatever it matched, which is the whole of what
  * makes the canonical form differ from the input.
  *
  * One output per position is enough, and that rests on W3 being decided when the naxp was
@@ -30,7 +30,7 @@ import { NaxpLimits } from './naxp-limits.js';
  * follows depends on the position alone; so two partial parses that meet at one position either
  * both reach the end or neither does. If both reach it they append the same remainder, and W3 says
  * the two totals agree, which forces the two outputs to have agreed already. Carrying the whole set
- * would therefore only ever record the same string twice — and it was what made this exponential,
+ * would therefore only ever record the same string twice – and it was what made this exponential,
  * since `([ab]|[ab]!a){17}` reaches 2^17 outputs on an all-`b` input.
  */
 class Canonicaliser {
@@ -39,7 +39,7 @@ class Canonicaliser {
 	 */
 	constructor(text) {
 		this.text = text;
-		/** @type {Map<AstReplaceable, string>} */
+		/** @type {Map<AstUnified, string>} */
 		this.renderings = new Map();
 	}
 
@@ -67,8 +67,8 @@ class Canonicaliser {
 			return result;
 		}
 
-		// A digits range emits what it consumed.
-		if (node instanceof AstDigitsRange) { return this.consume(node, starts); }
+		// A decimal range emits what it consumed.
+		if (node instanceof AstDecimalRange) { return this.consume(node, starts); }
 
 		if (node instanceof AstSequence) {
 			let current = starts;
@@ -118,7 +118,7 @@ class Canonicaliser {
 			return result;
 		}
 
-		if (node instanceof AstReplaceable) {
+		if (node instanceof AstUnified) {
 			// This is the whole of the difference between a string and its canonical form:
 			// whatever the subject matched, the rendering is what comes out.
 			const rendering = this.renderingOf(node);
@@ -156,22 +156,22 @@ class Canonicaliser {
 	}
 
 	/**
-	 * @param {AstReplaceable} replaceable The element.
+	 * @param {AstUnified} unified The element.
 	 * @returns {string} Its rendering.
 	 */
-	renderingOf(replaceable) {
-		const cached = this.renderings.get(replaceable);
+	renderingOf(unified) {
+		const cached = this.renderings.get(unified);
 
 		if (cached !== undefined) { return cached; }
 
 		// W1 has already established that the rendering generates exactly one string.
-		const { outcome, result } = tryGetSingleString(replaceable.rendering);
+		const { outcome, result } = tryGetSingleString(unified.rendering);
 
 		if (outcome !== SingleStringOutcome.Single) {
-			throw new Error('A replaceable element passed W1 but has no single rendering.');
+			throw new Error('A unified element passed W1 but has no single rendering.');
 		}
 
-		this.renderings.set(replaceable, result);
+		this.renderings.set(unified, result);
 
 		return result;
 	}
@@ -192,10 +192,10 @@ function put(target, end, output) {
 
 /**
  * @param {Map<number, string>} target Where to record them.
- * @param {Map<number, string>} source What to record.
+ * @param {Map<number, string>} pattern What to record.
  */
-function putAll(target, source) {
-	for (const [end, output] of source) { put(target, end, output); }
+function putAll(target, pattern) {
+	for (const [end, output] of pattern) { put(target, end, output); }
 }
 
 /**
@@ -219,13 +219,13 @@ function sameAs(left, right) {
  * @param {import('./ast.js').Ast} ast The parsed naxp, which must have been through the W3
  * checker.
  * @param {string} text The string.
- * @returns {string | null} The canonical form, or null where the naxp does not accept the string.
+ * @returns {string | null} The canonical form, or null where the string is invalid.
  */
 export function tryCanonicalise(ast, text) {
 	if (ast === null || ast === undefined) { throw new TypeError('ast is required.'); }
 
 	// A naxp within the state budget has a longest string shorter than this, so anything longer
-	// is not accepted rather than too costly to decide.
+	// is invalid rather than too costly to decide.
 	if (text.length > NaxpLimits.maxStringLength) { return null; }
 
 	const reached = new Canonicaliser(text).advance(ast, new Map([[0, '']]));

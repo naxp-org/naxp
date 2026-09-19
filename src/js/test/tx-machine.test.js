@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { tryCanonicalise as treeWalk } from '../lib/canonicaliser.js';
 import { tryParse } from '../lib/parser.js';
-import { NaxpLanguage, convert as convertRx } from '../lib/rx-converter.js';
+import { convert as convertRx } from '../lib/rx-converter.js';
 import { RxFactory } from '../lib/rx.js';
 import { tryBuild } from '../lib/state-map.js';
 import { tryBuildTxMachine } from '../lib/tx-machine.js';
@@ -21,7 +21,7 @@ import { ruleOf } from './naxp-message-rules.js';
 /**
  * Parses, checks every rule that is written, and builds the canonicalisation machine.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @param {number} [maxStates] The budget.
  * @returns {{ast: import('../lib/ast.js').Ast,
  *   machine: import('../lib/tx-machine.js').TxMachine | null,
@@ -47,7 +47,7 @@ function build(naxp, maxStates) {
 /**
  * The machine, failing the test where it could not be built.
  *
- * @param {string} naxp The source.
+ * @param {string} naxp The pattern.
  * @returns {import('../lib/tx-machine.js').TxMachine} The machine.
  */
 function machineFor(naxp) {
@@ -66,7 +66,7 @@ function machineFor(naxp) {
  */
 function enumerateLanguage(ast) {
 	const factory = new RxFactory();
-	const { map } = tryBuild(convertRx(ast, factory, NaxpLanguage.Accepted), factory);
+	const { map } = tryBuild(convertRx(ast, factory, false), factory);
 
 	assert.ok(map !== null, 'the accepted machine could not be built');
 
@@ -93,7 +93,7 @@ function enumerateLanguage(ast) {
 
 test('the machine agrees with the tree walk on every accepted string', () => {
 	// The tree walk is the reference; the machine is the form the emitters need. They share the
-	// matcher and nothing else, so agreeing on a whole language is a real check.
+	// tree walker and nothing else, so agreeing on a whole language is a real check.
 	const naxps = [
 		'(A|a)!A',
 		'\\A!?',
@@ -104,7 +104,7 @@ test('the machine agrees with the tree walk on every accepted string', () => {
 		'(A|b)!bX|BY',
 		'(A|b)!AX|BY',
 		'(a|A)!AX|AY',
-		// Replaceables under an interval, in sequence, and under an optional.
+		// Unified elements under an interval, in sequence, and under an optional.
 		'((A|a)!A){3}',
 		'((A|a)!A|B){2}',
 		'(AB|ab)!(AB)(C|c)!C',
@@ -149,7 +149,7 @@ test('the machine agrees with the tree walk on every accepted string', () => {
 	assert.ok(checked > 200, `only ${checked} strings were compared`);
 });
 
-test('a string the naxp does not accept is refused', () => {
+test('text the naxp does not generate is invalid', () => {
 	const cases = [
 		['(A|a)!A', 'B'],
 		['(A|a)!A', ''],
@@ -238,18 +238,28 @@ test('the postcode machine inserts the separator', () => {
 // #endregion
 // #region Size, and the naxps that have no machine
 
-test('the state count is exponential in the length of the naxp', () => {
-	// Intrinsic rather than a weakness of this construction. Nothing before the final character
-	// says which branch was taken, so the machine has to remember every character it has read in
-	// order to emit them later. Both language machines stay small.
-	for (const [k, expected] of [[2, 8], [3, 16], [4, 32]]) {
+test('the state count is linear in the length of the naxp, and the register carries the rest', () => {
+	// This family was the lower bound for a machine with nothing but states: nothing before the
+	// final character says which branch was taken, so 2^(k+1) states were needed to remember
+	// which characters had been read. A register remembers them instead, and what the states have
+	// to distinguish is the shape of what is owed rather than its content.
+	for (const [k, states, depth] of [[2, 4, 3], [3, 5, 4], [4, 6, 5], [16, 18, 17]]) {
 		const machine = machineFor(`[ab]{${k}}c|([ab]!a){${k}}d`);
 
-		assert.equal(machine.states.length, expected, `k = ${k}`);
+		assert.equal(machine.states.length, states, `states, k = ${k}`);
+		assert.equal(machine.registerDepth, depth, `depth, k = ${k}`);
 	}
 });
 
-test('a legal naxp can have no machine, and the refusal says which limit was hit', () => {
+test('the register is what a run reads back, so the canonical forms are unchanged', () => {
+	// The point of the register is that it changes the machine and not the language.
+	const machine = machineFor('[ab]{3}c|([ab]!a){3}d');
+
+	assert.equal(machine.tryCanonicalise('abac'), 'abac');
+	assert.equal(machine.tryCanonicalise('abad'), 'aaad');
+});
+
+test('a legal naxp can have no machine, and the fault says which limit was hit', () => {
 	// [ab]{16}c|([ab]!a){16}d passes every rule and compiles; the machine is the thing it cannot
 	// have. That is not a duplicate of any rule, so the message must not name one.
 	const { machine, error } = build('[ab]{6}c|([ab]!a){6}d', 8);
@@ -257,7 +267,7 @@ test('a legal naxp can have no machine, and the refusal says which limit was hit
 	assert.equal(machine, null);
 	// The code, not the prose, since the message names the shipped budget rather than the
 	// lowered one this test builds against.
-	assert.equal(error.message, NaxpMessage.NAXP1050_TooManyCanonicalStates);
+	assert.equal(error.message, NaxpMessage.NAXP1049_TooManyCanonicalStates);
 	assert.ok(error.text.includes('to canonicalise'), error.text);
 });
 

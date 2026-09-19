@@ -1,6 +1,6 @@
 {
-	"name": "naxp",
-	"version": "0.5.0-alpha",
+	"name": "@naxp/naxp",
+	"version": "0.10.0",
 	"description": "naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.",
 	"keywords": [
 		"naxp",
@@ -35,6 +35,9 @@
 		"NOTICE",
 		"README.md"
 	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"sideEffects": false,
 	"engines": {
 		"node": ">=18"

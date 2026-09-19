@@ -10,7 +10,7 @@ using Xunit;
 namespace LogMu.UnitTests;
 
 /// <summary>
-/// W3: replacement must be single valued.
+/// W3: unification must be single valued.
 /// </summary>
 /// <remarks>
 /// The cases come from <c>encoding/w3-functionality.md</c>, which reviewed the procedure before
@@ -21,7 +21,7 @@ public class W3Tests
 {
 	#region Violations
 	/// <summary>
-	/// Naxps whose replacement is not single valued. Each is refused when it is compiled.
+	/// Naxps whose unification is not single valued. Each is invalid when it is compiled.
 	/// </summary>
 	[Theory]
 	// The case the conformance data already carried.
@@ -39,7 +39,7 @@ public class W3Tests
 	[InlineData("[ab]|[ab]!a")]
 	// Skipping a nullable copy of an interval emits, so how many are skipped is a choice.
 	[InlineData("(A!!){0,3}")]
-	public void Violations_AreRefused(string naxp)
+	public void Violations_AreInvalid(string naxp)
 	{
 		Assert.False(Compiler.TryCompile(naxp, out Compilation? compilation, out NaxpError? error));
 
@@ -81,11 +81,11 @@ public class W3Tests
 	#region Well formed
 	/// <summary>
 	/// Naxps that pass, including the near misses that a checker comparing the wrong thing
-	/// refuses.
+	/// rules out.
 	/// </summary>
 	[Theory]
 	// Both alternatives map B and BA to BA, so two branches with pendings that differ still agree
-	// once what they emit at end of text is counted. A checker comparing pendings refuses this.
+	// once what they emit at end of text is counted. A checker comparing pendings rules this out.
 	[InlineData("(B|BA)!(BA)|BA!!")]
 	// The same shape with a tail, so the disagreement survives past a consumed character.
 	[InlineData("(B|BA)!(BA)X|BA!!X")]
@@ -124,9 +124,9 @@ public class W3Tests
 	}
 
 	/// <summary>
-	/// The well-formed blow-up family is accepted rather than refused. This is the case that
+	/// The well-formed blow-up family is accepted rather than invalid. This is the case that
 	/// killed the subset construction: both its machines have fewer than forty states, yet a
-	/// determinisation needs 2^17, so a legal naxp would have been rejected.
+	/// determinisation needs 2^17, so a valid naxp would have been ruled out.
 	/// </summary>
 	[Fact]
 	public void WellFormedBlowUpFamily_IsAcceptedWithinASmallBudget()
@@ -138,16 +138,16 @@ public class W3Tests
 	}
 
 	/// <summary>
-	/// A naxp beyond the budget is refused as an implementation limit rather than judged either
-	/// way, which is the same answer the machine builder gives.
+	/// A naxp beyond the budget breaks W6 rather than being judged either way, which is the same
+	/// answer the machine builder gives.
 	/// </summary>
 	[Fact]
-	public void BeyondTheBudget_IsAnImplementationLimit()
+	public void BeyondTheBudget_BreaksW6()
 	{
 		Assert.True(Parser.TryParse("[ab]{17}c|([ab]!a){17}d", out Ast? ast, out _));
 
 		Assert.False(W3Checker.TryCheck(ast!, new RxFactory(), out NaxpError? error, maxStates: 8));
-		Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(error!.Value.Message));
+		Assert.Equal("W6", NaxpMessageRules.RuleOf(error!.Value.Message));
 	}
 	#endregion
 	#region Differential test against the per-string canonicaliser
@@ -159,7 +159,7 @@ public class W3Tests
 	/// <see cref="ReferenceCanonicaliser"/> decides ambiguity for one string by walking the tree
 	/// and carrying every output, which shares no reasoning with the square. A naxp's language is
 	/// finite and can be enumerated from its accepted machine, so the two can be compared
-	/// exhaustively: the square must refuse a naxp exactly when some string of its language has
+	/// exhaustively: the square must rule out a naxp exactly when some string of its language has
 	/// more than one canonical form.
 	/// </para>
 	/// <para>
@@ -192,7 +192,7 @@ public class W3Tests
 
 			bool passes = W3Checker.TryCheck(ast!, new RxFactory(), out NaxpError? error);
 
-			if (error is { } limit && NaxpMessageRules.IsImplementationLimit(limit.Message)) { continue; }
+			if (error is { } limit && NaxpMessageRules.IsStateBudget(limit.Message)) { continue; }
 
 			++compared;
 
@@ -202,7 +202,7 @@ public class W3Tests
 			}
 			else if (!passes && ambiguous is null)
 			{
-				failures.Add($"{naxp} was refused ({error}), but no string of its language is ambiguous.");
+				failures.Add($"{naxp} was invalid ({error}), but no string of its language is ambiguous.");
 			}
 		}
 
@@ -213,8 +213,8 @@ public class W3Tests
 	}
 
 	/// <summary>
-	/// Sequences and alternations over a pool of elements chosen to put replaceable and
-	/// non-replaceable ways of matching the same characters next to one another.
+	/// Sequences and alternations over a pool of elements chosen to put unified and
+	/// non-unified ways of matching the same characters next to one another.
 	/// </summary>
 	static IEnumerable<string> GeneratedNaxps()
 	{
@@ -261,14 +261,14 @@ public class W3Tests
 		language = null;
 
 		var factory = new RxFactory();
-		Rx expression = RxConverter.Convert(ast, factory, NaxpLanguage.Accepted);
+		Rx expression = RxConverter.Convert(ast, factory, isCanonical: false);
 
 		if (!StateMapBuilder.TryBuild(expression, factory, out StateMap? map, out _)) { return false; }
-		if (map!.CountSaturated || map.ValueCount > 4096UL) { return false; }
+		if (map!.CountSaturated || map.StringCount > 4096UL) { return false; }
 
-		language = new List<string>((int)map.ValueCount);
+		language = new List<string>((int)map.StringCount);
 
-		for (ulong value = 1UL; value <= map.ValueCount; ++value)
+		for (ulong value = 1UL; value <= map.StringCount; ++value)
 		{
 			if (!Codec.TryDecode(map, value, out string? text)) { return false; }
 
@@ -285,7 +285,7 @@ public class W3Tests
 	/// </summary>
 	/// <remarks>
 	/// <c>(A!!){66}</c> passes more than <c>TxFactory.MaxSkippedCopies</c> skipped copies of an
-	/// interval, so the derivative gives up. The naxp is legal and the message says so.
+	/// interval, so the derivative gives up. That is W6, and the message says which way.
 	/// </remarks>
 	[Fact]
 	public void TryCheck_WhenTheDerivativeIsAbandoned_DoesNotBlameThePairStateBudget()
@@ -295,9 +295,9 @@ public class W3Tests
 
 		Assert.False(W3Checker.TryCheck(ast!, new RxFactory(), out NaxpError? error));
 
-		Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(error!.Value.Message));
+		Assert.Equal("W6", NaxpMessageRules.RuleOf(error!.Value.Message));
 		Assert.DoesNotContain("pair states", error.Value.Text, StringComparison.Ordinal);
-		Assert.Contains("may well be legal", error.Value.Text, StringComparison.Ordinal);
+		Assert.Contains("intermediate string", error.Value.Text, StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -311,7 +311,7 @@ public class W3Tests
 
 		Assert.False(W3Checker.TryCheck(ast!, new RxFactory(), out NaxpError? error, maxStates: 8));
 
-		Assert.Equal("ImplementationLimit", NaxpMessageRules.RuleOf(error!.Value.Message));
+		Assert.Equal("W6", NaxpMessageRules.RuleOf(error!.Value.Message));
 		Assert.Contains("pair states", error.Value.Text, StringComparison.Ordinal);
 	}
 	#endregion

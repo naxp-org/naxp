@@ -56,7 +56,7 @@ function setBitAt(word, index) {
  * An immutable set of ASCII characters, that is of characters in the range U+0000 to U+007F.
  *
  * Characters are named by their code rather than as one character strings, because every caller
- * has a code already: the parser reads the source with `charCodeAt`, and the encoder walks a
+ * has a code already: the parser reads the pattern with `charCodeAt`, and the encoder walks a
  * string the same way. Taking a string would mean allocating one per character tested.
  *
  * Internal rather than part of the published surface. Nothing on `Naxp` exposes a character set,
@@ -449,3 +449,6 @@ export const ALL_LOWER_CASE_LETTERS = AsciiCharSet.fromCharRange(0x61, 0x7a);
 
 /** The digits and the upper case letters, written `\X` in a naxp. */
 export const ALL_DIGITS_AND_UPPER_CASE_LETTERS = ALL_DIGITS.union(ALL_UPPER_CASE_LETTERS);
+
+/** The digits and the lower case letters, written `\x` in a naxp. */
+export const ALL_DIGITS_AND_LOWER_CASE_LETTERS = ALL_DIGITS.union(ALL_LOWER_CASE_LETTERS);

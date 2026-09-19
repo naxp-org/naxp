@@ -2,7 +2,7 @@
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 import { AsciiCharSet } from './ascii-char-set.js';
-import { containsReplaceable } from './ast.js';
+import { containsUnified } from './ast.js';
 import { NaxpError } from './naxp-error.js';
 import { NaxpMessage } from './naxp-message.js';
 import { NaxpLimits } from './naxp-limits.js';
@@ -156,7 +156,7 @@ class Square {
 	 * @param {number} index Its index.
 	 * @param {AsciiCharSet} block The block to step by.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The refusal, or null.
+	 * @returns {NaxpError | null} The fault, or null.
 	 */
 	step(state, index, block, queue) {
 		const left = this.factory.derivative(state.left, block);
@@ -330,9 +330,9 @@ class Square {
 		return String.fromCharCode(...codes);
 	}
 
-	/** @returns {NaxpError} The refusal. */
+	/** @returns {NaxpError} The fault. */
 	tooLarge() {
-		return new NaxpError(NaxpMessage.NAXP1051_TooManyPairStates);
+		return new NaxpError(NaxpMessage.NAXP1050_TooManyPairStates);
 	}
 }
 
@@ -340,10 +340,10 @@ class Square {
  * The decision was abandoned because an intermediate result grew too large, which is a different
  * thing from running out of pair states and must not claim to be that.
  *
- * @returns {NaxpError} The refusal.
+ * @returns {NaxpError} The fault.
  */
 function abandoned() {
-	return new NaxpError(NaxpMessage.NAXP1052_PairOutputAbandoned);
+	return new NaxpError(NaxpMessage.NAXP1051_PairOutputAbandoned);
 }
 
 /**
@@ -351,7 +351,7 @@ function abandoned() {
  * @returns {NaxpError} The violation.
  */
 function violation(witness) {
-	return new NaxpError(NaxpMessage.NAXP1046_ReplacementNotSingleValuedWitness, witness);
+	return new NaxpError(NaxpMessage.NAXP1045_UnificationNotSingleValuedWitness, witness);
 }
 
 /**
@@ -377,10 +377,10 @@ function violation(witness) {
  * @param {import('./ast.js').Ast} ast The tree, which must already have passed W1 and W2.
  * @param {import('./rx.js').RxFactory} rxFactory The factory the machines will be built with,
  * reused for interning.
- * @param {{hasReplaceable?: boolean, maxStates?: number}} [options] `hasReplaceable` lets a
+ * @param {{hasUnified?: boolean, maxStates?: number}} [options] `hasUnified` lets a
  * caller that already knows whether there is anything to check avoid walking the tree for it
  * twice. `maxStates` is lowered by tests so the cap can be reached cheaply.
- * @returns {NaxpError | null} The refusal, or null if the naxp passes.
+ * @returns {NaxpError | null} The fault, or null if the naxp passes.
  */
 export function checkW3(ast, rxFactory, options = {}) {
 	// Both arguments are checked before the tree is walked, so a bad call fails at once rather
@@ -390,11 +390,11 @@ export function checkW3(ast, rxFactory, options = {}) {
 		throw new TypeError('rxFactory is required.');
 	}
 
-	const hasReplaceable = options.hasReplaceable ?? containsReplaceable(ast);
+	const hasUnified = options.hasUnified ?? containsUnified(ast);
 	const maxStates = options.maxStates ?? NaxpLimits.maxStates;
 
 	// Without a '!' the transduction is the identity, which is single valued for nothing.
-	if (!hasReplaceable) { return null; }
+	if (!hasUnified) { return null; }
 
 	const factory = new TxFactory(rxFactory);
 

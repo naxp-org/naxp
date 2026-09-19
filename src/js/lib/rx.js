@@ -28,9 +28,9 @@ export const RxKind = Object.freeze({
  *
  * The C# saturates at `long.MaxValue`; this is smaller, and the difference cannot show. A
  * language whose longest string is *n* needs at least *n* + 1 states, so anything whose length
- * approaches this is refused by the state budget long before the ordering that reads `maxLength`
+ * approaches this is found invalid by the state budget long before the ordering that reads `maxLength`
  * is reached. Saturation only keeps the arithmetic honest while converting a naxp that is going
- * to be refused anyway.
+ * to be invalid anyway.
  */
 const MAX_LENGTH = Number.MAX_SAFE_INTEGER;
 

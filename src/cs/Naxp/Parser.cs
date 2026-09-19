@@ -8,19 +8,19 @@ using System.Globalization;
 namespace LogMu;
 
 /// <summary>
-/// A recursive descent parser for naxp version 0.4.
+/// A recursive descent parser for naxp version 0.10.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The parser reports W4 as well as syntax, because the constraints on interval counts and
-/// digits range bounds are decided at the point the tokens are read and nowhere else. W1 and W2
+/// decimal range bounds are decided at the point the tokens are read and nowhere else. W1 and W2
 /// need the finished tree and live in <see cref="WellFormedness"/>. W3 and W5 need the state
 /// map and are not implemented yet.
 /// </para>
 /// <para>
 /// It carries error productions for syntax that is plausibly wrong rather than merely invalid,
 /// so that the message names the mistake: a comma in an interval, an unbounded interval, a bare
-/// <c>x!</c>, the hex escape that version 0.3 removed, and whitespace splitting a token.
+/// <c>x!</c>, the hex escape naxp does not have, and whitespace splitting a token.
 /// </para>
 /// <para>
 /// The input is a span, so the parser is a <see langword="ref"/> <see langword="struct"/> and
@@ -31,17 +31,17 @@ namespace LogMu;
 ref struct Parser
 {
 	#region Private data
-	/// <summary>Returned by <see cref="Peek"/> past the end of the source.</summary>
+	/// <summary>Returned by <see cref="Peek"/> past the end of the pattern.</summary>
 	/// <remarks>
-	/// Safe as a sentinel because <see cref="TryCheckSourceCharacters"/> has already refused
-	/// any source containing a character outside whitespace and U+0021 to U+007E.
+	/// Safe as a sentinel because <see cref="TryCheckPatternCharacters"/> has already ruled out
+	/// any pattern containing a character outside whitespace and U+0021 to U+007E.
 	/// </remarks>
 	const char EndOfText = '\0';
 
 	/// <summary>The most digits an interval count may have.</summary>
 	const int MaxIntervalCountDigits = 2;
 
-	/// <summary>The most digits a digits range bound may have.</summary>
+	/// <summary>The most digits a decimal range bound may have.</summary>
 	const int MaxBoundDigits = 15;
 
 	readonly ReadOnlySpan<char> text;
@@ -58,10 +58,10 @@ ref struct Parser
 	/// <summary>
 	/// Parses a naxp, checking syntax and W4.
 	/// </summary>
-	/// <param name="text">The source of the naxp.</param>
-	/// <param name="ast">The tree, or <see langword="null"/> if the source was refused.</param>
-	/// <param name="error">The refusal, or <see langword="null"/> if the source parsed.</param>
-	/// <returns>Whether the source parsed.</returns>
+	/// <param name="text">The pattern of the naxp.</param>
+	/// <param name="ast">The tree, or <see langword="null"/> if the pattern was invalid.</param>
+	/// <param name="error">The fault, or <see langword="null"/> if the pattern parsed.</param>
+	/// <returns>Whether the pattern parsed.</returns>
 	public static bool TryParse(ReadOnlySpan<char> text, out Ast? ast, out NaxpError? error)
 		=> new Parser(text).TryParseNaxp(out ast, out error);
 	#endregion
@@ -70,7 +70,7 @@ ref struct Parser
 	{
 		ast = null;
 
-		if (!this.TryCheckSourceCharacters(out error)) { return false; }
+		if (!this.TryCheckPatternCharacters(out error)) { return false; }
 
 		this.SkipWhitespace();
 
@@ -80,7 +80,13 @@ ref struct Parser
 
 		if (this.pos != this.text.Length)
 		{
-			error = this.UnexpectedCharacter();
+			// A ')' that closes a group is consumed by ParseBase, so one still standing here
+			// closes nothing. Calling it a reserved character and offering the escape is true
+			// and is almost never what was meant.
+			error = this.Peek() == ')'
+				? new NaxpError(NaxpMessage.NAXP1057_GroupNotOpened, offset: this.pos, length: 1)
+				: this.UnexpectedCharacter();
+
 			return false;
 		}
 
@@ -115,13 +121,20 @@ ref struct Parser
 
 		ast = alternatives is null
 			? first
-			: new AstAlternation(alternatives) { SourceOffset = start }
+			: new AstAlternation(alternatives) { PatternOffset = start }
 			;
 		error = null;
 		return true;
 	}
 
-	/// <summary><c>seq ::= element+</c></summary>
+	/// <summary><c>seq ::= element+ | element* case_fold expr</c></summary>
+	/// <remarks>
+	/// A case fold is the loosest operator: it runs from where it is written to the end of the
+	/// enclosing group, across any <c>|</c>, the way a regex flag does. So a fold ends the
+	/// sequence it is written in, taking the rest of the expression as its operand. Where one
+	/// fold is written inside another the outer governs, so a run of folds is the first of them
+	/// and the rest are consumed and dropped.
+	/// </remarks>
 	bool TryParseSeq(out Ast? ast, out NaxpError? error)
 	{
 		ast = null;
@@ -133,6 +146,30 @@ ref struct Parser
 		while (true)
 		{
 			this.SkipWhitespace();
+
+			int foldStart = this.pos;
+
+			if (!this.TryParseFold(out bool hasFold, out bool foldToUpper, out error)) { return false; }
+
+			if (hasFold)
+			{
+				if (!this.TryParseExpr(out Ast? tail, out error)) { return false; }
+
+				Ast rest = Folding.Apply(tail!, foldToUpper);
+				rest.PatternOffset = foldStart;
+
+				if (first is null)
+				{
+					ast = rest;
+					error = null;
+					return true;
+				}
+
+				elements ??= new List<Ast> { first };
+				elements.Add(rest);
+				break;
+			}
+
 			if (!IsStartOfElement(this.Peek())) { break; }
 
 			if (!this.TryParseElement(out Ast? element, out error)) { return false; }
@@ -156,13 +193,13 @@ ref struct Parser
 
 		ast = elements is null
 			? first
-			: new AstSequence(elements) { SourceOffset = start }
+			: new AstSequence(elements) { PatternOffset = start }
 			;
 		error = null;
 		return true;
 	}
 
-	/// <summary><c>element ::= base quantifier? replaceable?</c></summary>
+	/// <summary><c>element ::= operand quantifier? text_unification?</c></summary>
 	bool TryParseElement(out Ast? ast, out NaxpError? error)
 	{
 		ast = null;
@@ -178,7 +215,7 @@ ref struct Parser
 		if (this.Peek() == '?')
 		{
 			this.Advance();
-			node = new AstOptional(node!) { SourceOffset = start };
+			node = new AstOptional(node!) { PatternOffset = start };
 			hasQuantifier = true;
 			hasOptional = true;
 		}
@@ -198,11 +235,64 @@ ref struct Parser
 
 		if (this.Peek() == '!')
 		{
-			if (!this.TryParseReplaceable(node!, start, hasOptional, out node, out error)) { return false; }
+			if (!this.TryParseUnified(node!, start, hasOptional, out node, out error)) { return false; }
 		}
 
 		ast = node;
 		error = null;
+		return true;
+	}
+
+	/// <summary><c>case_fold ::= "\C" | "\c"</c>, as many as are written.</summary>
+	/// <remarks>
+	/// The fold is consumed here and expanded by <see cref="Folding"/> once the expression it
+	/// binds to has been parsed, so no later stage sees one. A run of folds is the first of
+	/// them; see <see cref="TryParseSeq"/>.
+	/// </remarks>
+	/// <param name="hasFold">Whether a fold was written.</param>
+	/// <param name="toUpper">Whether upper case is canonical, which is <c>\C</c>.</param>
+	/// <param name="error">The fault, if any.</param>
+	/// <returns>Whether the fold, if there was one, is well placed.</returns>
+	bool TryParseFold(out bool hasFold, out bool toUpper, out NaxpError? error)
+	{
+		hasFold = false;
+		toUpper = false;
+		error = null;
+
+		// Where one fold is written directly on another the outer governs, as it does over a fold
+		// anywhere within its extent, so a run of folds is the first of them and the rest are
+		// consumed and dropped.
+		while (this.TryPeekFold(out char letter))
+		{
+			this.Advance();
+			this.Advance();
+
+			if (!hasFold)
+			{
+				hasFold = true;
+				toUpper = letter == 'C';
+			}
+
+			this.SkipWhitespace();
+		}
+
+		return true;
+	}
+
+	/// <summary>Whether a fold starts here, without consuming it.</summary>
+	/// <param name="letter">The fold letter, <c>C</c> or <c>c</c>.</param>
+	/// <returns>Whether one is there.</returns>
+	bool TryPeekFold(out char letter)
+	{
+		letter = EndOfText;
+
+		if (this.Peek() != '\\') { return false; }
+
+		char next = this.pos + 1 < this.text.Length ? this.text[this.pos + 1] : EndOfText;
+
+		if (next != 'C' && next != 'c') { return false; }
+
+		letter = next;
 		return true;
 	}
 
@@ -221,7 +311,7 @@ ref struct Parser
 			if (this.Peek() == ')')
 			{
 				this.Advance();
-				ast = new AstEmpty { SourceOffset = start };
+				ast = new AstEmpty { PatternOffset = start };
 				error = null;
 				return true;
 			}
@@ -237,7 +327,7 @@ ref struct Parser
 			}
 
 			this.Advance();
-			inner!.SourceOffset = start;
+			inner!.PatternOffset = start;
 			ast = inner;
 			error = null;
 			return true;
@@ -245,33 +335,33 @@ ref struct Parser
 
 		if (c == '#')
 		{
-			return this.TryParseDigitsRange(out ast, out error);
+			return this.TryParseDecimalRange(out ast, out error);
 		}
 
 		if (c == '[')
 		{
 			if (!this.TryParseBracketSet(out AsciiCharSet bracketSet, out error)) { return false; }
 
-			ast = new AstChars(bracketSet) { SourceOffset = start };
+			ast = new AstChars(bracketSet) { PatternOffset = start };
 			error = null;
 			return true;
 		}
 
 		if (!this.TryParseCharAtom(out AsciiCharSet atomSet, out _, out _, out error)) { return false; }
 
-		ast = new AstChars(atomSet) { SourceOffset = start };
+		ast = new AstChars(atomSet) { PatternOffset = start };
 		error = null;
 		return true;
 	}
 
-	/// <summary><c>replaceable ::= "!" element | "!!" | "!?"</c></summary>
+	/// <summary><c>unified ::= "!" element | "!!" | "!?"</c></summary>
 	/// <param name="subject">The element the <c>!</c> binds to.</param>
 	/// <param name="start">The offset at which that element starts.</param>
 	/// <param name="subjectIsOptional">Whether the subject already carries a <c>?</c>.</param>
-	/// <param name="ast">The replaceable element.</param>
-	/// <param name="error">The refusal, if any.</param>
-	/// <returns>Whether the replacement parsed.</returns>
-	bool TryParseReplaceable(Ast subject, int start, bool subjectIsOptional, out Ast? ast, out NaxpError? error)
+	/// <param name="ast">The unified element.</param>
+	/// <param name="error">The fault, if any.</param>
+	/// <returns>Whether the unified element parsed.</returns>
+	bool TryParseUnified(Ast subject, int start, bool subjectIsOptional, out Ast? ast, out NaxpError? error)
 	{
 		ast = null;
 		int bangOffset = this.pos;
@@ -291,14 +381,14 @@ ref struct Parser
 			}
 
 			// The expansions are structural: x!! is x?!(x), and x!? is x?!().
-			Ast optionalSubject = new AstOptional(subject) { SourceOffset = start };
+			Ast optionalSubject = new AstOptional(subject) { PatternOffset = start };
 			Ast rendering = next == '!'
 				? subject
-				: new AstEmpty { SourceOffset = this.pos }
+				: new AstEmpty { PatternOffset = this.pos }
 				;
-			ReplaceableForm form = next == '!' ? ReplaceableForm.Reproduced : ReplaceableForm.Dropped;
+			UnifiedForm form = next == '!' ? UnifiedForm.Reproduced : UnifiedForm.Dropped;
 
-			ast = new AstReplaceable(optionalSubject, rendering, form) { SourceOffset = start };
+			ast = new AstUnified(optionalSubject, rendering, form) { PatternOffset = start };
 			error = null;
 			return true;
 		}
@@ -320,15 +410,24 @@ ref struct Parser
 
 		this.SkipWhitespace();
 
+		// A fold would run to the end of the group, and a fold with anything to do expands to a
+		// '!', which W2 refuses inside a rendering; so there is nothing a fold could usefully mean
+		// here, and it is refused as syntax with a message that says what to write instead.
+		if (this.TryPeekFold(out _))
+		{
+			error = new NaxpError(NaxpMessage.NAXP1058_FoldBeginsRendering, offset: this.pos, length: 2);
+			return false;
+		}
+
 		if (!IsStartOfElement(this.Peek()))
 		{
-			error = new NaxpError(NaxpMessage.NAXP1014_ReplacementMissing, offset: bangOffset, length: 1);
+			error = new NaxpError(NaxpMessage.NAXP1014_RenderingMissing, offset: bangOffset, length: 1);
 			return false;
 		}
 
 		if (!this.TryParseElement(out Ast? explicitRendering, out error)) { return false; }
 
-		ast = new AstReplaceable(subject, explicitRendering!, ReplaceableForm.Explicit) { SourceOffset = start };
+		ast = new AstUnified(subject, explicitRendering!, UnifiedForm.Explicit) { PatternOffset = start };
 		error = null;
 		return true;
 	}
@@ -383,7 +482,13 @@ ref struct Parser
 			return false;
 		}
 
-		ast = new AstInterval(child, minCount, maxCount) { SourceOffset = start };
+		if (maxCount == 0)
+		{
+			error = new NaxpError(NaxpMessage.NAXP1062_IntervalCountZero, offset: braceOffset, length: this.pos - braceOffset);
+			return false;
+		}
+
+		ast = new AstInterval(child, minCount, maxCount) { PatternOffset = start };
 		error = null;
 		return true;
 	}
@@ -423,8 +528,8 @@ ref struct Parser
 		return true;
 	}
 
-	/// <summary><c>digits_range ::= "#[" digits "-" digits "]"</c></summary>
-	bool TryParseDigitsRange(out Ast? ast, out NaxpError? error)
+	/// <summary><c>digits_range ::= "#[" low_bound "-" digits "]"</c></summary>
+	bool TryParseDecimalRange(out Ast? ast, out NaxpError? error)
 	{
 		ast = null;
 		int start = this.pos;
@@ -443,27 +548,28 @@ ref struct Parser
 		this.Advance();
 		this.SkipWhitespace();
 
-		// Leading zeros in the lower bound are the point of it: they set a minimum width.
-		if (!this.TryParseBound(out ulong low, out int lowDigitCount, out _, out error)) { return false; }
+		// Leading zeros in the lower bound are the point of it: they set a minimum width, and a
+		// mark on one says that the width it sets is optional on input.
+		if (!this.TryParseBound(allowMarks: true, out ulong low, out int lowDigitCount, out _, out char[]? lowMarks, out int[] lowDigitOffsets, out error)) { return false; }
 
 		this.SkipWhitespace();
 
 		if (this.Peek() != '-')
 		{
-			error = new NaxpError(NaxpMessage.NAXP1017_DigitsRangeBoundsSeparator, offset: this.pos, length: 1);
+			error = new NaxpError(NaxpMessage.NAXP1017_DecimalRangeBoundsSeparator, offset: this.pos, length: 1);
 			return false;
 		}
 
 		this.Advance();
 		this.SkipWhitespace();
 
-		if (!this.TryParseBound(out ulong high, out int highDigitCount, out bool highHasLeadingZero, out error)) { return false; }
+		if (!this.TryParseBound(allowMarks: false, out ulong high, out int highDigitCount, out bool highHasLeadingZero, out _, out _, out error)) { return false; }
 
 		this.SkipWhitespace();
 
 		if (this.Peek() != ']')
 		{
-			error = new NaxpError(NaxpMessage.NAXP1018_DigitsRangeNotClosed, offset: start, length: 1);
+			error = new NaxpError(NaxpMessage.NAXP1018_DecimalRangeNotClosed, offset: start, length: 1);
 			return false;
 		}
 
@@ -487,22 +593,82 @@ ref struct Parser
 			return false;
 		}
 
-		ast = new AstDigitsRange(low, lowDigitCount, high, highDigitCount) { SourceOffset = start };
+		// A mark stands for a padding zero, so it may sit only in front of the digits of the
+		// value. Which positions those are is known once the bound has been read.
+		if (lowMarks is not null)
+		{
+			int at = MarkedInsideValue(low, lowDigitCount, lowMarks);
+
+			// The zero and the mark after it, which is the thing that is wrong. Naming the whole
+			// range would leave 'this zero' pointing at nothing.
+			if (at >= 0)
+			{
+				error = new NaxpError(
+					NaxpMessage.NAXP1055_DecimalRangeMarkNotPadding,
+					offset: lowDigitOffsets[at],
+					length: 2);
+				return false;
+			}
+		}
+
+		ast = lowMarks is null
+			? new AstDecimalRange(low, lowDigitCount, high, highDigitCount) { PatternOffset = start }
+			: Padding.Expand(low, lowDigitCount, high, highDigitCount, lowMarks, start)
+			;
+
 		error = null;
 		return true;
 	}
 
-	bool TryParseBound(out ulong value, out int digitCount, out bool hasLeadingZero, out NaxpError? error)
+	/// <summary>
+	/// Whether any mark falls on a digit of the value rather than on the padding in front of it.
+	/// </summary>
+	/// <param name="value">The value of the bound.</param>
+	/// <param name="digitCount">The digits the bound was written with.</param>
+	/// <param name="marks">One entry per digit, nul where that digit carries no mark.</param>
+	/// <returns>The position of the first mark that is out of place, or -1 where none is.</returns>
+	static int MarkedInsideValue(ulong value, int digitCount, char[] marks)
+	{
+		int significant = 1;
+		for (ulong rest = value; rest >= 10UL; rest /= 10UL) { ++significant; }
+
+		for (int position = digitCount - significant; position < digitCount; ++position)
+		{
+			if (position >= 0 && marks[position] != '\0') { return position; }
+		}
+
+		return -1;
+	}
+
+	/// <param name="allowMarks">
+	/// Whether a padding mark may follow a digit, which is so for the lower bound alone.
+	/// </param>
+	/// <param name="value">The value of the bound.</param>
+	/// <param name="digitCount">The digits it was written with.</param>
+	/// <param name="hasLeadingZero">Whether it was written with a leading zero.</param>
+	/// <param name="marks">
+	/// One entry per digit, nul where that digit carries no mark, or <see langword="null"/> where
+	/// the bound carries no mark at all.
+	/// </param>
+	/// <param name="digitOffsets">
+	/// Where each digit sits in the pattern, so a fault on one can name it rather than the
+	/// whole range. A digit and its mark are one token, so these are not evenly spaced.
+	/// </param>
+	/// <param name="error">The fault, if any.</param>
+	/// <returns>Whether the bound parsed.</returns>
+	bool TryParseBound(bool allowMarks, out ulong value, out int digitCount, out bool hasLeadingZero, out char[]? marks, out int[] digitOffsets, out NaxpError? error)
 	{
 		value = 0UL;
 		digitCount = 0;
 		hasLeadingZero = false;
+		marks = null;
+		digitOffsets = new int[MaxBoundDigits];
 
 		int start = this.pos;
 
 		if (!IsDigit(this.Peek()))
 		{
-			error = new NaxpError(NaxpMessage.NAXP1019_DigitsRangeBoundNotDigits, offset: this.pos, length: 1);
+			error = new NaxpError(NaxpMessage.NAXP1019_DecimalRangeBoundNotDigits, offset: this.pos, length: 1);
 			return false;
 		}
 
@@ -510,20 +676,51 @@ ref struct Parser
 
 		while (IsDigit(this.Peek()))
 		{
+			char digit = this.Peek();
+
+			// Where the digit sits, so that a fault on one can name it rather than the whole
+			// range. A digit and its mark are one token, so these are not evenly spaced.
+			if (digitCount < MaxBoundDigits) { digitOffsets[digitCount] = this.pos; }
+
 			if (digitCount < MaxBoundDigits)
 			{
-				value = (value * 10UL) + (ulong)(this.Peek() - '0');
+				value = (value * 10UL) + (ulong)(digit - '0');
 			}
 
 			++digitCount;
 			this.Advance();
+
+			// A mark is part of the digit's token, so nothing is skipped between the two.
+			if (this.Peek() != '!' && this.Peek() != '?') { continue; }
+
+			if (!allowMarks)
+			{
+				error = new NaxpError(NaxpMessage.NAXP1056_DecimalRangeMarkOnUpperBound, offset: this.pos, length: 1);
+				return false;
+			}
+
+			if (digit != '0')
+			{
+				error = new NaxpError(NaxpMessage.NAXP1054_DecimalRangeMarkOnNonZero, offset: this.pos, length: 1);
+				return false;
+			}
+
+			if (digitCount <= MaxBoundDigits)
+			{
+				marks ??= new char[MaxBoundDigits];
+				marks[digitCount - 1] = this.Peek();
+			}
+
+			this.Advance();
 		}
 
-		if (!this.TryCheckDigitRunNotSplit(NaxpMessage.NAXP1020_DigitsRangeBoundSplit, out error)) { return false; }
+		if (allowMarks && !this.TryCheckMarkNotSplit(out error)) { return false; }
+
+		if (!this.TryCheckDigitRunNotSplit(NaxpMessage.NAXP1020_DecimalRangeBoundSplit, out error)) { return false; }
 
 		if (digitCount > MaxBoundDigits)
 		{
-			error = new NaxpError(NaxpMessage.NAXP1024_DigitsRangeBoundTooLong, offset: start, length: this.pos - start);
+			error = new NaxpError(NaxpMessage.NAXP1024_DecimalRangeBoundTooLong, offset: start, length: this.pos - start);
 			return false;
 		}
 
@@ -597,7 +794,7 @@ ref struct Parser
 
 			if (upperChar < itemChar)
 			{
-				error = new NaxpError(NaxpMessage.NAXP1027_RangeReversed, DescribeChar(upperChar) + "-" + DescribeChar(itemChar), hyphenOffset, 1);
+				error = new NaxpError(NaxpMessage.NAXP1027_RangeReversed, PatternForChar(upperChar) + "-" + PatternForChar(itemChar), hyphenOffset, 1);
 				return false;
 			}
 
@@ -624,7 +821,7 @@ ref struct Parser
 	/// is <see langword="false"/>. Only a literal character may bound a range.
 	/// </param>
 	/// <param name="isBlockEscape">Whether it was one of <c>\9</c>, <c>\A</c>, <c>\a</c> or <c>\X</c>.</param>
-	/// <param name="error">The refusal, if any.</param>
+	/// <param name="error">The fault, if any.</param>
 	/// <returns>Whether an atom was read.</returns>
 	bool TryParseCharAtom(out AsciiCharSet set, out char literalChar, out bool isBlockEscape, out NaxpError? error)
 	{
@@ -686,6 +883,19 @@ ref struct Parser
 					isBlockEscape = true;
 					error = null;
 					return true;
+
+				case 'x':
+					set = AsciiCharSet.AllDigitsAndLowerCaseLetters;
+					isBlockEscape = true;
+					error = null;
+					return true;
+
+				case 'C':
+				case 'c':
+					// A fold before an element is taken in TryParseElement, so one reaching here
+					// is inside a character set, where it means nothing.
+					error = new NaxpError(NaxpMessage.NAXP1052_FoldInCharacterSet, escaped.ToString(), backslashOffset, 2);
+					return false;
 			}
 
 			if (IsReservedChar(escaped))
@@ -713,8 +923,8 @@ ref struct Parser
 		return false;
 	}
 	#endregion
-	#region Source scanning
-	bool TryCheckSourceCharacters(out NaxpError? error)
+	#region Pattern scanning
+	bool TryCheckPatternCharacters(out NaxpError? error)
 	{
 		for (int i = 0; i < this.text.Length; ++i)
 		{
@@ -722,7 +932,7 @@ ref struct Parser
 
 			if (IsWhitespace(c) || (c >= '\x21' && c <= '\x7E')) { continue; }
 
-			error = new NaxpError(NaxpMessage.NAXP1033_CharacterNotAllowed, CodePointAsText(c), i, 1);
+			error = new NaxpError(NaxpMessage.NAXP1032_CharacterNotAllowed, CodePointAsText(c), i, 1);
 			return false;
 		}
 
@@ -740,11 +950,41 @@ ref struct Parser
 	}
 
 	/// <summary>
-	/// Refuses whitespace that splits a run of digits, which whitespace between tokens does not.
+	/// Refuses whitespace between a decimal range bound's digit and a padding mark on it.
+	/// </summary>
+	/// <remarks>
+	/// Called where the digit run has ended, which is where a mark separated from its digit
+	/// leaves the parser: whitespace is not a digit, so the run stops in front of it.
+	/// </remarks>
+	/// <param name="error">The fault, if any.</param>
+	/// <returns>Whether the mark, if there is one, stands against its digit.</returns>
+	bool TryCheckMarkNotSplit(out NaxpError? error)
+	{
+		if (IsWhitespace(this.Peek()))
+		{
+			int whitespaceOffset = this.pos;
+			int lookahead = this.pos;
+			while (lookahead < this.text.Length && IsWhitespace(this.text[lookahead])) { ++lookahead; }
+
+			char afterWhitespace = lookahead < this.text.Length ? this.text[lookahead] : EndOfText;
+
+			if (afterWhitespace == '!' || afterWhitespace == '?')
+			{
+				error = new NaxpError(NaxpMessage.NAXP1053_DecimalRangeMarkSplit, offset: whitespaceOffset, length: lookahead - whitespaceOffset);
+				return false;
+			}
+		}
+
+		error = null;
+		return true;
+	}
+
+	/// <summary>
+	/// Rules out whitespace that splits a run of digits, which whitespace between tokens does not.
 	/// Called immediately after the run has been read.
 	/// </summary>
-	/// <param name="message">Which refusal to give, since the two callers word it differently.</param>
-	/// <param name="error">The refusal, if any.</param>
+	/// <param name="message">Which fault to give, since the two callers word it differently.</param>
+	/// <param name="error">The fault, if any.</param>
 	/// <returns>Whether the run stands whole.</returns>
 	bool TryCheckDigitRunNotSplit(NaxpMessage message, out NaxpError? error)
 	{
@@ -767,7 +1007,7 @@ ref struct Parser
 	#endregion
 	#region Diagnostics
 	/// <summary>
-	/// The refusal for a position at which an element was required and none begins.
+	/// The fault for a position at which an element was required and none begins.
 	/// </summary>
 	NaxpError NoElementHere()
 	{
@@ -775,24 +1015,24 @@ ref struct Parser
 
 		if (c == EndOfText)
 		{
-			return new NaxpError(NaxpMessage.NAXP1034_ElementRequired, offset: this.pos, length: 0);
+			return new NaxpError(NaxpMessage.NAXP1033_ElementRequired, offset: this.pos, length: 0);
 		}
 
 		if (c == '|' || c == ')')
 		{
-			return new NaxpError(NaxpMessage.NAXP1035_AlternativeEmpty, offset: this.pos, length: 1);
+			return new NaxpError(NaxpMessage.NAXP1034_AlternativeEmpty, offset: this.pos, length: 1);
 		}
 
 		if (c == '!')
 		{
-			return new NaxpError(NaxpMessage.NAXP1036_ReplaceableWithoutElement, offset: this.pos, length: 1);
+			return new NaxpError(NaxpMessage.NAXP1035_UnifiedWithoutElement, offset: this.pos, length: 1);
 		}
 
 		return this.UnexpectedCharacter();
 	}
 
 	/// <summary>
-	/// The refusal for a character that cannot appear where it stands.
+	/// The fault for a character that cannot appear where it stands.
 	/// </summary>
 	NaxpError UnexpectedCharacter()
 	{
@@ -800,27 +1040,27 @@ ref struct Parser
 
 		if (c == EndOfText)
 		{
-			return new NaxpError(NaxpMessage.NAXP1037_NaxpIncomplete, offset: this.pos, length: 0);
+			return new NaxpError(NaxpMessage.NAXP1036_NaxpIncomplete, offset: this.pos, length: 0);
 		}
 
-		return new NaxpError(IsReservedChar(c) ? NaxpMessage.NAXP1038_ReservedCharacterHere : NaxpMessage.NAXP1039_CharacterHere, IsReservedChar(c) ? c.ToString() : DescribeChar(c), this.pos, 1);
+		if (c is '*' or '+') { return new NaxpError(NaxpMessage.NAXP1059_RepetitionUnbounded, c.ToString(), this.pos, 1); }
+		if (c == '.') { return new NaxpError(NaxpMessage.NAXP1060_AnyCharacter, offset: this.pos, length: 1); }
+		if (c is '^' or '$') { return new NaxpError(NaxpMessage.NAXP1061_Anchor, c.ToString(), this.pos, 1); }
+
+		return new NaxpError(IsReservedChar(c) ? NaxpMessage.NAXP1037_ReservedCharacterHere : NaxpMessage.NAXP1038_CharacterHere, IsReservedChar(c) ? c.ToString() : DescribeChar(c), this.pos, 1);
 	}
 
 	/// <summary>
-	/// The refusal for a backslash followed by something that is not an escape.
+	/// The fault for a backslash followed by something that is not an escape.
 	/// </summary>
 	/// <remarks>
-	/// The span covers the backslash and what follows it, which is two characters whichever of
-	/// the two messages this gives.
+	/// The span covers the backslash and what follows it, which is two characters.
 	/// </remarks>
 	static NaxpError UndefinedEscapeError(char escaped, int backslashOffset)
-		=> escaped == 'x'
-			? new NaxpError(NaxpMessage.NAXP1031_HexEscapeRemoved, offset: backslashOffset, length: 2)
-			: new NaxpError(NaxpMessage.NAXP1032_EscapeUndefined, escaped.ToString(), backslashOffset, 2)
-			;
+		=> new(NaxpMessage.NAXP1031_EscapeUndefined, escaped.ToString(), backslashOffset, 2);
 
 	/// <summary>
-	/// Names a character the source may not hold, which is by definition one that cannot be shown.
+	/// Names a character the pattern may not hold, which is by definition one that cannot be shown.
 	/// </summary>
 	/// <remarks>
 	/// A surrogate is called out because the offset alone misleads there: the user typed one
@@ -836,6 +1076,13 @@ ref struct Parser
 		return hex;
 	}
 
+	/// <summary>
+	/// A character as a message names it.
+	/// </summary>
+	/// <remarks>
+	/// The quotes belong here rather than in the message, so that 'a space' is not quoted as
+	/// though it were a character. A message using this must therefore not quote its argument.
+	/// </remarks>
 	static string DescribeChar(char c)
 		=> c switch
 		{
@@ -845,6 +1092,29 @@ ref struct Parser
 			'\n' => "a line feed",
 			_ => string.Format(CultureInfo.InvariantCulture, "'{0}'", c),
 		};
+
+	/// <summary>
+	/// A character as it is written inside a character set, for a message telling somebody what
+	/// to write.
+	/// </summary>
+	/// <remarks>
+	/// Naming a character and writing one are different jobs, which is why this is not
+	/// <see cref="DescribeChar"/>: that says 'a space', and a space is the one thing nobody can
+	/// type.
+	/// <para>
+	/// Only three kinds of character reach here. A space arrives as <c>\s</c>, since bare
+	/// whitespace inside a set is skipped and a backslash before whitespace is invalid; a
+	/// reserved character arrives escaped and has to go back escaped; and everything else is
+	/// bare and stands for itself.
+	/// </para>
+	/// </remarks>
+	static string PatternForChar(char c)
+		=> c switch
+		{
+			' ' => "\\s",
+			_ when IsReservedChar(c) => string.Format(CultureInfo.InvariantCulture, "\\{0}", c),
+			_ => c.ToString(CultureInfo.InvariantCulture),
+		};
 	#endregion
 	#region Character classes
 	static bool IsWhitespace(char c) => c == ' ' || c == '\t' || c == '\r' || c == '\n';
@@ -852,7 +1122,14 @@ ref struct Parser
 	static bool IsDigit(char c) => c >= '0' && c <= '9';
 
 	static bool IsReservedChar(char c)
-		=> c is '!' or '#' or '(' or ')' or ',' or '-' or '?' or '[' or '\\' or ']' or '{' or '|' or '}';
+		=> c is '!' or '#' or '(' or ')' or ',' or '-' or '?' or '[' or '\\' or ']' or '{' or '|' or '}' || IsRegexMetachar(c);
+
+	/// <summary>
+	/// The five regex metacharacters naxp reserves without giving them a meaning, so that a regex
+	/// habit gets a message naming what naxp offers instead rather than a pattern that silently
+	/// means something else.
+	/// </summary>
+	static bool IsRegexMetachar(char c) => c is '*' or '+' or '.' or '^' or '$';
 
 	static bool IsBareChar(char c) => c >= '\x21' && c <= '\x7E' && !IsReservedChar(c);
 

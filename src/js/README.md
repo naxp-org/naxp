@@ -3,7 +3,7 @@
 A **naxp** ('e**n**coded **A**SCII e**xp**ression') uses a RegEx-like syntax to define how a set of ASCII strings should be mapped to a compact set of integer keys from 1 to *N* (with 0 being reserved for non-matching strings).
 
 ```bash
-npm install naxp@0.5.0-alpha
+npm install @naxp/naxp@0.10.0
 ```
 
 The **naxp** package has zero dependencies and comprises plain ECMAScript modules with no build step. TypeScript declarations are included. Requires Node 18 or later. Runs as is in a browser.
@@ -27,11 +27,11 @@ Some points to note:
 Here's how this looks in code:
 
 ```js
-import { Naxp } from 'naxp';
+import { Naxp } from '@naxp/naxp';
 
 const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s \\9\\A\\A');
 
-postcode.valueCount;                     // 1755842400n
+postcode.maxEncodedValue;                // 1755842400n
 postcode.encode('M1 1AA');               // 810639597n
 postcode.decode(810639597n);             // 'M1 1AA'
 postcode.accepts('nonsense');            // false
@@ -48,45 +48,45 @@ postcode.encode('nonsense');             // 0n
 
 ## The API
 
-`Naxp.parse(text)` returns a `Naxp` or throws `NaxpFormatError`. `Naxp.tryParse(text)` returns a
+`Naxp.parse(pattern)` returns a `Naxp` or throws `NaxpFormatError`. `Naxp.tryParse(pattern)` returns a
 result object instead and throws nothing.
 
 | Member | Gives |
 |:---|:---|
-| `source` | The text the naxp was parsed from |
-| `valueCount` | The number of encoded values (`bigint`) |
+| `pattern` | The pattern the **naxp** was parsed from |
+| `maxEncodedValue` | The largest encoded value, which is also how many there are (`bigint`) |
 | `accepts(text)` | Whether the text matches the **naxp** |
-| `encode(text)` | The encoded value, from `1n` to `valueCount`, or `0n` if the text did not match the **naxp** |
-| `decode(value)` | The canonical string for a value; throws `RangeError` if the value is out of range |
+| `encode(text)` | The encoded value, from `1n` to `maxEncodedValue`, or `0n` if the text is invalid |
+| `decode(value)` | The canonical text for an encoded value; throws `RangeError` if it is out of range |
 | `tryDecode(value)` | The same, or `null` |
-| `getCanonicalForm(text)` | The string with each replaceable element replaced, or `null` |
+| `getCanonicalForm(text)` | The string with each text unification replaced by its canonical text, or `null` |
 
-A **replaceable element** is a part of a naxp, written with `!`, whose exact text does not
-change the value. It is how one value can stand for several spellings of the same thing: mark
-the space in a postcode replaceable and `M11AA` and `M1 1AA` both encode to 810639597, with
-`getCanonicalForm` telling you which of the two a value decodes back to. The example above
-does not use one, so every string it accepts is its own canonical form.
+A **text unification** is a part of a naxp, written with the `!` operator, whose exact text does
+not change the encoded value. It is how one encoded value can stand for several forms of the same
+thing: make the space in a postcode optional with `\s!!` and `M11AA` and `M1 1AA` both encode to
+810639597, with `getCanonicalForm` telling you which of the two it decodes back to. The example
+above does not use one, so every string it accepts is its own canonical form.
 
-`encode` always returns a `bigint`, whatever the naxp. A naxp may hold up to 2^64 - 1 values, which
+`encode` always returns a `bigint`, whatever the naxp. A naxp may hold up to 2^64 - 1 encoded values, which
 is past what a `number` holds exactly, and a return type that changed with the expression would
 make every caller branch on which naxp it was holding. `decode` accepts either a `bigint` or a safe
 integer, since taking `decode(5)` costs nothing.
 
 The text argument of `accepts`, `encode` and `getCanonicalForm` may also be a `Uint8Array`
-of ASCII. `parse` and `tryParse` take the naxp itself, and that must be a string.
+of ASCII. `parse` and `tryParse` take the **naxp** pattern itself, and that must be a string.
 
 ## Invalid naxp specifications
 
-`tryParse` reports what is wrong, the location within the **naxp** text, and an error code (as text).
+`tryParse` reports what is wrong, where in the pattern it is, and an error code (as text).
 
 ```js
-const { naxp, errorMessage, errorTextOffset, errorTextLength, errorCode }
+const { naxp, errorMessage, errorOffset, errorLength, errorCode }
     = Naxp.tryParse('A{2-5}');
 
 naxp;               // null
 errorMessage;       // "The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'."
-errorTextOffset;    // 3
-errorTextLength;    // 1
+errorOffset;        // 3
+errorLength;        // 1
 errorCode;          // 'NAXP1002'
 ```
 
@@ -103,12 +103,12 @@ If the error relates to the whole **naxp** then the whole text range is specifie
 
 ## Status
 
-Alpha. The specification is still being written and **version 1 will be the first release**, so
-this package tracks a working draft rather than a published standard. The public surface above is
-stable enough to build on, but nothing is promised until then.
+Alpha. This package tracks **version 0.10**, the first published specification. The public surface
+above is stable enough to build on, but the language is still on 0.x and nothing is promised until
+version 1.
 
-The specification and its test data will be published at [naxp.org](https://naxp.org) when version
-1 is ready.
+This package is validated against `conformance/naxp-v0.10.json`, the test data generated from that
+specification.
 
 ## Licence
 

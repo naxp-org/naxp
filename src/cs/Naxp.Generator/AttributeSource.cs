@@ -61,7 +61,7 @@ static class AttributeSource
 				/// <c>typeof(byte)</c>, <c>typeof(short)</c>, <c>typeof(ushort)</c>,
 				/// <c>typeof(int)</c>, <c>typeof(uint)</c>, <c>typeof(long)</c> and
 				/// <c>typeof(ulong)</c>. It is stated rather than inferred so that a naxp which
-				/// outgrows it is refused, instead of quietly widening what the generated members
+				/// outgrows it is invalid, instead of quietly widening what the generated members
 				/// return.
 				/// </param>
 				public NaxpAttribute(string naxp, global::System.Type valueType)

@@ -1,39 +1,61 @@
 # naxp
 
-**naxp** ('e**n**coded **A**SCII e**xp**ression') is a standard for encoding ASCII strings as unsigned integers, written in a RegEx-like syntax.
+A **naxp** ('e**n**coded **A**SCII e**xp**ression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index. With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
-A **naxp** describes a set of ASCII strings and defines the mapping between each string in that set and an unsigned integer. From one you can generate code that converts text to 8, 16, 32 or 64-bit integers and converts those integers back to text. Because the encoding is compact and ordered, a **naxp** works as an index for stored data: UK postcodes are the example that prompted this.
+A **naxp** maps all valid text to a range of consecutive integers starting at 1, and all invalid text to 0. It doesn't matter how you write a **naxp**: if two **naxp**s accept the same text then they produce exactly the same encoded values. Because the encoding is compact and ordered, a **naxp** works as an index for stored data. UK postcodes are the example that prompted this.
+
+The website is [naxp.org](https://naxp.org): the [specification](https://naxp.org/spec/), a [quick tour](https://naxp.org/#quick-tour) of the syntax, [pre-defined standard naxps](https://naxp.org/pre-defined/), an [interactive page](https://naxp.org/interactive/) for developing one, and [code generation](https://naxp.org/code-gen/) for a specific **naxp** with no library to link.
 
 ## Status
 
-Early draft. The specification is still being written, and **version 1 will be the first release**; the versions worked through so far are development documents and are not published. Nothing is stable yet and anything may change without notice.
+Early draft. **Version 0.10 is the current specification.** Nothing is stable yet and anything may change without notice.
 
-## Using it from JavaScript
+Packages for npm, NuGet, vcpkg and Conan are being published. Until one is listed on its registry, build from the source in `src/` as described below.
 
-It is not on npm yet. The registry refuses the name `naxp` as too similar to
-existing packages, which is under appeal; until that resolves, install it from a
-clone of this repository:
+## Example
 
-```bash
-npm install ./src/js
+A UK postcode comprises one or two letters, a number, sometimes a further letter or number, a space, a number and two letters, as in `M1 1AA` and `EC1A 1BB`. As a **naxp**:
+
+```
+\A\A?\9\X? \s \9\A\A
 ```
 
-```js
-import { Naxp } from 'naxp';
+`\A` is any uppercase letter, `\9` any digit and `\X` either. `?` makes the preceding item optional, as in a regex. Whitespace in a **naxp** is ignored, so the actual space is written `\s`. This **naxp** has 1 755 842 400 encoded values, which fit in 31 bits.
 
-const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s \\9\\A\\A');
+## Libraries
 
-postcode.encode('M1 1AA');      // 810639597n
-postcode.decode(810639597n);    // 'M1 1AA'
-postcode.encode('nonsense');    // 0n
+A library provides the following run-time functionality given a **naxp** as text: *encoding*, i.e. mapping text to its encoded value; *decoding*, i.e. mapping an encoded value back to (canonical) text; *validation* and other checks; and *code generation* for a specific **naxp**.
+
+### C++ / C
+
+A C++17 library, plus a plain C interface for C programs and for any language that can call C. Install `naxp` from vcpkg or Conan, use it from another CMake project with `FetchContent` pointed at `src/cpp`, or copy the amalgamated `naxp.cpp` plus `naxp.hpp` (C++) or `naxp.h` (C) from the [latest release](https://github.com/naxp-org/naxp/releases/latest) into any build.
+
+```cpp
+#include <naxp/naxp.hpp>
+
+const logmu::naxp postcode = logmu::naxp::parse("\\A\\A?\\9\\X? \\s \\9\\A\\A");
+
+postcode.encode("M1 1AA");      // 810639597
+postcode.decode(810639597);     // "M1 1AA"
+postcode.encode("nonsense");    // 0
 ```
 
-The package is in [`src/js`](src/js), and its own
-[README](src/js/README.md) covers the whole surface.
+The library is in [`src/cpp`](src/cpp), and its own [README](src/cpp/README.md) covers building, the C face and the amalgamation.
 
-## Generating code
+### C# / .NET
 
-The `naxp` NuGet package carries a C# source generator. Put `[Naxp]` on a partial type and the recogniser and codec for that naxp are written as members of it, with nothing to call at run time:
+The `naxp` NuGet package targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too.
+
+```csharp
+using LogMu;
+
+Naxp postcode = Naxp.Parse(@"\A\A?\9\X? \s \9\A\A");
+
+ulong encoded = postcode.Encode("M1 1AA");     // 810639597
+string text = postcode.Decode(810639597);      // "M1 1AA"
+```
+
+It includes a source generator that compiles a **naxp** at build time, as C# does for regexes. Put `[Naxp]` on a partial type and the codec for that **naxp** is written as members of it, with nothing to call at run time:
 
 ```csharp
 [Naxp(@"\A\A?\9\X? \s \9\A\A", typeof(int), Prefix = "Postcode")]
@@ -42,14 +64,38 @@ internal static partial class Codes
 }
 
 int encoded = Codes.PostcodeEncode("SW1A 1AA");     // 1273435957
-string text = Codes.PostcodeDecode(encoded);        // SW1A 1AA
+string text = Codes.PostcodeDecode(encoded);        // "SW1A 1AA"
 ```
 
-The second argument is the integer type the values are encoded to. You state it rather than let it be inferred, so that a naxp which later outgrows it is a build error instead of a silent widening of everything the generated members return.
+The second argument is the integer type the values are encoded to. You state it rather than let it be inferred, so that a **naxp** which later outgrows it is a build error instead of a silent widening of everything the generated members return. `Prefix` starts every generated member name, so one type can hold several **naxp**s; leave it out and the names are bare, `Accepts` and `Encode`.
 
-`Prefix` starts every generated member name, so one type can hold several naxps. Leave it out and the names are bare, `Accepts` and `Encode`.
+The library and the generator are in [`src/cs`](src/cs).
+
+### JavaScript
+
+The `@naxp/naxp` npm package has zero dependencies and no build step: plain ES modules with TypeScript declarations, for Node 18 or later and for the browser. It is the library that runs the interactive pages on the website.
+
+```js
+import { Naxp } from '@naxp/naxp';
+
+const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s \\9\\A\\A');
+
+postcode.encode('M1 1AA');      // 810639597n
+postcode.decode(810639597n);    // 'M1 1AA'
+postcode.encode('nonsense');    // 0n
+```
+
+`encode` returns a `bigint`, since a **naxp** may hold up to 2<sup>64</sup> − 1 values; `decode` accepts a `bigint` or a safe integer. The package is in [`src/js`](src/js), and its own [README](src/js/README.md) covers the whole surface.
+
+### Other languages
+
+Implementations in R and Python are planned. If you want to write an implementation in a language not already covered, please open an [issue](https://github.com/naxp-org/naxp/issues) first so that work is not duplicated, and test it against the conformance data described below.
 
 ## Testing
+
+```
+cmake --preset gcc && cmake --build --preset gcc && ctest --preset gcc
+```
 
 ```
 dotnet test src/cs/Naxp.UnitTests/Naxp.UnitTests.csproj
@@ -59,21 +105,21 @@ dotnet test src/cs/Naxp.UnitTests/Naxp.UnitTests.csproj
 cd src/js && npm test
 ```
 
-[Node](https://nodejs.org/) is required by both. The C# suite needs it because the JavaScript emitter is tested by running the code it generates against the conformance data, so without Node those tests fail rather than skip.
+[Node](https://nodejs.org/) is required by all three. The C# suite runs the JavaScript its emitter generates against the conformance data, and the C++ suite fuzzes against the JavaScript implementation and checks its emitters against it; without Node those tests fail rather than skip. The C++ presets are described in [`src/cpp/README.md`](src/cpp/README.md).
 
-Both suites are held to the same file, `conformance/naxp-v0.5.json`. That is what keeps the implementations honest with each other, and it is why they share one repository.
+All three suites are held to the same file, `conformance/naxp-v0.10.json`: language-neutral test data generated from the specification itself rather than from any implementation, so an implementation cannot define its own truth by passing it. That is what keeps the implementations honest with each other, and it is why they share one repository.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `conformance/` | Test data generated from the specification |
-| `src/` | Implementations, one folder per language |
+| `conformance/` | Test data generated from the specification, and the generator that produces it |
+| `src/cpp/` | The C++ library with its C face, and the amalgamation tool |
 | `src/cs/` | The reference implementation, in C#, with the source generator |
-| `src/js/` | The JavaScript implementation, to be published to npm as `naxp` |
+| `src/js/` | The JavaScript implementation, published to npm as `@naxp/naxp` |
 | `encoding/` | The reasoning behind the hardest decisions, cited from the code |
-| `samples/` | `try-naxp`, which consumes the packed package as a stranger would |
-| `site/` | The source of [naxp.org](https://naxp.org) |
+| `samples/` | `try-naxp`, which consumes the packed NuGet package as a stranger would |
+| `site/` | The source of [naxp.org](https://naxp.org), including the specification under `site/src/spec/` |
 | `prior-work/` | `NXOld`, the earlier implementation the benchmarks measure against |
 | `brand/`, `icons/` | Logos, icons and brand assets |
 

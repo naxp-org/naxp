@@ -68,7 +68,7 @@ readonly struct Eot
 	public static Eot Empty { get; } = new(EotKind.Single, string.Empty);
 
 	public static Eot Single(string text)
-		=> text.Length > Matcher.MaxGeneratedLength ? TooLong : new Eot(EotKind.Single, text);
+		=> text.Length > TreeWalker.MaxGeneratedLength ? TooLong : new Eot(EotKind.Single, text);
 
 	/// <summary>
 	/// The end of text behaviour of two expressions in sequence, which is the product of theirs.
@@ -151,13 +151,13 @@ sealed class TxDerivative
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is what <see cref="RxConverter"/> throws away. There a replaceable element becomes
+/// This is what <see cref="RxConverter"/> throws away. There a unified element becomes
 /// either its subject or its rendering, depending on which language is being built, and W3 is
 /// exactly the question of how the two behave together. <see cref="TxKind.Repl"/> is the node
 /// that keeps them paired.
 /// </para>
 /// <para>
-/// Emission is deferred to the end of the element. A replaceable consumes its subject one
+/// Emission is deferred to the end of the element. A unified consumes its subject one
 /// character at a time emitting nothing, then emits the whole rendering when it completes, which
 /// is why the difference between two branches' outputs has to be carried as a delay rather than
 /// compared character by character.
@@ -254,7 +254,7 @@ sealed class Tx
 				return Eot.Empty;
 
 			case TxKind.Repl:
-				// Completing a replaceable emits its rendering even though nothing was consumed.
+				// Completing a unified element emits its rendering even though nothing was consumed.
 				return this.Subject!.IsNullable ? Eot.Single(this.Rendering!) : Eot.None;
 
 			case TxKind.Concat:
@@ -291,7 +291,7 @@ sealed class Tx
 				// output, which is why '(A!!){2}' is well formed and '(A!!){0,2}' is not.
 				if (this.MinCount != this.MaxCount) { return Eot.Multiple; }
 
-				if ((long)inner.Text.Length * this.MinCount > Matcher.MaxGeneratedLength) { return Eot.TooLong; }
+				if ((long)inner.Text.Length * this.MinCount > TreeWalker.MaxGeneratedLength) { return Eot.TooLong; }
 
 				var builder = new StringBuilder(inner.Text.Length * this.MinCount);
 				for (int i = 0; i < this.MinCount; ++i) { builder.Append(inner.Text); }
@@ -373,7 +373,7 @@ sealed class TxFactory
 	/// </summary>
 	/// <remarks>
 	/// Splitting these out as singleton blocks is what makes emission uniform over a block. A
-	/// character set emits the character read and a replaceable emits a fixed string, so whether
+	/// character set emits the character read and a unified element emits a fixed string, so whether
 	/// the two agree depends on which character of the block was read: in <c>[ab]|[ab]!a</c> they
 	/// agree on <c>a</c> and disagree on <c>b</c>. Refining costs transitions, never states, and
 	/// cannot change what is accepted, since the input side is already uniform over the coarser
@@ -388,7 +388,7 @@ sealed class TxFactory
 			;
 
 	/// <summary>
-	/// A replaceable element: consume any string of <paramref name="subject"/>, emit
+	/// A unified element: consume any string of <paramref name="subject"/>, emit
 	/// <paramref name="rendering"/>.
 	/// </summary>
 	public Tx Repl(Rx subject, string rendering)
@@ -472,7 +472,7 @@ sealed class TxFactory
 		if (maxCount == 0) { return this.Epsilon; }
 		if (child.Kind == TxKind.EmptySet) { return minCount == 0 ? this.Epsilon : this.EmptySet; }
 
-		// Unlike Rx, an epsilon child is not dropped here unless it emits nothing: a replaceable
+		// Unlike Rx, an epsilon child is not dropped here unless it emits nothing: a unified
 		// with a nullable subject consumes nothing and still emits, and how often that happens is
 		// what makes '(A!!){0,3}' ambiguous.
 		if (child.Kind == TxKind.Epsilon) { return this.Epsilon; }
@@ -684,9 +684,9 @@ sealed class TxFactory
 	/// The most skipped copies of an interval this implementation will follow separately.
 	/// </summary>
 	/// <remarks>
-	/// Only reached where skipping a copy emits, which needs a replaceable element with a nullable
+	/// Only reached where skipping a copy emits, which needs a unified element with a nullable
 	/// subject inside an interval whose count can vary. Nothing a naxp is for goes near it, and a
-	/// naxp that does is refused as an implementation limit rather than judged.
+	/// naxp that does breaks W6 rather than being judged either way.
 	/// </remarks>
 	const int MaxSkippedCopies = 64;
 
@@ -795,10 +795,10 @@ static class TxConverter
 			case AstChars chars:
 				return factory.Chars(chars.CharSet);
 
-			case AstDigitsRange:
-				// A digits range emits what it consumed, so its expansion needs no output of its
+			case AstDecimalRange:
+				// A decimal range emits what it consumed, so its expansion needs no output of its
 				// own and the one RxConverter already knows how to build can be lifted.
-				return Lift(RxConverter.Convert(node, rxFactory, NaxpLanguage.Accepted), factory);
+				return Lift(RxConverter.Convert(node, rxFactory, isCanonical: false), factory);
 
 			case AstSequence sequence:
 			{
@@ -822,15 +822,15 @@ static class TxConverter
 			case AstInterval interval:
 				return factory.Interval(Convert(interval.Child, factory, rxFactory), interval.MinCount, interval.MaxCount);
 
-			case AstReplaceable replaceable:
+			case AstUnified unified:
 			{
 				// W1 has already established that the rendering generates exactly one string.
-				if (Matcher.TryGetSingleString(replaceable.Rendering, out string? rendering) != SingleStringOutcome.Single)
+				if (TreeWalker.TryGetSingleString(unified.Rendering, out string? rendering) != SingleStringOutcome.Single)
 				{
-					throw new InvalidOperationException("A replaceable element passed W1 but has no single rendering.");
+					throw new InvalidOperationException("A unified element passed W1 but has no single rendering.");
 				}
 
-				return factory.Repl(RxConverter.Convert(replaceable.Subject, rxFactory, NaxpLanguage.Accepted), rendering!);
+				return factory.Repl(RxConverter.Convert(unified.Subject, rxFactory, isCanonical: false), rendering!);
 			}
 
 			default:
@@ -839,7 +839,7 @@ static class TxConverter
 	}
 
 	/// <summary>
-	/// Reads an expression with no replaceable elements as a transduction, which copies.
+	/// Reads an expression with no unified elements as a transduction, which copies.
 	/// </summary>
 	static Tx Lift(Rx expression, TxFactory factory)
 	{
