@@ -24,7 +24,7 @@ For more information see [the **naxp** website](https://naxp.org/).
 | `spec/` | The specification, one file per published version |
 | `src/cpp/` | The C++ library with its C interface, and the amalgamation tool |
 | `src/cs/` | The reference implementation, in C#, with the source generator |
-| `src/js/` | The JavaScript implementation, to be published to npm as `@naxp/naxp` |
+| `src/js/` | The JavaScript implementation, published to npm as [`@naxp/naxp`](https://www.npmjs.com/package/@naxp/naxp) |
 | `encoding/` | The reasoning behind the hardest decisions, cited from the code |
 | `samples/` | `try-naxp`, which consumes the packed NuGet package as a stranger would |
 | `site/` | The source of [naxp.org](https://naxp.org) |
