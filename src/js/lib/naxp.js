@@ -2,7 +2,7 @@
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 import { CEmitter } from './c-emitter.js';
-import { tryCompile } from './compiler.js';
+import { Compilation, tryCompile } from './compiler.js';
 import { CppEmitter } from './cpp-emitter.js';
 import { CSharpEmitter } from './csharp-emitter.js';
 import { NaxpValueType } from './emitter.js';
@@ -149,7 +149,7 @@ export class Naxp {
 	 * @param {import('./compiler.js').Compilation} compilation The compilation.
 	 */
 	constructor(compilation) {
-		if (compilation === undefined) {
+		if (!(compilation instanceof Compilation)) {
 			throw new TypeError('Use Naxp.parse or Naxp.tryParse rather than the constructor.');
 		}
 

@@ -78,6 +78,7 @@ test('a fault with no position reports the whole naxp', () => {
 
 test('the constructor is not the way in', () => {
 	assert.throws(() => new Naxp(), TypeError);
+	assert.throws(() => new Naxp('\\9{3}'), TypeError);
 });
 
 test('a naxp is frozen once parsed', () => {
