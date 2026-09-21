@@ -531,10 +531,11 @@ p:has(> a[id]:empty:only-child:target) + *,
    the item narrow enough for its text to need one.
 
    Shrinkage is proportional to each item's own width, so the longest label
-   gives way first, which is the one we want to break. Below 40rem the row goes
-   back to wrapping, because at phone widths there is no width to shrink into
-   and every label would break at once. */
-@media (min-width: 40rem) {
+   gives way first, which is the one we want to break. Now that every label is
+   one word none of them can break at all, and the row's narrowest is about
+   760px; below 50rem the links fold into the menu (see .navbtn--menu), and
+   the row goes back to wrapping for a reader without script. */
+@media (min-width: 50rem) {
   .siteheader__inner {
     flex-wrap: nowrap;
   }
@@ -710,6 +711,77 @@ p:has(> a[id]:empty:only-child:target) + *,
   display: inline-block;
 }
 
+/* The page links, in a row that behaves as the loose items did before they
+   had a wrapper: the same gap, the same bottom alignment, and the same
+   wrap/nowrap switch at 50rem, with min-width 0 so that above it the row can
+   be squeezed. */
+.siteheader__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+@media (min-width: 50rem) {
+  .siteheader__nav {
+    flex-wrap: nowrap;
+  }
+}
+
+/* The menu button, and the panel it opens. On a phone the eight links took
+   three rows under the brand, which with the sticky header was a third of the
+   screen gone before any page began; on anything narrower than about 760px
+   the single row ran off the page instead, one-word labels having nothing to
+   break at. So below 50rem the links fold into a panel that drops under the
+   bar when the button is pressed, one link to a line.
+
+   The button exists only for script, so like the theme button it is hidden
+   until the document says there is some, and without script the links stay
+   in the bar as they always were. The panel is the nav itself, sent to the
+   end of the row and given the full width so it lands on a line of its own;
+   the header's own background carries it over the page. */
+.navbtn--menu {
+  display: none;
+}
+
+.navbtn--menu .menu__cross {
+  display: none;
+}
+
+.navbtn--menu[aria-expanded="true"] .menu__bars {
+  display: none;
+}
+
+.navbtn--menu[aria-expanded="true"] .menu__cross {
+  display: inline;
+}
+
+@media (max-width: 49.99rem) {
+  .js .navbtn--menu {
+    display: inline-block;
+  }
+
+  .js .siteheader__nav {
+    display: none;
+    order: 1;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding-top: 0.4rem;
+  }
+
+  .js .siteheader--open .siteheader__nav {
+    display: flex;
+  }
+
+  /* Taller rows than the bar's, since a thumb is wider than a pointer. */
+  .js .siteheader__nav .navbtn {
+    padding-block: 0.5rem;
+  }
+}
+
 /* ---------- band 2: title, pitch, examples ---------- */
 
 /* The pitch and the examples take a half each from 64rem. A half is about
@@ -729,6 +801,18 @@ p:has(> a[id]:empty:only-child:target) + *,
   .hero__grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* A grid item will not shrink below its content's narrowest width unless told
+   it may. The examples table has nowrap cells, so on a phone its narrowest
+   width is wider than the screen, the column grew to hold it, the page grew
+   with the column, and the strap ran off the right edge while .table-scroll
+   never had anything to scroll. Safari also let the page be pinched smaller
+   than the screen, which is what a page wider than its viewport gets. Zero
+   here lets the column stay at the viewport, and the table scrolls inside its
+   wrapper as intended. */
+.hero__grid > * {
+  min-width: 0;
 }
 
 .wordmark {
@@ -909,6 +993,23 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 .examples .naxp__token {
   white-space: nowrap;
+}
+
+/* On a phone there is no room for the two capacity columns, and a table that
+   scrolls sideways hides its right-hand half from anybody who does not think
+   to drag it. The name and the naxp are the point; the encoded values and
+   bits are dropped, and come back the moment there is room. */
+@media (max-width: 39.99rem) {
+  .examples .num {
+    display: none;
+  }
+
+  /* The naxp is now the last column in view, and it gives up its trailing
+     padding as the last child does, which is the difference between the table
+     fitting a 375px phone and scrolling by a few pixels. */
+  .examples tr > :nth-child(2) {
+    padding-right: 0;
+  }
 }
 
 .examples .num {

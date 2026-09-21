@@ -279,6 +279,12 @@ function buildSiteHeader(entries, icon, versionMark, pageUrl)
     .join("\n");
 
   // English only for now, so it is inert rather than a picker.
+  //
+  // On a phone the links fold into a panel under the bar, opened by the menu
+  // button at the end of the tools. The button is drawn only once script has
+  // run (menu.js, referenced here so that no page needs a tag of its own), and
+  // until then the links stay in view as they always were. The two icons are
+  // the closed and the open state; the stylesheet shows one at a time.
   return [
     `<header class="siteheader band--edge-bottom">`,
     `  <div class="siteheader__inner">`,
@@ -286,15 +292,22 @@ function buildSiteHeader(entries, icon, versionMark, pageUrl)
     `      <a class="siteheader__logo" href="/" aria-label="naxp home" title="naxp home">${icon}</a>`,
     `      ${versionMark}`,
     `    </div>`,
+    `    <nav class="siteheader__nav" id="sitenav" aria-label="Site">`,
     links,
+    `    </nav>`,
     `    <div class="siteheader__tools">`,
     `      <span class="navbtn" role="button" aria-disabled="true">English</span>`,
     `      <button type="button" class="navbtn navbtn--theme navbtn--icon" id="theme"></button>`,
     `      <a class="navbtn navbtn--icon" href="https://github.com/naxp-org" aria-label="naxp on GitHub" title="naxp on GitHub">`,
     `      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>`,
     `      </a>`,
+    `      <button type="button" class="navbtn navbtn--menu navbtn--icon" id="menu" aria-expanded="false" aria-controls="sitenav" aria-label="Menu" title="Menu">`,
+    `      <svg class="menu__bars" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+    `      <svg class="menu__cross" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+    `      </button>`,
     `    </div>`,
     `  </div>`,
+    `  <script type="module" src="/js/menu.js"></script>`,
     `</header>`
   ].join("\n");
 }
@@ -486,6 +499,22 @@ export default function (eleventyConfig)
 
       return `<${tag} id="${id}">${inner}</${tag}>`;
     });
+  });
+
+  // The hand-written pages put each table in a .table-scroll so that one too
+  // wide for a phone scrolls sideways inside its box. markdown-it emits a bare
+  // <table>, and two of the specification's tables are wider than a phone, so
+  // the page grew to fit them. This gives them the same wrapper.
+  eleventyConfig.addTransform("specTables", function (content)
+  {
+    const input = this.page.inputPath || "";
+
+    if (!(this.page.outputPath || "").endsWith(".html") || !input.includes("/spec/"))
+    {
+      return content;
+    }
+
+    return content.replace(/<table>[\s\S]*?<\/table>/g, (table) => `<div class="table-scroll">${table}</div>`);
   });
 
   // Registered after the other transforms so it sees the finished page, the
