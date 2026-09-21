@@ -1010,6 +1010,18 @@ p:has(> a[id]:empty:only-child:target) + *,
   .examples tr > :nth-child(2) {
     padding-right: 0;
   }
+
+  /* 'Netherlands postcode' held the name column at 165px, which with the naxp
+     column beside it is more than a 360px phone has. A name may break here;
+     the sample under it is a chip, and a chip with a space in it, 'EC4M 8AD',
+     stays whole. */
+  .examples tbody th {
+    white-space: normal;
+  }
+
+  .examples .eg code {
+    white-space: nowrap;
+  }
 }
 
 .examples .num {
