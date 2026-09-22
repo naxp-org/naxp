@@ -1,0 +1,7 @@
+naxp provides CMake targets:
+
+    find_package(naxp CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE naxp::naxp)
+
+C++ programs include <naxp/naxp.hpp>; C programs include <naxp/naxp.h>. The library is
+C++, so a C program that links it must enable CXX in its project() call.

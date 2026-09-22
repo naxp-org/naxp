@@ -183,24 +183,30 @@ try {
     <section>
       <h3>Characters</h3>
       <p>
-        Printable ASCII characters stand for themselves, 
-        <em>apart from these eighteen</em>,
+        Printable ASCII characters are represented as themselves, 
+        <em>apart from the following eighteen</em>,
         which must be escaped with a preceding backslash:
-        the thirteen with special meanings
+      </p>
+      <ul>
+        <li>
+        thirteen with a special meaning in a <strong>naxp</strong>,
         <code class="naxp">!</code> <code class="naxp">#</code>
         <code class="naxp">(</code> <code class="naxp">)</code>
         <code class="naxp">,</code> <code class="naxp">-</code>
         <code class="naxp">?</code> <code class="naxp">[</code>
         <code class="naxp">\</code> <code class="naxp">]</code>
         <code class="naxp">{</code> <code class="naxp">|</code>
-        <code class="naxp">}</code>,
-        and the five regex metacharacters
+        <code class="naxp">}</code>, and
+        </li>
+        <li>
+        five that have a special meaning in a regex but not in a <strong>naxp</strong>,
         <code class="naxp">*</code> <code class="naxp">+</code>
         <code class="naxp">.</code> <code class="naxp">^</code>
         <code class="naxp">$</code>,
-        which <strong>naxp</strong> does not use and reserves so that a regex habit
-        gets an error rather than a pattern that silently means something else.
-      </p>
+        which require escaping so that regex users
+        get errors rather than expecting them to work the same way.
+        </li>
+      </ul>
       <p>
         Unlike regex, whitespace is <em>always</em> ignored, 
         so feel free to use spaces to make the expression readable. 
@@ -239,7 +245,8 @@ try {
     <section>
       <h3>General character sets</h3>
       <p>
-        Square brackets match any of the items specified inside them. Each item is a 
+        Square brackets match <em>any of the items</em> inside them.
+        An item in this context is a 
         single character, 
         an inclusive character range written lowest first, or
         one of the above character set shorthands.

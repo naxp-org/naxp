@@ -115,3 +115,12 @@ target_link_libraries(your_target PRIVATE naxp::naxp)
 ```
 
 Or after `cmake --install`, `find_package(naxp CONFIG REQUIRED)` and the same link line.
+
+## Calling it from C
+
+`naxp.h` is plain C, but the library behind it is C++, so a C program that links it also needs
+the C++ runtime. In CMake, enable both languages, `project(your_project LANGUAGES C CXX)`, and
+CMake links the runtime for you; a project declaring `LANGUAGES C` alone fails at link time with
+undefined references to `operator delete` and the exception machinery. Outside CMake, link with
+the C++ driver (`g++` or `clang++` rather than `gcc` or `clang`), or add `-lstdc++` or `-lc++`
+to the link line.
