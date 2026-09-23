@@ -152,6 +152,18 @@ typedef struct naxp_comparison
 bool naxp_compare(const naxp *a, const naxp *b, naxp_comparison *comparison);
 
 /*
+   naxp_compare with the budget given rather than left at its default.
+
+   The budget caps how many product states the walk deciding the encoding relationship may build.
+   A budget too small for the pair leaves the comparison undecided rather than wrong, which is
+   reported the same way as exhausting the default: false, and NAXP_INCOMPARABLE on every axis.
+*/
+bool naxp_compare_within(const naxp *a, const naxp *b, naxp_comparison *comparison, int budget);
+
+/* The budget naxp_compare uses, which is 200 000 product states. */
+int naxp_default_budget(void);
+
+/*
    The lowest value both naxps hold that they decode to different strings, or zero where every
    value both hold decodes alike. Values only one naxp holds do not count.
 */

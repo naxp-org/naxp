@@ -181,6 +181,14 @@ namespace logmu
 	class naxp
 	{
 	public:
+		/// The budget the `compare` and `try_compare` overloads that do not take one use, which
+		/// is 200 000 product states.
+		///
+		/// Here so that a caller passing a budget of its own can scale from this one rather
+		/// than write the number itself. The library checks this against the figure it actually
+		/// walks to, so the two cannot drift apart.
+		static constexpr int default_budget = 200'000;
+
 		/// Parses a naxp.
 		///
 		/// @param pattern The pattern of the naxp.
@@ -296,6 +304,21 @@ namespace logmu
 		///     the budget.
 		static naxp_comparison compare(const naxp& a, const naxp& b);
 
+		/// `compare` with the budget given rather than left at its default.
+		///
+		/// The budget caps how many product states the walk deciding the encoding relationship
+		/// may build, and defaults to 200 000 in the overload that does not take it. Raising it
+		/// buys nothing on any naxp anybody has reason to write, since those settle in a few
+		/// hundred.
+		///
+		/// @param a The naxp the data was encoded with.
+		/// @param b The naxp proposed to replace it.
+		/// @param budget How many product states the walk may build.
+		/// @returns The comparison.
+		/// @throws std::runtime_error The encoding relationship could not be decided within
+		///     `budget`.
+		static naxp_comparison compare(const naxp& a, const naxp& b, int budget);
+
 		/// Tries to find how `b` stands to `a`.
 		///
 		/// @param a The naxp the data was encoded with.
@@ -305,6 +328,19 @@ namespace logmu
 		/// @returns Whether the comparison was decided. Only the encoding relationship can fail
 		///     to be, when the walk that decides it outgrows its budget.
 		static bool try_compare(const naxp& a, const naxp& b, naxp_comparison& comparison);
+
+		/// `try_compare` with the budget given rather than left at its default.
+		///
+		/// A budget too small for the pair leaves the comparison undecided rather than wrong.
+		///
+		/// @param a The naxp the data was encoded with.
+		/// @param b The naxp proposed to replace it.
+		/// @param comparison The comparison, if this returns true; otherwise the default,
+		///     which is `incomparable` on every axis and claims nothing.
+		/// @param budget How many product states the walk may build.
+		/// @returns Whether the comparison was decided. Only the encoding relationship can fail
+		///     to be, when the walk that decides it outgrows `budget`.
+		static bool try_compare(const naxp& a, const naxp& b, naxp_comparison& comparison, int budget);
 
 		/// The lowest value both naxps hold that they decode to different strings, or zero
 		/// where every value both hold decodes alike.
@@ -320,13 +356,7 @@ namespace logmu
 		static std::uint64_t first_divergent_value(const naxp& a, const naxp& b);
 
 	private:
-		friend class naxp_testing;
-
 		explicit naxp(std::shared_ptr<const detail::compilation> compilation);
-
-		/// `try_compare` with the budget exposed, so that a test can reach the undecided path
-		/// without a naxp large enough to exhaust the real one.
-		static bool try_compare(const naxp& a, const naxp& b, naxp_comparison& comparison, int budget);
 
 		std::shared_ptr<const detail::compilation> compilation;
 	};

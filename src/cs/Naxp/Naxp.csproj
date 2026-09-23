@@ -27,11 +27,13 @@
 		<IsPackable>true</IsPackable>
 		<PackageId>naxp</PackageId>
 		<!--
-		The version tracks the specification version this implements, which is 0.10, the first
-		published one.
+		The package version and the specification version are separate, and both follow semantic
+		versioning. This is the package: 0.11.0 because the comparison budget joined the public
+		surface. The specification it implements is 0.10, named in the README and in the
+		conformance data the tests run against.
 		-->
-		<Version>0.10.0</Version>
-		<Description>naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.</Description>
+		<Version>0.11.0</Version>
+		<Description>A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.</Description>
 		<Authors>Tim Gordon</Authors>
 		<Copyright>Copyright 2026 Tim Gordon</Copyright>
 		<PackageProjectUrl>https://naxp.org/</PackageProjectUrl>
@@ -39,7 +41,7 @@
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>naxp;ascii;encoding;expression;index;regex</PackageTags>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-		<PackageIcon>naxp-icon-solid-pink.png</PackageIcon>
+		<PackageIcon>naxp-icon-solid-white.png</PackageIcon>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
@@ -48,8 +50,8 @@
 		PackageIcon and PackageReadmeFile name a file *inside* the package, so each source file
 		has to be packed explicitly as well as named above.
 		-->
-		<None Include="..\..\..\brand\naxp-icon-solid-pink.png" Pack="true" PackagePath="/" Visible="false" />
-		<None Include="..\..\..\README.md" Pack="true" PackagePath="/" Visible="false" />
+		<None Include="..\..\..\brand\naxp-icon-solid-white.png" Pack="true" PackagePath="/" Visible="false" />
+		<None Include="..\README.md" Pack="true" PackagePath="/" Visible="false" />
 	</ItemGroup>
 
 	<!--

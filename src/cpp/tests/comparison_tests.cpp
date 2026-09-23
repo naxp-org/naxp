@@ -30,20 +30,6 @@
 using logmu::set_relationship;
 using namespace logmu::detail;
 
-namespace logmu
-{
-	/// Reaches the private budgeted overload, which exists so that a test can hit the undecided
-	/// path without a naxp large enough to exhaust the real budget.
-	class naxp_testing
-	{
-	public:
-		static bool try_compare(const naxp& a, const naxp& b, logmu::naxp_comparison& comparison, int budget)
-		{
-			return naxp::try_compare(a, b, comparison, budget);
-		}
-	};
-}
-
 namespace
 {
 	constexpr std::string_view postcode = "\\A\\A?\\9\\X? \\s!! \\9\\A\\A";
@@ -247,8 +233,31 @@ NAXP_TEST(comparison_undecided_channel_is_false_and_throws)
 
 	logmu::naxp_comparison comparison = make(set_relationship::equal, set_relationship::equal, set_relationship::equal);
 
-	NAXP_CHECK(!logmu::naxp_testing::try_compare(logmu::naxp::parse(postcode), logmu::naxp::parse(postcode_with_gir), comparison, 1));
+	NAXP_CHECK(!logmu::naxp::try_compare(logmu::naxp::parse(postcode), logmu::naxp::parse(postcode_with_gir), comparison, 1));
 	NAXP_CHECK(comparison == logmu::naxp_comparison());
+
+	bool threw = false;
+
+	try
+	{
+		logmu::naxp::compare(logmu::naxp::parse(postcode), logmu::naxp::parse(postcode_with_gir), 1);
+	}
+	catch (const std::runtime_error&)
+	{
+		threw = true;
+	}
+
+	NAXP_CHECK(threw);
+}
+
+// The budget a caller scaling from it reads rather than writing the number itself.
+NAXP_TEST(comparison_default_budget_is_what_the_overloads_without_one_use)
+{
+	NAXP_CHECK_EQUAL(value_agreement::max_tuples, logmu::naxp::default_budget);
+
+	NAXP_CHECK(
+		logmu::naxp::compare(logmu::naxp::parse(postcode), logmu::naxp::parse(postcode_with_gir))
+		== logmu::naxp::compare(logmu::naxp::parse(postcode), logmu::naxp::parse(postcode_with_gir), logmu::naxp::default_budget));
 }
 
 // The encoding relation
@@ -544,6 +553,19 @@ NAXP_TEST(c_compare_and_first_divergent_value)
 	NAXP_CHECK(comparison.printed_text == NAXP_SUBSET_OF);
 
 	NAXP_CHECK_EQUAL(uint64_t{405194401}, naxp_first_divergent_value(without, with));
+
+	// The budget, which naxp_compare leaves at the default the C++ surface uses.
+	NAXP_CHECK_EQUAL(logmu::naxp::default_budget, naxp_default_budget());
+
+	::naxp_comparison within = comparison;
+
+	NAXP_CHECK(!naxp_compare_within(without, with, &within, 1));
+	NAXP_CHECK(within.accepted_text == NAXP_INCOMPARABLE);
+	NAXP_CHECK(within.encoding == NAXP_INCOMPARABLE);
+	NAXP_CHECK(within.printed_text == NAXP_INCOMPARABLE);
+
+	NAXP_CHECK(naxp_compare_within(without, with, &within, naxp_default_budget()));
+	NAXP_CHECK(within.accepted_text == NAXP_SUBSET_OF);
 
 	// The C enum is the C++ enum's values, which the façade relies on.
 	static_assert(static_cast<int>(NAXP_INCOMPARABLE) == static_cast<int>(set_relationship::incomparable));

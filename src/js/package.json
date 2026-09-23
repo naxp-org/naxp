@@ -1,7 +1,7 @@
 {
 	"name": "@naxp/naxp",
-	"version": "0.10.0",
-	"description": "naxp ('eNcoded Ascii eXPression') encodes ASCII strings as unsigned integers from a RegEx-like expression. Parse a naxp, then encode text to an integer and decode that integer back to text. The encoding is compact and ordered, so a naxp works as an index for stored data.",
+	"version": "0.11.0",
+	"description": "A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.",
 	"keywords": [
 		"naxp",
 		"encoding",

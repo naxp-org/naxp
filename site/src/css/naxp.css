@@ -1226,14 +1226,23 @@ p:has(> a[id]:empty:only-child:target) + *,
   margin-bottom: 0;
 }
 
+/* A filled disc rather than the open square this used to be, which read as an
+   unticked checkbox and so as an option you could choose rather than one that
+   exists. Centred on the first line: `lh` is half the line box, which is where
+   the eye puts the middle of the text, and the em value before it is the
+   fallback for a browser without the unit, computed for the 1.5 line height
+   the prose uses. */
 .options li::before {
   content: "";
   position: absolute;
   left: 0.1rem;
-  top: 0.4em;
-  width: 0.5em;
-  height: 0.5em;
-  border: 1px solid currentColor;
+  top: 0.75em;
+  top: 0.5lh;
+  transform: translateY(-50%);
+  width: 0.35em;
+  height: 0.35em;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* Something not yet published: an install option, or the words in the prose
@@ -1447,6 +1456,14 @@ code {
   padding: 0.05em 0.3em;
   border-radius: 0.25em;
   font-size: 0.95em;
+}
+
+/* What a program printed. It is prose and reads as prose, so it takes the body
+   font rather than the code one; it is a samp so that the build's curly-quote
+   pass leaves it alone and the quotes match the reader's own build log. */
+samp {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 code.naxp {
@@ -2023,6 +2040,16 @@ textarea.input {
   font-family: var(--font-code);
   font-weight: 700;
   color: var(--color-heading);
+}
+
+/* The code is a link to the page documenting it, and has to look like one
+   without losing the weight that makes it read as a code. */
+a.status__code {
+  color: var(--color-link);
+}
+
+a.status__code:hover {
+  color: var(--color-link-hover);
 }
 
 .status__line--bad {

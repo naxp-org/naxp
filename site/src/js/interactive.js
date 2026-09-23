@@ -241,6 +241,25 @@ function showParsed(naxp) {
 }
 
 /**
+ * The code of a fault, linked to the page that documents it.
+ *
+ * A reader meets a code at exactly this moment, so this is where the page is
+ * worth offering. The anchor is the code in lower case, which every row of that
+ * page carries as its id.
+ *
+ * @param {string} code The code, such as `NAXP1031`.
+ * @returns {HTMLAnchorElement} The link.
+ */
+function codeLink(code) {
+	const link = element('a', 'status__code', code);
+
+	link.href = `/codes/#${code.toLowerCase()}`;
+	link.title = `What ${code} means`;
+
+	return link;
+}
+
+/**
  * Reports an invalid naxp, with the span at fault marked in the pattern.
  *
  * @param {string} pattern The pattern.
@@ -258,7 +277,7 @@ function showInvalid(pattern, result) {
 		statusLine(
 			'bad',
 			'Invalid',
-			element('span', 'status__code', result.errorCode),
+			codeLink(result.errorCode),
 			' ',
 			result.errorMessage));
 }

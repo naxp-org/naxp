@@ -106,9 +106,8 @@ public class NaxpComparisonTests
 
 	/// <summary>
 	/// Only the encoding axis can go undecided, when its walk outgrows the budget, and no
-	/// naxp anybody has reason to write gets near it. The budget is internal, so the
-	/// undecided path is reached here by the internal entry points with the budget lowered,
-	/// which is what the public methods stand on.
+	/// naxp anybody has reason to write gets near it. The undecided path is reached here by
+	/// lowering the budget, which is what the overloads that do not take one stand on.
 	/// </summary>
 	[Fact]
 	public void TheUndecidedChannel_IsFalseAndThrows()
@@ -123,6 +122,20 @@ public class NaxpComparisonTests
 
 		Assert.False(Naxp.TryCompare(Naxp.Parse(Postcode), Naxp.Parse(PostcodeWithGir), out NaxpComparison comparison, budget: 1));
 		Assert.Equal(default, comparison);
+	}
+
+	/// <summary>
+	/// The budget the overloads that do not take one use, which a caller scaling from it reads
+	/// here rather than writing the number itself.
+	/// </summary>
+	[Fact]
+	public void DefaultBudget_IsWhatTheOverloadsWithoutOneUse()
+	{
+		Assert.Equal(ValueAgreement.MaxTuples, Naxp.DefaultBudget);
+
+		Assert.Equal(
+			Naxp.Compare(Naxp.Parse(Postcode), Naxp.Parse(PostcodeWithGir)),
+			Naxp.Compare(Naxp.Parse(Postcode), Naxp.Parse(PostcodeWithGir), Naxp.DefaultBudget));
 	}
 
 	[Fact]

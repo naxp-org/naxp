@@ -5,7 +5,7 @@ import { CodeWriter } from './code-writer.js';
 import { COPY_MARKER } from './tx.js';
 
 /** The version a generated header names, which writing one is the caller's job. */
-const PACKAGE_VERSION = '0.10.0';
+const PACKAGE_VERSION = '0.11.0';
 
 /**
  * The integer type generated code uses for encoded values.

@@ -1,7 +1,7 @@
 {
   "name": "naxp",
   "version": "0.10.0",
-  "description": "naxp (eNcoded Ascii eXPression): ASCII text as unsigned integers, from a RegEx-like pattern. A C++17 library with a C interface.",
+  "description": "A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index. A C++17 library with a C interface.",
   "homepage": "https://naxp.org",
   "license": "Apache-2.0",
   "dependencies": [

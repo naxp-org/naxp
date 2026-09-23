@@ -201,6 +201,16 @@ extern "C"
 
 	bool naxp_compare(const naxp *a, const naxp *b, naxp_comparison *comparison)
 	{
+		return naxp_compare_within(a, b, comparison, naxp_default_budget());
+	}
+
+	int naxp_default_budget(void)
+	{
+		return logmu::naxp::default_budget;
+	}
+
+	bool naxp_compare_within(const naxp *a, const naxp *b, naxp_comparison *comparison, int budget)
+	{
 		comparison->accepted_text = NAXP_INCOMPARABLE;
 		comparison->encoding = NAXP_INCOMPARABLE;
 		comparison->printed_text = NAXP_INCOMPARABLE;
@@ -209,7 +219,7 @@ extern "C"
 		{
 			logmu::naxp_comparison found;
 
-			if (!logmu::naxp::try_compare(a->value, b->value, found))
+			if (!logmu::naxp::try_compare(a->value, b->value, found, budget))
 			{
 				return false;
 			}

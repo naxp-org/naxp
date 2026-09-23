@@ -1,5 +1,9 @@
 # naxp for C and C++
 
+A **naxp** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
+
+With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
+
 The C++ implementation of naxp, with a C face over it. One library serves both: the core is
 C++17, `include/naxp/naxp.hpp` is its native surface, and `include/naxp/naxp.h` is a flat C API
 over opaque handles for C callers and for every language that binds through C.

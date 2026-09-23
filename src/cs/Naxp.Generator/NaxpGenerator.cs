@@ -398,11 +398,10 @@ public sealed class NaxpGenerator : IIncrementalGenerator
 			{
 				NaxpError fault = error!.Value;
 
-				context.ReportDiagnostic(Rules.Create(
-					Rule.NaxpInvalid,
-					spec.Text.At(fault.Offset, fault.Length),
+				context.ReportDiagnostic(Rules.NaxpFault(
 					fault.Code,
-					fault.Text));
+					fault.Text,
+					spec.Text.At(fault.Offset, fault.Length)));
 
 				return false;
 			}

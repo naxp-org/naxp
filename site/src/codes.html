@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>naxp error codes</title>
+<meta name="description" content="Every code a naxp implementation reports, what it means, and which rule of the specification it belongs to.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="naxp error codes">
+<meta property="og:description" content="Every code a naxp implementation reports, what it means, and which rule of the specification it belongs to.">
+<meta property="og:url" content="https://naxp.org/codes/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle"><strong>naxp</strong> error codes</h1>
+  </div>
+</section>
+
+<!-- Band 3: what a code is -->
+<section class="band">
+  <div class="band__inner">
+    <p>
+      A <strong>naxp</strong> that is refused is refused with a code, such as <code>NAXP1031</code>.
+      The code names the fault, so a log or a bug report can identify it without quoting the words,
+      and the words can be improved without breaking anything that reads the code.
+    </p>
+
+    <p>
+      There are two families.
+    </p>
+
+    <ul>
+      <li>
+        <strong>NAXP1001 and upwards</strong> are faults in the <strong>naxp</strong> itself.
+        Every implementation reports these, and reports the same fault under the same code:
+        a <strong>naxp</strong> refused by one implementation is refused by all of them.
+      </li>
+      <li>
+        <strong>NAXP0001 to NAXP0010</strong> are faults only a build can see, raised by the C#
+        source generator about the <code>[Naxp]</code> attribute and the type carrying it. They
+        are specific to that package.
+      </li>
+    </ul>
+
+    <p class="admonition admonition--tip">
+      <span class="admonition__flag">Tip</span>
+      Each code below is linkable, as <a href="/codes/#naxp1031"><code>/codes/#naxp1031</code></a>.
+      In Visual Studio the code in the Error List links here directly.
+    </p>
+  </div>
+</section>
+
+<!-- Band 4: the language's own codes, written from the library's message table -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="section__title">Faults in a <strong>naxp</strong></h2>
+
+    <p>
+      The <em>Rule</em> column says what the fault offends against: <em>Syntax</em> for a pattern
+      that does not parse, and W1 to W6 for a pattern that parses but is not well formed, as
+      <a href="/spec/">the specification</a> defines them. A few are limits this implementation
+      imposes rather than rules of the language.
+    </p>
+
+    <p>
+      Where a message shows <code>{0}</code>, the text at fault is written there.
+    </p>
+
+    <div class="table-scroll">
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Rule</th>
+            <th scope="col">Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- language codes -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Band 5: the generator's codes, written from its rule table -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="section__title">Faults the C# generator reports</h2>
+
+    <p>
+      These come from the source generator in the
+      <a href="/libraries/"><code>naxp</code> package for .NET</a>, which compiles a
+      <strong>naxp</strong> at build time. They are about the attribute and the type it sits on
+      rather than about the <strong>naxp</strong>, which is why they are numbered apart. Each is an
+      error: every one of them stops a <strong>naxp</strong> being generated, and generated code
+      that silently went missing would fail later and further away.
+    </p>
+
+    <div class="table-scroll">
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Means</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- generator codes -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Band 6: the foot of the page -->
+<!-- sitefooter -->
+
+</main>
+
+</body>
+</html>

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.23)
 
 project(naxp
-	VERSION 0.10.0
-	DESCRIPTION "naxp (eNcoded Ascii eXPression): ASCII text as unsigned integers, from a RegEx-like pattern"
+	VERSION 0.11.0
+	DESCRIPTION "A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index."
 	HOMEPAGE_URL "https://naxp.org"
 	LANGUAGES C CXX)
 

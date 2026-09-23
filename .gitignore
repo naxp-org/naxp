@@ -84,3 +84,6 @@ dist/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Crash dumps from MSYS tools
+*.stackdump

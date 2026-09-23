@@ -140,6 +140,20 @@ function requireNaxp(naxp, name) {
  * Instances are immutable.
  */
 export class Naxp {
+	/**
+	 * The budget {@link Naxp.compare} and {@link Naxp.tryCompare} use when they are not given
+	 * one, which is 200 000 product states.
+	 *
+	 * Here so that a caller passing a budget of its own can scale from this one rather than write
+	 * the number itself.
+	 *
+	 * A getter rather than a field, so that it cannot be assigned over: the class object itself
+	 * is not frozen, unlike every naxp it makes.
+	 *
+	 * @returns {number} The budget.
+	 */
+	static get defaultBudget() { return MAX_TUPLES; }
+
 	/** @type {import('./compiler.js').Compilation} */
 	#compilation;
 

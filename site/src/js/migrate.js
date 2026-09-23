@@ -87,6 +87,25 @@ function element(tag, className, ...children) {
 }
 
 /**
+ * The code of a fault, linked to the page that documents it.
+ *
+ * A reader meets a code at exactly this moment, so this is where the page is
+ * worth offering. The anchor is the code in lower case, which every row of that
+ * page carries as its id.
+ *
+ * @param {string} code The code, such as `NAXP1031`.
+ * @returns {HTMLAnchorElement} The link.
+ */
+function codeLink(code) {
+	const link = element('a', 'status__code', code);
+
+	link.href = `/codes/#${code.toLowerCase()}`;
+	link.title = `What ${code} means`;
+
+	return link;
+}
+
+/**
  * A number with its digits grouped in threes.
  *
  * The groups are separate elements with a margin between them rather than separator characters,
@@ -225,7 +244,7 @@ function read(box, name) {
 			'Invalid',
 			...chip(name),
 			': ',
-			element('span', 'status__code', result.errorCode),
+			codeLink(result.errorCode),
 			' ',
 			result.errorMessage),
 	};

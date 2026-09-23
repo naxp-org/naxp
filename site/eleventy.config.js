@@ -1,6 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
+// The library's own message table, so that the codes page is written from the
+// thing that defines the codes rather than from a copy of it. Importing across
+// `..` is Node resolving a module, not Eleventy being given a path, so the trap
+// described beside the brand assets below does not apply.
+import { formatNaxpMessage } from "../src/js/lib/naxp-message.js";
+
 // The specification is authored once, as spec/naxp-v<version>.md at the root
 // of the repository, and nothing under this folder is edited by hand to
 // publish it. This writes the page Eleventy builds from: the same text with
@@ -24,7 +30,12 @@ function publishSpecifications(configDirectory)
 
   for (const name of fs.readdirSync(source))
   {
-    const found = name.match(/^naxp-v(\d+\.\d+)\.md$/);
+    // The patch component is optional, and is left off while it is zero: the
+    // specification's published URL is /spec/v0.10/, not /spec/v0.10.0/, and
+    // that link is out in the world. A patch fixes typos and clarifies text,
+    // so the first one issued against 0.10 would arrive as naxp-v0.10.1.md and
+    // be published at /spec/v0.10.1/ beside it.
+    const found = name.match(/^naxp-v(\d+\.\d+(?:\.\d+)?)\.md$/);
 
     if (found === null) { continue; }
 
@@ -55,6 +66,91 @@ function publishSpecifications(configDirectory)
       fs.writeFileSync(destination, page);
     }
   }
+}
+
+// Escapes text for HTML. The messages are prose with quotes and backslashes in
+// them, and one names a '<' character.
+function escapeHtml(text)
+{
+  return String(text)
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;");
+}
+
+// The rows of the two tables on the codes page, read from the two places that
+// define the codes: the JavaScript library's message table for a fault in a
+// naxp, which every implementation reports alike, and the C# generator's rule
+// table for the faults only a build can see. Read rather than restated, so the
+// page cannot drift from either, and it throws rather than writing an empty
+// table if either file stops looking the way this expects.
+//
+// Each row carries the code as its id, so a build log's NAXP1031 can be linked
+// to /codes/#naxp1031. The generator sets exactly that as its help link.
+function buildCodeTables(configDirectory)
+{
+  const messageFile = path.join(configDirectory, "..", "src", "js", "lib", "naxp-message.js");
+  const source = fs.readFileSync(messageFile, "utf8");
+  const start = source.indexOf("export const NaxpMessage");
+  const end = source.indexOf("export function formatNaxpMessage");
+  const block = source.slice(start, end);
+
+  // The comment above each run of members names the rule of the specification
+  // they belong to, and is the only place that mapping exists.
+  const rules = new Map();
+  let rule = "";
+
+  for (const line of block.split("\n"))
+  {
+    const heading = line.match(/^\s*\/\/\s*(.+?)\s*$/);
+
+    if (heading !== null) { rule = heading[1]; continue; }
+
+    const member = line.match(/^\s*(NAXP\d+_\w+)\s*:/);
+
+    if (member !== null && !rules.has(member[1])) { rules.set(member[1], rule); }
+  }
+
+  if (rules.size === 0)
+  {
+    throw new Error(`buildCodeTables found no messages in ${messageFile}.`);
+  }
+
+  const language = [...rules.keys()]
+    .map((member) =>
+    {
+      const code = member.slice(0, member.indexOf("_"));
+      // 'W4: interval counts' gives W4; 'Syntax: groups' gives Syntax.
+      const named = rules.get(member) || "";
+      const colon = named.indexOf(":");
+      const which = colon < 0 ? named : named.slice(0, colon);
+
+      return `<tr id="${code.toLowerCase()}">`
+        + `<th scope="row"><code>${code}</code></th>`
+        + `<td data-label="Rule">${escapeHtml(which)}</td>`
+        + `<td data-label="Message"><samp>${escapeHtml(formatNaxpMessage(member, null))}</samp></td>`
+        + "</tr>";
+    })
+    .join("\n");
+
+  const rulesFile = path.join(configDirectory, "..", "src", "cs", "Naxp.Generator", "Rules.cs");
+  const declarations = [...fs.readFileSync(rulesFile, "utf8")
+    .matchAll(/Error\(\s*"(NAXP\d+)",\s*"((?:[^"\\]|\\.)*)"/g)];
+
+  if (declarations.length === 0)
+  {
+    throw new Error(`buildCodeTables found no rules in ${rulesFile}.`);
+  }
+
+  const generator = declarations
+    .map(([, code, title]) => `<tr id="${code.toLowerCase()}">`
+      + `<th scope="row"><code>${code}</code></th>`
+      // A title may hold an escaped quote, as NAXP0005's does.
+      + `<td data-label="Means"><samp>${escapeHtml(title.split("\\\"").join("\""))}</samp></td>`
+      + "</tr>")
+    .join("\n");
+
+  return { language, generator };
 }
 
 // The newest specification version, for the site header. Read from the front
@@ -339,6 +435,10 @@ const siteFooter = [
 // quote inside a naxp pattern, and the `'light'` in the head's inline theme
 // script are all left exactly as written. Rewriting that script would break
 // it, so this is load bearing rather than tidiness.
+//
+// `samp` is in that set for the same reason: it holds what a program printed,
+// and a diagnostic message a reader is matching against their build log has to
+// show the quotes the build log showed.
 let curlyQuoteCount = 0;
 
 // Whether a mark opens or closes is decided by the character before it, which
@@ -353,7 +453,7 @@ const inlineTags = new Set([
 
 function curlyQuotes(html)
 {
-  const skipped = new Set(["code", "pre", "script", "style", "textarea"]);
+  const skipped = new Set(["code", "pre", "samp", "script", "style", "textarea"]);
   const tag = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/?)>/g;
 
   let depth = 0;
@@ -428,6 +528,17 @@ export default function (eleventyConfig)
     ? ""
     : `<a class="siteheader__version" href="/spec/v${version}/">v${version}</a>`;
 
+  // The conformance data the published specification is generated with, named
+  // by major.minor rather than by the whole version: a specification patch
+  // fixes typos and clarifies text, so it changes no value and issues no test
+  // data of its own. Derived once here, then both copied into the build and
+  // written into every page that links to it, so the two cannot drift apart.
+  const dataFile = version === null
+    ? ""
+    : `naxp-v${version.split(".").slice(0, 2).join(".")}.json`;
+
+  const codeTables = buildCodeTables(import.meta.dirname);
+
   // The memory of the text boxes, put back before the first paint. Inline
   // rather than a file, because a script fetched at the end of the body can
   // arrive after the paint it is there to get ahead of; and one source rather
@@ -464,6 +575,9 @@ export default function (eleventyConfig)
       .split("<!-- wordmark -->").join(wordmark)
       .split("<!-- naxp icon -->").join(icon)
       .split("<!-- naxp version -->").join(versionMark)
+      .split("<!-- conformance data file -->").join(dataFile)
+      .split("<!-- language codes -->").join(codeTables.language)
+      .split("<!-- generator codes -->").join(codeTables.generator)
       .split("<!-- sitefooter -->").join(siteFooter)
       .split("<!-- restore -->").join(restoreScript);
   });
@@ -587,12 +701,13 @@ export default function (eleventyConfig)
     // earlier files belong to specifications the site does not serve, and
     // pinning to data whose document cannot be read is worth nothing.
     //
-    // The href in libraries.html names this file, so a new version moves both.
-    if (version !== null)
+    // A page links to it by writing <!-- conformance data file --> after
+    // /conformance/, so the name comes from dataFile above rather than from
+    // the page.
+    if (dataFile !== "")
     {
-      const data = `naxp-v${version}.json`;
       fs.mkdirSync(into("conformance"), { recursive: true });
-      fs.copyFileSync(from("conformance", data), into("conformance", data));
+      fs.copyFileSync(from("conformance", dataFile), into("conformance", dataFile));
     }
   });
 

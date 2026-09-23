@@ -167,11 +167,21 @@ namespace logmu
 		return emitter->emit(*this->compilation, prefix, value_type, initial_indent, new_line, indent);
 	}
 
+	// The header carries the budget so that a caller can read it without reaching into the
+	// library's private headers, which leaves two copies of one number. This is the guard.
+	static_assert(naxp::default_budget == detail::value_agreement::max_tuples,
+		"naxp::default_budget and detail::value_agreement::max_tuples have drifted apart.");
+
 	naxp_comparison naxp::compare(const naxp& a, const naxp& b)
+	{
+		return compare(a, b, default_budget);
+	}
+
+	naxp_comparison naxp::compare(const naxp& a, const naxp& b, int budget)
 	{
 		naxp_comparison comparison;
 
-		if (!try_compare(a, b, comparison, detail::value_agreement::max_tuples))
+		if (!try_compare(a, b, comparison, budget))
 		{
 			throw std::runtime_error("The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and printed text can still be compared.");
 		}
@@ -181,7 +191,7 @@ namespace logmu
 
 	bool naxp::try_compare(const naxp& a, const naxp& b, naxp_comparison& comparison)
 	{
-		return try_compare(a, b, comparison, detail::value_agreement::max_tuples);
+		return try_compare(a, b, comparison, default_budget);
 	}
 
 	bool naxp::try_compare(const naxp& a, const naxp& b, naxp_comparison& comparison, int budget)

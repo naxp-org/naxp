@@ -6,7 +6,7 @@
 	lib/ and the source generator in analyzers/dotnet/cs.
 
 	It is deliberately *not* in src/cs/Naxp.slnx. Building the solution would then need a packed
-	naxp.0.10.0.nupkg to exist, and a fresh clone has none.
+	naxp.0.11.0.nupkg to exist, and a fresh clone has none.
 
 	See README.md beside this file for the two commands.
 	-->
@@ -29,7 +29,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="naxp" Version="0.10.0" />
+		<PackageReference Include="naxp" Version="0.11.0" />
 	</ItemGroup>
 
 </Project>

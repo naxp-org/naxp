@@ -157,6 +157,18 @@ public sealed class Naxp
 	/// can hold is invalid rather than reported here.
 	/// </remarks>
 	public ulong MaxEncodedValue => this.compilation.MaxEncodedValue;
+
+	/// <summary>
+	/// The budget <see cref="Compare(Naxp, Naxp)"/> and
+	/// <see cref="TryCompare(Naxp, Naxp, out NaxpComparison)"/> use, which is 200 000 product
+	/// states.
+	/// </summary>
+	/// <remarks>
+	/// Here so that a caller passing a budget of its own can scale from this one rather than
+	/// write the number itself. It is a property rather than a constant so that the value lives
+	/// in one place, whatever has already been compiled against it.
+	/// </remarks>
+	public static int DefaultBudget => ValueAgreement.MaxTuples;
 	#endregion
 	#region Public acceptance
 	/// <summary>
@@ -409,6 +421,29 @@ public sealed class Naxp
 	public static NaxpComparison Compare(Naxp a, Naxp b) => Compare(a, b, ValueAgreement.MaxTuples);
 
 	/// <summary>
+	/// <see cref="Compare(Naxp, Naxp)"/> with the budget given rather than left at its default.
+	/// </summary>
+	/// <remarks>
+	/// The budget caps how many product states the walk deciding the encoding relationship may
+	/// build, and defaults to 200 000 in the overload that does not take it. Raising it buys
+	/// nothing on any naxp anybody has reason to write, since those settle in a few hundred.
+	/// </remarks>
+	/// <param name="a">The naxp the data was encoded with.</param>
+	/// <param name="b">The naxp proposed to replace it.</param>
+	/// <param name="budget">How many product states the walk may build.</param>
+	/// <returns>The comparison.</returns>
+	/// <exception cref="ArgumentNullException">Either naxp is <see langword="null"/>.</exception>
+	/// <exception cref="InvalidOperationException">
+	/// The encoding relationship could not be decided within <paramref name="budget"/>.
+	/// </exception>
+	public static NaxpComparison Compare(Naxp a, Naxp b, int budget)
+		=> TryCompare(a, b, out NaxpComparison comparison, budget)
+			? comparison
+			: throw new InvalidOperationException(
+				"The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and printed text can still be compared.")
+			;
+
+	/// <summary>
 	/// Tries to find how <paramref name="b"/> stands to <paramref name="a"/>.
 	/// </summary>
 	/// <param name="a">The naxp the data was encoded with.</param>
@@ -424,6 +459,48 @@ public sealed class Naxp
 	/// <exception cref="ArgumentNullException">Either naxp is <see langword="null"/>.</exception>
 	public static bool TryCompare(Naxp a, Naxp b, out NaxpComparison comparison)
 		=> TryCompare(a, b, out comparison, ValueAgreement.MaxTuples);
+
+	/// <summary>
+	/// <see cref="TryCompare(Naxp, Naxp, out NaxpComparison)"/> with the budget given rather than
+	/// left at its default.
+	/// </summary>
+	/// <remarks>
+	/// The budget caps how many product states the walk deciding the encoding relationship may
+	/// build, and defaults to 200 000 in the overload that does not take it. A budget too small
+	/// for the pair leaves the comparison undecided rather than wrong.
+	/// </remarks>
+	/// <param name="a">The naxp the data was encoded with.</param>
+	/// <param name="b">The naxp proposed to replace it.</param>
+	/// <param name="comparison">
+	/// The comparison, if this returns <see langword="true"/>; otherwise the default, which is
+	/// <see cref="SetRelationship.Incomparable"/> on every axis and claims nothing.
+	/// </param>
+	/// <param name="budget">How many product states the walk may build.</param>
+	/// <returns>
+	/// Whether the comparison was decided. Only the encoding relationship can fail to be, when
+	/// the walk that decides it outgrows <paramref name="budget"/>.
+	/// </returns>
+	/// <exception cref="ArgumentNullException">Either naxp is <see langword="null"/>.</exception>
+	public static bool TryCompare(Naxp a, Naxp b, out NaxpComparison comparison, int budget)
+	{
+		if (a is null) { throw new ArgumentNullException(nameof(a)); }
+		if (b is null) { throw new ArgumentNullException(nameof(b)); }
+
+		comparison = default;
+
+		Compilation left = a.compilation;
+		Compilation right = b.compilation;
+
+		// First, because it is the one that can fail, and nothing is worth computing if it does.
+		if (!Relations.TryCompareEncodings(left, right, out SetRelationship encoding, budget)) { return false; }
+
+		comparison = new NaxpComparison(
+			Relations.CompareLanguages(left.Accepted, right.Accepted),
+			encoding,
+			Relations.CompareLanguages(left.Canonical, right.Canonical));
+
+		return true;
+	}
 
 	/// <summary>
 	/// The lowest value both naxps hold that they decode to different strings, or zero where
@@ -454,40 +531,6 @@ public sealed class Naxp
 		return Relations.FirstDivergentValue(a.compilation.Canonical, b.compilation.Canonical);
 	}
 
-	/// <summary>
-	/// <see cref="Compare(Naxp, Naxp)"/> with the budget exposed, so that a test can reach the
-	/// undecided path without a naxp large enough to exhaust the real one.
-	/// </summary>
-	internal static NaxpComparison Compare(Naxp a, Naxp b, int budget)
-		=> TryCompare(a, b, out NaxpComparison comparison, budget)
-			? comparison
-			: throw new InvalidOperationException(
-				"The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and printed text can still be compared.")
-			;
-
-	/// <summary>
-	/// <see cref="TryCompare(Naxp, Naxp, out NaxpComparison)"/> with the budget exposed.
-	/// </summary>
-	internal static bool TryCompare(Naxp a, Naxp b, out NaxpComparison comparison, int budget)
-	{
-		if (a is null) { throw new ArgumentNullException(nameof(a)); }
-		if (b is null) { throw new ArgumentNullException(nameof(b)); }
-
-		comparison = default;
-
-		Compilation left = a.compilation;
-		Compilation right = b.compilation;
-
-		// First, because it is the one that can fail, and nothing is worth computing if it does.
-		if (!Relations.TryCompareEncodings(left, right, out SetRelationship encoding, budget)) { return false; }
-
-		comparison = new NaxpComparison(
-			Relations.CompareLanguages(left.Accepted, right.Accepted),
-			encoding,
-			Relations.CompareLanguages(left.Canonical, right.Canonical));
-
-		return true;
-	}
 	#endregion
 	#region Public overrides
 	/// <inheritdoc/>

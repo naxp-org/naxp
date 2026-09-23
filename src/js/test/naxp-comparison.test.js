@@ -149,6 +149,18 @@ test('the undecided channel is null and throws', () => {
 	assert.equal(Naxp.tryCompare(Naxp.parse(POSTCODE), Naxp.parse(POSTCODE_WITH_GIR), 1), null);
 });
 
+// The budget a caller scaling from it reads rather than writing the number itself.
+test('the default budget is what a comparison given no budget uses', () => {
+	assert.equal(Naxp.defaultBudget, 200_000);
+
+	assert.deepEqual(
+		Naxp.compare(Naxp.parse(POSTCODE), Naxp.parse(POSTCODE_WITH_GIR)),
+		Naxp.compare(Naxp.parse(POSTCODE), Naxp.parse(POSTCODE_WITH_GIR), Naxp.defaultBudget));
+
+	// A getter, so it cannot be assigned over.
+	assert.throws(() => { Naxp.defaultBudget = 1; }, TypeError);
+});
+
 test('arguments that are not naxps are refused', () => {
 	const naxp = Naxp.parse('A');
 

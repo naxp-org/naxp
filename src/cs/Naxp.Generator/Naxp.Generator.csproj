@@ -18,7 +18,7 @@
 		The generator stamps this into the code it writes, so keep it in step with the Version in
 		Naxp.csproj.
 		-->
-		<Version>0.10.0</Version>
+		<Version>0.11.0</Version>
 		<GenerateDocumentationFile>False</GenerateDocumentationFile>
 	</PropertyGroup>
 

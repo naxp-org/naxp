@@ -255,12 +255,21 @@ public class GeneratorTests
 		Assert.Contains("typeof(string)", result.Only("NAXP0007").GetMessage());
 	}
 
+	/// <summary>
+	/// A fault in the naxp is reported under the library's own code for the rule it breaks, rather
+	/// than under one identifier standing for every fault. The code in the build log then names the
+	/// rule, and a build can suppress one rule without suppressing the rest.
+	/// </summary>
 	[Fact]
-	public void ANaxpThatDoesNotParse_IsNAXP0101()
+	public void ANaxpThatDoesNotParse_IsReportedUnderTheLibrarysCode()
 	{
 		Run(Source("[LogMu.Naxp(@\"\\A(\\9\", typeof(long))]", "internal partial class Codes"), out GeneratorResult result);
 
-		result.Only("NAXP0101");
+		// An unclosed group, which is NAXP1009.
+		Diagnostic diagnostic = result.Only("NAXP1009");
+
+		// The library's message, with no second copy of the code inside it.
+		Assert.Equal("This group is not closed. Add a ')'.", diagnostic.GetMessage());
 	}
 
 	/// <summary>
@@ -277,7 +286,8 @@ public class GeneratorTests
 
 		Run(source, out GeneratorResult result);
 
-		Diagnostic diagnostic = result.Only("NAXP0101");
+		// A hyphen between interval counts, which is NAXP1002.
+		Diagnostic diagnostic = result.Only("NAXP1002");
 		LinePositionSpan span = diagnostic.Location.GetLineSpan().Span;
 		string line = source.Split('\n')[span.Start.Line].TrimEnd('\r');
 
