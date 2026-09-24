@@ -98,13 +98,17 @@ once for `[data-theme="dark"]`. They must stay identical.
 
 ## Fonts
 
-The stylesheet asks for **Lisnoti** by family name, which resolves against a
-local install during development. Before deployment, replace the `@font-face`
-rules at the top of `naxp.css` with self-hosted WOFF2 subsets split by
-`unicode-range`, and preload the regular Latin file.
+**Lisnoti** is self-hosted in `src/fonts/Lisnoti-woff2/`, which is the release's
+own `Lisnoti-woff2` folder copied unchanged, with its licence beside it. Every
+page links its `lisnoti.css` ahead of `naxp.css`, and a page fetches only the
+subsets its text uses. Every page also preloads `Lisnoti-Regular-latin.woff2`,
+which all of them need, so a new release must keep that file name or each page's
+preload link must follow it. To take a new release, copy its `Lisnoti-woff2`
+folder over this one.
 
-Lisnoti is used for body text, inline naxp literals and code alike, so generated
-code must use hanging indents and must never align to an opening delimiter.
+Lisnoti sets prose only for now. Code uses a monospace stack until Lisnoti Code
+is available, and is meant to move to it then, so generated code must use
+hanging indents and must never align to an opening delimiter.
 
 ## Deployment
 

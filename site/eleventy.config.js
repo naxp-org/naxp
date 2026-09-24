@@ -664,6 +664,7 @@ export default function (eleventyConfig)
 
   eleventyConfig.addPassthroughCopy({ "src/css": "css" });
   eleventyConfig.addPassthroughCopy({ "src/js": "js" });
+  eleventyConfig.addPassthroughCopy({ "src/fonts": "fonts" });
   eleventyConfig.addPassthroughCopy("src/CNAME");
 
   // Two things outside this folder still have to reach the built site: the

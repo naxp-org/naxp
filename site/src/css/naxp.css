@@ -1,9 +1,12 @@
 /* naxp.org
    ------------------------------------------------------------------
-   Lisnoti is referenced by family name only, so a local install is
-   picked up during development. Before deployment, replace the
-   @font-face block below with self-hosted WOFF2 subsets partitioned
-   by unicode-range.
+   Lisnoti is self-hosted. Its @font-face rules are in
+   /fonts/Lisnoti-woff2/lisnoti.css, which every page links ahead of this
+   file. That folder is Lisnoti's own release copied unchanged, one WOFF2
+   file per subset, so a page fetches only the subsets its text uses. To
+   take a new release, copy its Lisnoti-woff2 folder over this one.
+   Lisnoti sets prose only for now; code keeps a monospace stack until
+   Lisnoti Code exists.
 
    Colours come from the design notes, which are not in this repository.
    Every resting state there is measured against WCAG AA; do not adjust a
@@ -13,30 +16,6 @@
    Band numbering follows those same notes:
      1 header  2 title and examples  3 get started title  4 button links
      5 quick tour title  6 quick tour  7 credits */
-
-@font-face {
-  font-family: "Lisnoti";
-  src: local("Lisnoti"), local("Lisnoti-Regular");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Lisnoti";
-  src: local("Lisnoti Bold"), local("Lisnoti-Bold");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Lisnoti";
-  src: local("Lisnoti Italic"), local("Lisnoti-Italic");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
 
 /* ---------- tokens ---------- */
 
@@ -135,9 +114,8 @@
   /* Lisnoti for everything that is not code; code takes a monospace so
      that generated listings line up and match the reader's editor. */
   --font-sans: "Lisnoti", system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* Lisnoti was designed for code as well as prose, so it leads here too. The
-     monospace stack is only a fallback for machines without it installed. */
-  --font-code: "Lisnoti", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  /* Lisnoti Code will lead here once it exists. */
+  --font-code: ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --measure: 34rem;
   --page: 72rem;
@@ -878,9 +856,9 @@ p:has(> a[id]:empty:only-child:target) + *,
    quoted fragment only spreads the thing over more screen.
 
    The hairline stroke is what makes it read heavier without making it bold.
-   Lisnoti is installed as two static faces, regular and bold, with nothing
-   between: font-weight 500 renders the regular unchanged and 550 jumps to the
-   full bold. A stroke of a seventh of a pixel in the glyph's own colour
+   The code faces are static, regular and bold, with nothing between:
+   font-weight 500 renders the regular unchanged and 550 jumps to the full
+   bold. A stroke of a seventh of a pixel in the glyph's own colour
    thickens the strokes and nothing else. Browsers that ignore the property show
    the page exactly as it was. */
 .codebox pre {
@@ -1444,9 +1422,9 @@ h1.bandtitle {
    accepts or generates; pink is a naxp pattern. Both stay at regular weight, so
    a chip never competes with the bold naxp in the prose around it.
 
-   The chip is set at 0.95em rather than the 0.9em it began at. Lisnoti serves
-   both the prose and the code here, so there was never much of a second face to
-   compensate for. */
+   The chip is set at 0.95em rather than the 0.9em it began at, a size chosen
+   while Lisnoti set both the prose and the code; it may want revisiting against
+   the monospace face now that code has one of its own. */
 code {
   font-family: var(--font-code);
   font-variant-ligatures: none;
