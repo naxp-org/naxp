@@ -510,10 +510,12 @@ p:has(> a[id]:empty:only-child:target) + *,
 
    Shrinkage is proportional to each item's own width, so the longest label
    gives way first, which is the one we want to break. Now that every label is
-   one word none of them can break at all, and the row's narrowest is about
-   760px; below 50rem the links fold into the menu (see .navbtn--menu), and
-   the row goes back to wrapping for a reader without script. */
-@media (min-width: 50rem) {
+   one word none of them can break at all, and in Lisnoti the row's narrowest is
+   982px (it was about 760px in Segoe UI); below 64rem the links fold into the
+   menu (see .navbtn--menu), and the row goes back to wrapping for a reader
+   without script. 64rem rather than the bare 62rem leaves room for the
+   language button to carry a longer name than 'English'. */
+@media (min-width: 64rem) {
   .siteheader__inner {
     flex-wrap: nowrap;
   }
@@ -691,7 +693,7 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 /* The page links, in a row that behaves as the loose items did before they
    had a wrapper: the same gap, the same bottom alignment, and the same
-   wrap/nowrap switch at 50rem, with min-width 0 so that above it the row can
+   wrap/nowrap switch at 64rem, with min-width 0 so that above it the row can
    be squeezed. */
 .siteheader__nav {
   display: flex;
@@ -701,7 +703,7 @@ p:has(> a[id]:empty:only-child:target) + *,
   min-width: 0;
 }
 
-@media (min-width: 50rem) {
+@media (min-width: 64rem) {
   .siteheader__nav {
     flex-wrap: nowrap;
   }
@@ -709,10 +711,11 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 /* The menu button, and the panel it opens. On a phone the eight links took
    three rows under the brand, which with the sticky header was a third of the
-   screen gone before any page began; on anything narrower than about 760px
-   the single row ran off the page instead, one-word labels having nothing to
-   break at. So below 50rem the links fold into a panel that drops under the
-   bar when the button is pressed, one link to a line.
+   screen gone before any page began; on anything narrower than the row (982px
+   in Lisnoti) the links ran into the tools on the right instead, one-word
+   labels having nothing to break at. So below 64rem the links fold into a
+   panel that drops under the bar when the button is pressed, one link to a
+   line.
 
    The button exists only for script, so like the theme button it is hidden
    until the document says there is some, and without script the links stay
@@ -735,7 +738,7 @@ p:has(> a[id]:empty:only-child:target) + *,
   display: inline;
 }
 
-@media (max-width: 49.99rem) {
+@media (max-width: 63.99rem) {
   .js .navbtn--menu {
     display: inline-block;
   }
