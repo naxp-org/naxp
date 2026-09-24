@@ -137,6 +137,60 @@ NAXP_TEST(decode_refuses_zero_and_values_beyond_the_count)
 	NAXP_CHECK_EQUAL(std::string("9"), text);
 }
 
+NAXP_TEST(try_decode_writes_into_a_buffer_or_nothing_at_all)
+{
+	const logmu::naxp parsed = logmu::naxp::parse(postcode);
+	const std::uint64_t value = parsed.encode("SW1A1AA");
+	char buffer[8] = {};
+	std::size_t length = 99;
+
+	NAXP_CHECK(parsed.try_decode(value, buffer, sizeof buffer, length));
+	NAXP_CHECK_EQUAL(std::string("SW1A 1AA"), std::string(buffer, length));
+
+	char short_buffer[7] = {};
+
+	NAXP_CHECK(!parsed.try_decode(value, short_buffer, sizeof short_buffer, length));
+	NAXP_CHECK_EQUAL(std::size_t{0}, length);
+	NAXP_CHECK_EQUAL(std::string(7, '\0'), std::string(short_buffer, sizeof short_buffer));
+
+	NAXP_CHECK(!parsed.try_decode(0, buffer, sizeof buffer, length));
+	NAXP_CHECK(!parsed.try_decode(parsed.max_encoded_value() + 1, buffer, sizeof buffer, length));
+	NAXP_CHECK_EQUAL(std::size_t{0}, length);
+}
+
+NAXP_TEST(try_canonical_form_finds_the_form_or_leaves_things_alone)
+{
+	// One naxp that canonicalises and one where every accepted string is its own form, since
+	// the two take different paths.
+	const logmu::naxp unified = logmu::naxp::parse(postcode);
+	const logmu::naxp identity = logmu::naxp::parse("\\A{2}\\9");
+	std::string text = "untouched";
+
+	NAXP_CHECK(unified.try_canonical_form("SW1A1AA", text));
+	NAXP_CHECK_EQUAL(std::string("SW1A 1AA"), text);
+	NAXP_CHECK(identity.try_canonical_form("AB7", text));
+	NAXP_CHECK_EQUAL(std::string("AB7"), text);
+
+	text = "untouched";
+
+	NAXP_CHECK(!unified.try_canonical_form("nonsense", text));
+	NAXP_CHECK(!identity.try_canonical_form("AB", text));
+	NAXP_CHECK_EQUAL(std::string("untouched"), text);
+
+	char buffer[8] = {};
+	std::size_t length = 99;
+
+	NAXP_CHECK(unified.try_canonical_form("SW1A1AA", buffer, sizeof buffer, length));
+	NAXP_CHECK_EQUAL(std::string("SW1A 1AA"), std::string(buffer, length));
+	NAXP_CHECK(identity.try_canonical_form("AB7", buffer, 3, length));
+	NAXP_CHECK_EQUAL(std::string("AB7"), std::string(buffer, length));
+
+	NAXP_CHECK(!unified.try_canonical_form("SW1A1AA", buffer, 7, length));
+	NAXP_CHECK_EQUAL(std::size_t{0}, length);
+	NAXP_CHECK(!identity.try_canonical_form("AB", buffer, sizeof buffer, length));
+	NAXP_CHECK_EQUAL(std::size_t{0}, length);
+}
+
 NAXP_TEST(copies_are_the_same_naxp)
 {
 	const logmu::naxp original = logmu::naxp::parse("\\A\\9");
@@ -165,12 +219,9 @@ NAXP_TEST(c_parse_and_free_round_trip)
 	NAXP_CHECK(expression != nullptr);
 	NAXP_CHECK(fault == nullptr);
 
-	std::size_t length = 0;
-	const char* pattern = naxp_pattern(expression, &length);
+	const char* pattern = naxp_pattern(expression);
 
-	NAXP_CHECK_EQUAL(postcode.size(), length);
 	NAXP_CHECK_EQUAL(std::string(postcode), std::string(pattern));
-	NAXP_CHECK(std::strlen(pattern) == length);
 	NAXP_CHECK_EQUAL(std::size_t{8}, naxp_max_length(expression));
 
 	NAXP_CHECK(naxp_accepts(expression, "SW1A1AA", 7));
@@ -206,6 +257,41 @@ NAXP_TEST(c_decode_refuses_a_short_buffer_and_a_bad_value)
 
 	NAXP_CHECK(!naxp_decode(expression, 0, buffer, sizeof buffer, &written));
 	NAXP_CHECK(!naxp_decode(expression, naxp_max_encoded_value(expression) + 1, buffer, sizeof buffer, nullptr));
+
+	naxp_free(expression);
+}
+
+NAXP_TEST(c_cstr_functions_read_and_write_nul_terminated_strings)
+{
+	::naxp* expression = naxp_parse(postcode.data(), postcode.size(), nullptr);
+
+	NAXP_CHECK(naxp_accepts_cstr(expression, "SW1A1AA"));
+	NAXP_CHECK(!naxp_accepts_cstr(expression, "SW1A1A"));
+
+	const uint64_t value = naxp_encode_cstr(expression, "SW1A1AA");
+
+	NAXP_CHECK_EQUAL(naxp_encode(expression, "SW1A1AA", 7), value);
+	NAXP_CHECK_EQUAL(uint64_t{0}, naxp_encode_cstr(expression, ""));
+
+	// The longest length and one for the terminator always suffice; the longest length alone
+	// does not, and nothing is written then.
+	char buffer[9];
+
+	NAXP_CHECK(naxp_decode_cstr(expression, value, buffer, sizeof buffer));
+	NAXP_CHECK_EQUAL(std::string("SW1A 1AA"), std::string(buffer));
+
+	std::memset(buffer, 'x', sizeof buffer);
+
+	NAXP_CHECK(!naxp_decode_cstr(expression, value, buffer, 8));
+	NAXP_CHECK_EQUAL(std::string(9, 'x'), std::string(buffer, sizeof buffer));
+	NAXP_CHECK(!naxp_decode_cstr(expression, value, buffer, 0));
+	NAXP_CHECK(!naxp_decode_cstr(expression, 0, buffer, sizeof buffer));
+
+	NAXP_CHECK(naxp_canonical_form_cstr(expression, "SW1A1AA", buffer, sizeof buffer));
+	NAXP_CHECK_EQUAL(std::string("SW1A 1AA"), std::string(buffer));
+	NAXP_CHECK(!naxp_canonical_form_cstr(expression, "nonsense", buffer, sizeof buffer));
+	NAXP_CHECK(!naxp_canonical_form_cstr(expression, "SW1A1AA", buffer, 8));
+	NAXP_CHECK(!naxp_canonical_form_cstr(expression, "SW1A1AA", buffer, 0));
 
 	naxp_free(expression);
 }

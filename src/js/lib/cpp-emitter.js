@@ -1,16 +1,18 @@
 // Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
-import { CFamilyEmitter, HELD_NAME } from './c-family-emitter.js';
+import { stringLiteral } from './c-emitter.js';
+import { CFamilyEmitter } from './c-family-emitter.js';
 
 /**
  * Emits a compiled naxp as a C++ fragment, in C++17.
  *
- * The fragment is two constants, four public functions and their steppers, every name in
+ * The fragment is three constants, eight public functions and their steppers, every name in
  * snake_case under the caller's prefix, and its surface is the library's own `logmu::naxp`: a
  * `string_view` in, a `std::string` out, `decode` throwing `std::out_of_range` and `try_decode`
- * reporting instead. It needs `cstdint`, `stdexcept`, `string` and `string_view`, which the
- * caller includes, and its first line says so.
+ * reporting instead, and a `try_` overload writing into the caller's buffer wherever text comes
+ * out. It needs `cstdint`, `optional`, `stdexcept`, `string` and `string_view`, which the caller
+ * includes, and its first line says so.
  *
  * Every function is `inline` and both constants `inline constexpr`, so the fragment can sit in a
  * header that several translation units include. That is also why the caller gives each naxp its
@@ -36,6 +38,9 @@ export class CppEmitter extends CFamilyEmitter {
 
 	/** C++14's digit separator. */
 	get digitSeparator() { return "'"; }
+
+	/** @inheritdoc */
+	get textParameters() { return 'std::string_view text'; }
 
 	/** @inheritdoc */
 	pointer(type, name) {
@@ -78,8 +83,12 @@ export class CppEmitter extends CFamilyEmitter {
 	emitHeader(fragment) {
 		const writer = fragment.writer;
 
-		writer.line('// Needs <cstdint>, <stdexcept>, <string> and <string_view>. Everything is inline, so the');
-		writer.line('// fragment can sit in a header; give each naxp its own prefix where several share a program.');
+		writer.line('// Needs <cstdint>, <optional>, <stdexcept>, <string> and <string_view>. Everything is inline,');
+		writer.line('// so the fragment can sit in a header; give each naxp its own prefix where several share a');
+		writer.line('// program.');
+		writer.line();
+		this.comment(writer, 'The naxp this code was generated from.');
+		writer.line(`inline constexpr std::string_view ${fragment.patternName} = ${patternLiteral(fragment.context.compilation.pattern)};`);
 		writer.line();
 		this.comment(writer, 'The largest encoded value this naxp produces, which is also how many it has.');
 		writer.line(`inline constexpr ${fragment.valueKeyword} ${fragment.maxEncodedValueName} = ${fragment.maxEncodedValueLiteral};`);
@@ -96,6 +105,7 @@ export class CppEmitter extends CFamilyEmitter {
 		this.emitAccepts(fragment);
 		this.emitEncode(fragment);
 		this.emitDecode(fragment);
+		this.emitCanonicalForm(fragment);
 	}
 
 	/** @param {import('./c-family-emitter.js').Fragment} fragment The call's state. */
@@ -135,36 +145,7 @@ export class CppEmitter extends CFamilyEmitter {
 
 		if (fragment.canonicalises) {
 			writer.line(`char canonical[${fragment.bufferSize}] = {};`);
-
-			if (fragment.needsRegister) {
-				// The characters read, oldest first, so a reference of depth d is the one at
-				// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring, and
-				// it starts zeroed so that an early shift reads nothing undefined.
-				writer.line(`char ${HELD_NAME}[${fragment.registerDepth}] = {};`);
-			}
-
-			writer.line('int length = 0;');
-			writer.line('int state = 0;');
-			writer.line();
-			writer.line('for (char c : text)');
-			writer.openBlock();
-
-			if (fragment.needsRegister) {
-				const top = fragment.registerDepth - 1;
-
-				if (fragment.registerDepth > 1) {
-					writer.line(`for (int h = 0; h < ${top}; ++h) { ${HELD_NAME}[h] = ${HELD_NAME}[h + 1]; }`);
-				}
-
-				writer.line(`${HELD_NAME}[${top}] = c;`);
-			}
-
-			writer.line(`state = ${fragment.canonicalStepName}(state, static_cast<unsigned char>(c), ${fragment.stepArguments('length')});`);
-			writer.line();
-			writer.line(`if (state < 0) { return ${fragment.valueZero}; }`);
-			writer.closeBlock();
-			writer.line();
-			writer.line(`length = ${fragment.finishCanonicalName}(state, ${fragment.finishArguments()});`);
+			writer.line(`int length = ${fragment.canonicaliseName}(text, canonical);`);
 			writer.line();
 			writer.line(fragment.valueIsWidest
 				? `return length < 0 ? 0ULL : ${fragment.rankName}(canonical, length);`
@@ -230,7 +211,158 @@ export class CppEmitter extends CFamilyEmitter {
 		writer.line('return true;');
 		writer.closeBlock();
 		writer.line();
+
+		writer.line('/// Tries to write the string a value stands for, which is in canonical form, with no terminator.');
+		writer.line('///');
+		writer.line('/// @param value The encoded value.');
+		writer.line(`/// @param destination Where the string is written. ${fragment.maxLengthName} characters always suffice.`);
+		writer.line('/// @param capacity How many characters there is room for.');
+		writer.line('/// @param length How many characters were written, or zero where none were.');
+		writer.line('/// @returns False where the value is not one this naxp produces, or the destination is too short, in which case nothing is written.');
+		writer.line(`inline bool ${tryDecodeName}(${fragment.valueKeyword} value, char* destination, std::size_t capacity, std::size_t& length)`);
+		writer.openBlock();
+		writer.line(`if (value < ${fragment.valueOne} || value > ${fragment.maxEncodedValueName})`);
+		writer.openBlock();
+		writer.line('length = 0;');
+		writer.line('return false;');
+		writer.closeBlock();
+		writer.line();
+		writer.line(`char buffer[${fragment.bufferSize}] = {};`);
+		writer.line(`int written = ${fragment.decodeCoreName}(${fragment.decodeCoreArgument}, buffer);`);
+		writer.line();
+		this.emitCopyOut(writer);
 	}
+
+	/** @param {import('./c-family-emitter.js').Fragment} fragment The call's state. */
+	emitCanonicalForm(fragment) {
+		const writer = fragment.writer;
+		const tryName = fragment.name('TryCanonicalForm');
+
+		writer.line('/// The canonical form of text, which is the text decoding its encoded value gives back.');
+		writer.line('///');
+		writer.line('/// @param text The text.');
+		writer.line('/// @returns The canonical form, or no value where the text is invalid.');
+		writer.line(`inline std::optional<std::string> ${fragment.canonicalFormName}(std::string_view text)`);
+		writer.openBlock();
+		writer.line(`char buffer[${fragment.bufferSize}] = {};`);
+		writer.line(`int length = ${fragment.canonicaliseName}(text, buffer);`);
+		writer.line();
+		writer.line('if (length < 0) { return std::nullopt; }');
+		writer.line();
+		writer.line('return std::string(buffer, buffer + length);');
+		writer.closeBlock();
+		writer.line();
+
+		writer.line('/// Tries to find the canonical form of text.');
+		writer.line('///');
+		writer.line('/// @param text The text.');
+		writer.line('/// @param canonical_form Where the canonical form goes. Untouched where the text is invalid.');
+		writer.line('/// @returns Whether the naxp accepts the text.');
+		writer.line(`inline bool ${tryName}(std::string_view text, std::string& canonical_form)`);
+		writer.openBlock();
+		writer.line(`char buffer[${fragment.bufferSize}] = {};`);
+		writer.line(`int length = ${fragment.canonicaliseName}(text, buffer);`);
+		writer.line();
+		writer.line('if (length < 0) { return false; }');
+		writer.line();
+		writer.line('canonical_form.assign(buffer, buffer + length);');
+		writer.line();
+		writer.line('return true;');
+		writer.closeBlock();
+		writer.line();
+
+		writer.line('/// Tries to write the canonical form of text, with no terminator.');
+		writer.line('///');
+		writer.line('/// @param text The text.');
+		writer.line(`/// @param destination Where the canonical form is written. ${fragment.maxLengthName} characters always suffice.`);
+		writer.line('/// @param capacity How many characters there is room for.');
+		writer.line('/// @param length How many characters were written, or zero where none were.');
+		writer.line('/// @returns False where the text is invalid, or the destination is too short, in which case nothing is written.');
+		writer.line(`inline bool ${tryName}(std::string_view text, char* destination, std::size_t capacity, std::size_t& length)`);
+		writer.openBlock();
+		writer.line(`char buffer[${fragment.bufferSize}] = {};`);
+		writer.line(`int written = ${fragment.canonicaliseName}(text, buffer);`);
+		writer.line();
+		this.emitCopyOut(writer, true);
+	}
+
+	/**
+	 * The end of a function writing into the caller's buffer: the check that `written`
+	 * characters of `buffer` fit, the copy, and the length.
+	 *
+	 * @param {import('./code-writer.js').CodeWriter} writer Where the fragment is going.
+	 * @param {boolean} mayFail Whether `written` is -1 where the text was invalid.
+	 */
+	emitCopyOut(writer, mayFail = false) {
+		writer.line(mayFail
+			? 'if (written < 0 || static_cast<std::size_t>(written) > capacity)'
+			: 'if (static_cast<std::size_t>(written) > capacity)');
+		writer.openBlock();
+		writer.line('length = 0;');
+		writer.line('return false;');
+		writer.closeBlock();
+		writer.line();
+		writer.line('std::char_traits<char>::copy(destination, buffer, static_cast<std::size_t>(written));');
+		writer.line('length = static_cast<std::size_t>(written);');
+		writer.line();
+		writer.line('return true;');
+		writer.closeBlock();
+		writer.line();
+	}
+
+	/** @inheritdoc */
+	emitCanonicalise(fragment) {
+		const writer = fragment.writer;
+
+		fragment.openCanonicalise();
+
+		if (!fragment.canonicalises) {
+			// Where nothing is unified an accepted string is its own canonical form, and being
+			// accepted it fits the buffer.
+			writer.line(`if (!${fragment.acceptsName}(text)) { return -1; }`);
+			writer.line();
+			writer.line('text.copy(canonical, text.size());');
+			writer.line();
+			writer.line('return static_cast<int>(text.size());');
+			writer.closeBlock();
+			writer.line();
+
+			return;
+		}
+
+		fragment.declareRegister('{}');
+		writer.line('int length = 0;');
+		writer.line('int state = 0;');
+		writer.line();
+		writer.line('for (char c : text)');
+		writer.openBlock();
+		fragment.keepCharacter('c');
+		writer.line(`state = ${fragment.canonicalStepName}(state, static_cast<unsigned char>(c), ${fragment.stepArguments('length')});`);
+		writer.line();
+		writer.line('if (state < 0) { return -1; }');
+		writer.closeBlock();
+		writer.line();
+		writer.line(`return ${fragment.finishCanonicalName}(state, ${fragment.finishArguments()});`);
+		writer.closeBlock();
+		writer.line();
+	}
+}
+
+/**
+ * A pattern as a C++ literal: raw where every character is printable and nothing in it closes a
+ * raw string early, which keeps its backslashes as they were written, and escaped otherwise.
+ *
+ * @param {string} text The pattern, which is ASCII.
+ * @returns {string} The literal.
+ */
+function patternLiteral(text) {
+	for (let i = 0; i < text.length; ++i) {
+		const code = text.charCodeAt(i);
+
+		if (code < 0x20 || code > 0x7e) { return stringLiteral(text); }
+	}
+
+	return text.includes(')"') ? stringLiteral(text) : `R"(${text})"`;
 }
 
 /** @type {CppEmitter | null} */

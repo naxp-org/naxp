@@ -14,7 +14,7 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The fragment is a set of static members - two consts, the public methods and their private
+/// The fragment is a set of static members - three consts, the public methods and their private
 /// steppers - answering the same questions as <see cref="Naxp"/> for its one naxp, without
 /// calling back into this library. Self-containment is a requirement rather than a taste: the
 /// code lands in the caller's assembly, where nothing internal to this one is visible, and the
@@ -33,6 +33,14 @@ namespace LogMu;
 /// <para>
 /// A switch is split into methods of at most <see cref="Emitter.ChunkSize"/> states, dispatched
 /// by state number; that constant carries the per-method limits behind the split.
+/// </para>
+/// <para>
+/// The fragment compiles as C# 7.3, which is what a .NET Framework project gets by default. The
+/// members that can give back null are therefore written twice under <c>#if</c>: annotated, with
+/// <c>NotNullWhen</c>, where the target framework has that attribute and so the language has
+/// nullable reference types, and plain elsewhere. C# has no symbol for its own version, so the
+/// framework is the test; a project on a modern framework that pins the language below C# 8 is
+/// the one case it gets wrong.
 /// </para>
 /// </remarks>
 sealed class CSharpEmitter : Emitter
@@ -92,13 +100,18 @@ sealed class CSharpEmitter : Emitter
 		readonly Context context;
 
 		// The generated names, each the prefix plus the bare member name.
+		readonly string patternName;
 		readonly string maxEncodedValueName;
 		readonly string maxLengthName;
 		readonly string acceptsName;
 		readonly string encodeName;
+		readonly string tryEncodeName;
 		readonly string decodeName;
 		readonly string decodeToBytesName;
 		readonly string tryDecodeName;
+		readonly string getCanonicalFormName;
+		readonly string tryGetCanonicalFormName;
+		readonly string canonicaliseName;
 		readonly string rankName;
 		readonly string decodeCoreName;
 		readonly string acceptStepName;
@@ -115,6 +128,12 @@ sealed class CSharpEmitter : Emitter
 		const string spanOfChar = "global::System.Span<char>";
 		const string spanOfByte = "global::System.Span<byte>";
 		const string argumentOutOfRangeException = "global::System.ArgumentOutOfRangeException";
+
+		/// <summary>The test for a target framework that has <c>NotNullWhen</c>, and so a language with <c>string?</c>.</summary>
+		const string nullableCondition = "#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER";
+
+		/// <summary>The attribute that tells a caller an out parameter is set wherever the method returns true.</summary>
+		const string notNullWhenTrue = "[global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)]";
 
 		// The C# spelling of the chosen value type. The steppers work in ulong throughout
 		// whatever the choice, because C# promotes narrow operands to int anyway and casts
@@ -156,13 +175,18 @@ sealed class CSharpEmitter : Emitter
 			this.decodeCoreArgument = context.ValueType == NaxpValueType.UInt64 ? "value" : "(ulong)value";
 
 			string prefix = context.Prefix;
+			this.patternName = prefix + "Pattern";
 			this.maxEncodedValueName = prefix + "MaxEncodedValue";
 			this.maxLengthName = prefix + "MaxLength";
 			this.acceptsName = prefix + "Accepts";
 			this.encodeName = prefix + "Encode";
+			this.tryEncodeName = prefix + "TryEncode";
 			this.decodeName = prefix + "Decode";
 			this.decodeToBytesName = prefix + "DecodeToBytes";
 			this.tryDecodeName = prefix + "TryDecode";
+			this.getCanonicalFormName = prefix + "GetCanonicalForm";
+			this.tryGetCanonicalFormName = prefix + "TryGetCanonicalForm";
+			this.canonicaliseName = prefix + "Canonicalise";
 			this.rankName = prefix + "Rank";
 			this.decodeCoreName = prefix + "DecodeCore";
 			this.acceptStepName = prefix + "AcceptStep";
@@ -191,19 +215,52 @@ sealed class CSharpEmitter : Emitter
 		/// <summary>The name the generated code keeps the characters it has read under.</summary>
 		const string HeldName = "held";
 
+		bool Canonicalises => !this.TransducerStates.IsDefault;
+
 		public void Emit()
 		{
+			// Annotations only, so that nothing in the fragment's own bodies can warn.
+			this.Writer.Line(nullableCondition);
+			this.Writer.Line("#nullable enable annotations");
+			this.Writer.Line("#endif");
+			this.Writer.Line();
 			this.EmitConstants();
 			this.EmitAccepts(bytes: false);
 			this.EmitAccepts(bytes: true);
 			this.EmitEncode(bytes: false);
 			this.EmitEncode(bytes: true);
+			this.EmitTryEncode(bytes: false);
+			this.EmitTryEncode(bytes: true);
 			this.EmitDecodePublics();
+			this.EmitCanonicalPublics(bytes: false);
+			this.EmitCanonicalPublics(bytes: true);
 			this.EmitSteppers();
+			this.Writer.Line();
+			this.Writer.Line(nullableCondition);
+			this.Writer.Line("#nullable restore");
+			this.Writer.Line("#endif");
+		}
+
+		/// <summary>
+		/// Writes a signature annotated for nullable reference types where the framework allows it,
+		/// and plain where it does not.
+		/// </summary>
+		/// <param name="annotated">The signature with its annotations.</param>
+		/// <param name="plain">The signature C# 7.3 accepts.</param>
+		void EmitSignature(string annotated, string plain)
+		{
+			this.Writer.Line(nullableCondition);
+			this.Writer.Line(annotated);
+			this.Writer.Line("#else");
+			this.Writer.Line(plain);
+			this.Writer.Line("#endif");
 		}
 
 		void EmitConstants()
 		{
+			this.Writer.Line("/// <summary>The naxp this code was generated from.</summary>");
+			this.Writer.Line($"public const string {this.patternName} = {StringLiteral(this.context.Compilation.Pattern)};");
+			this.Writer.Line();
 			this.Writer.Line("/// <summary>The largest encoded value this naxp produces, which is also how many it has.</summary>");
 			this.Writer.Line($"public const {this.valueKeyword} {this.maxEncodedValueName} = {this.maxEncodedValueValue};");
 			this.Writer.Line();
@@ -287,46 +344,40 @@ sealed class CSharpEmitter : Emitter
 			else
 			{
 				this.Writer.Line($"{spanOfChar} canonical = stackalloc char[{this.maxLengthName}];");
-
-				if (this.NeedsRegister)
-				{
-					// The characters read, oldest first, so a reference of depth d is the one at
-					// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
-					this.Writer.Line($"{spanOfChar} {HeldName} = stackalloc char[{this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}];");
-				}
-
-				this.Writer.Line("int length = 0;");
-				this.Writer.Line("int state = 0;");
-				this.Writer.Line();
-				this.Writer.Line(bytes ? "foreach (byte b in text)" : "foreach (char c in text)");
-				this.Writer.OpenBlock();
-
-				if (this.NeedsRegister)
-				{
-					string top = (this.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
-
-					if (this.RegisterDepth > 1)
-					{
-						this.Writer.Line($"for (int h = 0; h < {top}; ++h) {{ {HeldName}[h] = {HeldName}[h + 1]; }}");
-					}
-
-					this.Writer.Line(bytes ? $"{HeldName}[{top}] = (char)b;" : $"{HeldName}[{top}] = c;");
-				}
-
-				this.Writer.Line(bytes
-					? $"state = {this.canonicalStepName}(state, (char)b, {this.StepArguments()});"
-					: $"state = {this.canonicalStepName}(state, c, {this.StepArguments()});");
-				this.Writer.Line();
-				this.Writer.Line($"if (state < 0) {{ return {this.valueZero}; }}");
-				this.Writer.CloseBlock();
-				this.Writer.Line();
-				this.Writer.Line($"length = {this.finishCanonicalName}(state, {this.FinishArguments()});");
+				this.Writer.Line($"int length = {this.canonicaliseName}(text, canonical);");
 				this.Writer.Line();
 				this.Writer.Line(this.valueIsWidest
 					? $"return length < 0 ? 0UL : {this.rankName}(canonical.Slice(0, length));"
 					: $"return length < 0 ? ({this.valueKeyword})0 : ({this.valueKeyword}){this.rankName}(canonical.Slice(0, length));");
 			}
 
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+		}
+
+		void EmitTryEncode(bool bytes)
+		{
+			if (bytes)
+			{
+				this.Writer.Line("/// <summary>Tries to encode ASCII text.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The ASCII text to encode.</param>");
+				this.Writer.Line("/// <param name=\"encoded\">The encoded value, or zero where the text is invalid.</param>");
+				this.Writer.Line("/// <returns>Whether the naxp accepts the text.</returns>");
+				this.Writer.Line($"public static bool {this.tryEncodeName}({readOnlySpanOfByte} text, out {this.valueKeyword} encoded)");
+			}
+			else
+			{
+				this.Writer.Line("/// <summary>Tries to encode a string.</summary>");
+				this.Writer.Line("/// <param name=\"text\">The string to encode.</param>");
+				this.Writer.Line("/// <param name=\"encoded\">The encoded value, or zero where the string is invalid.</param>");
+				this.Writer.Line("/// <returns>Whether the naxp accepts the string.</returns>");
+				this.Writer.Line($"public static bool {this.tryEncodeName}({readOnlySpanOfChar} text, out {this.valueKeyword} encoded)");
+			}
+
+			this.Writer.OpenBlock();
+			this.Writer.Line($"encoded = {this.encodeName}(text);");
+			this.Writer.Line();
+			this.Writer.Line($"return encoded != {this.valueZero};");
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 		}
@@ -372,6 +423,27 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line("for (int i = 0; i < length; ++i) { result[i] = (byte)buffer[i]; }");
 			this.Writer.Line();
 			this.Writer.Line("return result;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+
+			this.Writer.Line("/// <summary>Tries to find the string a value stands for.</summary>");
+			this.Writer.Line("/// <param name=\"value\">The encoded value.</param>");
+			this.Writer.Line("/// <param name=\"text\">The string, which is in canonical form, or null where the value is not one this naxp produces.</param>");
+			this.Writer.Line("/// <returns>Whether the value is one this naxp produces.</returns>");
+			this.EmitSignature(
+				$"public static bool {this.tryDecodeName}({this.valueKeyword} value, {notNullWhenTrue} out string? text)",
+				$"public static bool {this.tryDecodeName}({this.valueKeyword} value, out string text)");
+			this.Writer.OpenBlock();
+			this.Writer.Line($"if (value < {this.valueOne} || value > {this.maxEncodedValueName})");
+			this.Writer.OpenBlock();
+			this.Writer.Line("text = null;");
+			this.Writer.Line("return false;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+			this.Writer.Line($"{spanOfChar} destination = stackalloc char[{this.maxLengthName}];");
+			this.Writer.Line();
+			this.Writer.Line($"text = destination.Slice(0, {this.decodeCoreName}({this.decodeCoreArgument}, destination)).ToString();");
+			this.Writer.Line("return true;");
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 
@@ -438,10 +510,144 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 		}
+
+		void EmitCanonicalPublics(bool bytes)
+		{
+			string textType = bytes ? readOnlySpanOfByte : readOnlySpanOfChar;
+			string what = bytes ? "ASCII text" : "a string";
+			string theWhat = bytes ? "the text" : "the string";
+			string textDoc = bytes ? "/// <param name=\"text\">The ASCII text.</param>" : "/// <param name=\"text\">The string.</param>";
+
+			this.Writer.Line($"/// <summary>The canonical form of {what}.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line($"/// <returns>The canonical form, or null where {theWhat} is invalid.</returns>");
+			this.EmitSignature(
+				$"public static string? {this.getCanonicalFormName}({textType} text)",
+				$"public static string {this.getCanonicalFormName}({textType} text)");
+			this.Writer.OpenBlock();
+			this.Writer.Line($"{spanOfChar} canonical = stackalloc char[{this.maxLengthName}];");
+			this.Writer.Line($"int length = {this.canonicaliseName}(text, canonical);");
+			this.Writer.Line();
+			this.Writer.Line("return length < 0 ? null : canonical.Slice(0, length).ToString();");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+
+			this.Writer.Line($"/// <summary>Tries to find the canonical form of {what}.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line($"/// <param name=\"canonicalForm\">The canonical form, or null where {theWhat} is invalid.</param>");
+			this.Writer.Line($"/// <returns>Whether the naxp accepts {theWhat}.</returns>");
+			this.EmitSignature(
+				$"public static bool {this.tryGetCanonicalFormName}({textType} text, {notNullWhenTrue} out string? canonicalForm)",
+				$"public static bool {this.tryGetCanonicalFormName}({textType} text, out string canonicalForm)");
+			this.Writer.OpenBlock();
+			this.Writer.Line($"canonicalForm = {this.getCanonicalFormName}(text);");
+			this.Writer.Line();
+			this.Writer.Line("return canonicalForm != null;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+
+			string written = bytes ? "bytesWritten" : "charsWritten";
+
+			this.Writer.Line($"/// <summary>Tries to write the canonical form of {what}.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line(bytes
+				? "/// <param name=\"destination\">Where the canonical form is written, as ASCII bytes.</param>"
+				: "/// <param name=\"destination\">Where the canonical form is written.</param>");
+			this.Writer.Line(bytes
+				? $"/// <param name=\"{written}\">How many bytes were written, or zero where none were.</param>"
+				: $"/// <param name=\"{written}\">How many characters were written, or zero where none were.</param>");
+			this.Writer.Line($"/// <returns>False where {theWhat} is invalid, or the destination is too short.</returns>");
+			this.Writer.Line($"public static bool {this.tryGetCanonicalFormName}({textType} text, {(bytes ? spanOfByte : spanOfChar)} destination, out int {written})");
+			this.Writer.OpenBlock();
+			this.Writer.Line($"{spanOfChar} canonical = stackalloc char[{this.maxLengthName}];");
+			this.Writer.Line($"int length = {this.canonicaliseName}(text, canonical);");
+			this.Writer.Line();
+			this.Writer.Line("if (length < 0 || length > destination.Length)");
+			this.Writer.OpenBlock();
+			this.Writer.Line($"{written} = 0;");
+			this.Writer.Line("return false;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+			this.Writer.Line(bytes
+				? "for (int i = 0; i < length; ++i) { destination[i] = (byte)canonical[i]; }"
+				: "canonical.Slice(0, length).CopyTo(destination);");
+			this.Writer.Line();
+			this.Writer.Line($"{written} = length;");
+			this.Writer.Line("return true;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+		}
 		#endregion
 		#region Private methods
+		void EmitCanonicalise(bool bytes)
+		{
+			string textType = bytes ? readOnlySpanOfByte : readOnlySpanOfChar;
+
+			this.Writer.Line(bytes
+				? $"/// <summary>Writes the canonical form of ASCII text into a buffer of <see cref=\"{this.maxLengthName}\"/> characters, and returns its length, or -1 where the text is invalid.</summary>"
+				: $"/// <summary>Writes the canonical form of a string into a buffer of <see cref=\"{this.maxLengthName}\"/> characters, and returns its length, or -1 where the string is invalid.</summary>");
+			this.Writer.Line($"static int {this.canonicaliseName}({textType} text, {spanOfChar} canonical)");
+			this.Writer.OpenBlock();
+
+			if (!this.Canonicalises)
+			{
+				// Where nothing is unified an accepted string is its own canonical form, and being
+				// accepted it fits the buffer.
+				this.Writer.Line($"if (!{this.acceptsName}(text)) {{ return -1; }}");
+				this.Writer.Line();
+				this.Writer.Line(bytes
+					? "for (int i = 0; i < text.Length; ++i) { canonical[i] = (char)text[i]; }"
+					: "text.CopyTo(canonical);");
+				this.Writer.Line();
+				this.Writer.Line("return text.Length;");
+				this.Writer.CloseBlock();
+				this.Writer.Line();
+
+				return;
+			}
+
+			if (this.NeedsRegister)
+			{
+				// The characters read, oldest first, so a reference of depth d is the one at
+				// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+				this.Writer.Line($"{spanOfChar} {HeldName} = stackalloc char[{this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}];");
+			}
+
+			this.Writer.Line("int length = 0;");
+			this.Writer.Line("int state = 0;");
+			this.Writer.Line();
+			this.Writer.Line(bytes ? "foreach (byte b in text)" : "foreach (char c in text)");
+			this.Writer.OpenBlock();
+
+			if (this.NeedsRegister)
+			{
+				string top = (this.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
+
+				if (this.RegisterDepth > 1)
+				{
+					this.Writer.Line($"for (int h = 0; h < {top}; ++h) {{ {HeldName}[h] = {HeldName}[h + 1]; }}");
+				}
+
+				this.Writer.Line(bytes ? $"{HeldName}[{top}] = (char)b;" : $"{HeldName}[{top}] = c;");
+			}
+
+			this.Writer.Line(bytes
+				? $"state = {this.canonicalStepName}(state, (char)b, {this.StepArguments()});"
+				: $"state = {this.canonicalStepName}(state, c, {this.StepArguments()});");
+			this.Writer.Line();
+			this.Writer.Line("if (state < 0) { return -1; }");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+			this.Writer.Line($"return {this.finishCanonicalName}(state, {this.FinishArguments()});");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+		}
+
 		void EmitSteppers()
 		{
+			this.EmitCanonicalise(bytes: false);
+			this.EmitCanonicalise(bytes: true);
+
 			if (!this.TransducerStates.IsDefault)
 			{
 				this.Writer.Line("/// <summary>The rank of a canonical string within the canonical language, or zero where it is not in it.</summary>");
@@ -851,6 +1057,58 @@ sealed class CSharpEmitter : Emitter
 		return $"(char)({CharLiteral(run.First)} + {index})";
 	}
 
+
+	/// <summary>
+	/// A string as a C# literal: verbatim where every character is printable, which keeps a
+	/// pattern's backslashes as they were written, and escaped where the pattern holds whitespace
+	/// other than the space.
+	/// </summary>
+	static string StringLiteral(string text)
+	{
+		bool printable = true;
+
+		foreach (char c in text)
+		{
+			if (c < ' ' || c > '~') { printable = false; }
+		}
+
+		if (printable) { return "@\"" + text.Replace("\"", "\"\"") + "\""; }
+
+		var literal = new StringBuilder("\"");
+
+		foreach (char c in text)
+		{
+			switch (c)
+			{
+				case '"':
+				case '\\':
+					literal.Append('\\').Append(c);
+					break;
+				case '\t':
+					literal.Append("\\t");
+					break;
+				case '\n':
+					literal.Append("\\n");
+					break;
+				case '\r':
+					literal.Append("\\r");
+					break;
+				default:
+					if (c < ' ' || c > '~')
+					{
+						literal.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
+					}
+					else
+					{
+						literal.Append(c);
+					}
+
+					break;
+			}
+		}
+
+		return literal.Append('"').ToString();
+	}
 
 	static string CharLiteral(char c)
 	{

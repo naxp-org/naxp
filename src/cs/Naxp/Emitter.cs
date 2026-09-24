@@ -619,7 +619,7 @@ abstract class Emitter
 				: BuildTransducer(compilation.CanonicalMachine)
 				;
 			this.RegisterDepth = compilation.CanonicalMachine?.RegisterDepth ?? 0;
-			this.MaxLength = LongestPath(compilation.Canonical);
+			this.MaxLength = compilation.MaxLength;
 		}
 
 		public Compilation Compilation { get; }
@@ -793,37 +793,6 @@ abstract class Emitter
 #else
 		return ImmutableArray.Create(array);
 #endif
-	}
-
-	/// <summary>
-	/// The length of the longest string a machine generates.
-	/// </summary>
-	/// <remarks>
-	/// The states are listed in creation order and every transition points at an earlier state,
-	/// because the builder interns each state's successors before the state itself, so a single
-	/// pass has every target's length ready when it is read.
-	/// </remarks>
-	static int LongestPath(StateMap map)
-	{
-		var lengths = new int[map.States.Count];
-
-		for (int id = 0; id < map.States.Count; ++id)
-		{
-			int longest = 0;
-
-			foreach (Transition transition in map.States[id].Transitions)
-			{
-				if (transition.Set.IsEmpty) { continue; }
-
-				int viaTransition = lengths[transition.Next.Id] + 1;
-
-				if (viaTransition > longest) { longest = viaTransition; }
-			}
-
-			lengths[id] = longest;
-		}
-
-		return lengths[map.Start.Id];
 	}
 	#endregion
 	#region The models

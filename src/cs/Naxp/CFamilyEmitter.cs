@@ -38,6 +38,7 @@ abstract class CFamilyEmitter : Emitter
 		this.EmitHeader(fragment);
 		fragment.EmitPrototypes();
 		this.EmitPublics(fragment);
+		this.EmitCanonicalise(fragment);
 		fragment.EmitSteppers();
 	}
 
@@ -87,6 +88,16 @@ abstract class CFamilyEmitter : Emitter
 
 	/// <summary>Writes the public functions, which are the whole difference between the two languages.</summary>
 	protected abstract void EmitPublics(Fragment fragment);
+
+	/// <summary>
+	/// Writes the function that puts the canonical form of text into a buffer of the longest
+	/// length, which every public function needing a canonical form calls. It reads its text as
+	/// the public functions do, which is the language's own business.
+	/// </summary>
+	protected abstract void EmitCanonicalise(Fragment fragment);
+
+	/// <summary>How text is taken in: a pointer and a length in C, a <c>string_view</c> in C++.</summary>
+	protected abstract string TextParameters { get; }
 
 	/// <summary>The linkage a stepper is declared with: <c>static</c> in C, <c>inline</c> in C++.</summary>
 	protected abstract string StepLinkage { get; }
@@ -175,6 +186,54 @@ abstract class CFamilyEmitter : Emitter
 		}
 	}
 
+	/// <summary>
+	/// A string as a C literal. A pattern may hold whitespace other than the space, which is
+	/// escaped along with the quote and the backslash, and a question mark after another is escaped
+	/// too, so that no pair of them starts a trigraph where a compiler still reads trigraphs.
+	/// </summary>
+	protected static string StringLiteral(string text)
+	{
+		var literal = new StringBuilder("\"");
+
+		for (int i = 0; i < text.Length; ++i)
+		{
+			char c = text[i];
+
+			if (c == '"' || c == '\\')
+			{
+				literal.Append('\\').Append(c);
+			}
+			else if (c == '?' && i > 0 && text[i - 1] == '?')
+			{
+				literal.Append("\\?");
+			}
+			else if (c == '\t')
+			{
+				literal.Append("\\t");
+			}
+			else if (c == '\n')
+			{
+				literal.Append("\\n");
+			}
+			else if (c == '\r')
+			{
+				literal.Append("\\r");
+			}
+			else if (c < ' ' || c > '~')
+			{
+				// Three octal digits, because a hexadecimal escape runs on into any hexadecimal
+				// digit that follows it.
+				literal.Append('\\').Append(Convert.ToString(c, 8).PadLeft(3, '0'));
+			}
+			else
+			{
+				literal.Append(c);
+			}
+		}
+
+		return literal.Append('"').ToString();
+	}
+
 	/// <summary>An unsigned 64-bit literal, grouped where the language has a separator.</summary>
 	protected string Literal(ulong value) => this.Grouped(value) + "ULL";
 
@@ -234,11 +293,14 @@ abstract class CFamilyEmitter : Emitter
 			this.DecodeCoreArgument = this.ValueIsWidest ? "value" : emitter.Cast(emitter.UInt64, "value");
 
 			string prefix = context.Prefix;
+			this.PatternName = Snake(prefix, "Pattern");
 			this.MaxEncodedValueName = Snake(prefix, "MaxEncodedValue");
 			this.MaxLengthName = Snake(prefix, "MaxLength");
 			this.AcceptsName = Snake(prefix, "Accepts");
 			this.EncodeName = Snake(prefix, "Encode");
 			this.DecodeName = Snake(prefix, "Decode");
+			this.CanonicalFormName = Snake(prefix, "CanonicalForm");
+			this.CanonicaliseName = Snake(prefix, "Canonicalise");
 			this.RankName = Snake(prefix, "Rank");
 			this.DecodeCoreName = Snake(prefix, "DecodeCore");
 			this.AcceptStepName = Snake(prefix, "AcceptStep");
@@ -272,11 +334,14 @@ abstract class CFamilyEmitter : Emitter
 		public string Name(string member) => Snake(this.context.Prefix, member);
 
 		// The generated names, each the prefix plus the bare member name in snake_case.
+		public string PatternName { get; }
 		public string MaxEncodedValueName { get; }
 		public string MaxLengthName { get; }
 		public string AcceptsName { get; }
 		public string EncodeName { get; }
 		public string DecodeName { get; }
+		public string CanonicalFormName { get; }
+		public string CanonicaliseName { get; }
 		public string RankName { get; }
 		public string DecodeCoreName { get; }
 		public string AcceptStepName { get; }
@@ -309,6 +374,8 @@ abstract class CFamilyEmitter : Emitter
 		#region The steppers' signatures
 		// Each parameter list is written once here and read by the prototype and the definition
 		// alike, so the two cannot drift.
+		string CanonicaliseParameters => $"{this.emitter.TextParameters}, {this.emitter.Pointer("char", "canonical")}";
+
 		string RankParameters => $"{this.emitter.Pointer("const char", "canonical")}, int length";
 
 		string DecodeCoreParameters => $"{this.emitter.UInt64} value, {this.emitter.Pointer("char", "destination")}";
@@ -347,6 +414,7 @@ abstract class CFamilyEmitter : Emitter
 			string linkage = this.emitter.StepLinkage;
 
 			this.emitter.Comment(this.Writer, "The steppers, which are defined below the public functions.");
+			this.Writer.Line($"{linkage} int {this.CanonicaliseName}({this.CanonicaliseParameters});");
 
 			if (this.Canonicalises)
 			{
@@ -390,6 +458,42 @@ abstract class CFamilyEmitter : Emitter
 		}
 		#endregion
 		#region The steppers
+		/// <summary>Opens the function that canonicalises, with its comment, which both languages share.</summary>
+		public void OpenCanonicalise()
+		{
+			this.emitter.Comment(this.Writer, $"Writes the canonical form of text into a buffer of {this.MaxLengthName} characters, and returns its length, or -1 where the text is invalid.");
+			this.Writer.Line($"{this.emitter.StepLinkage} int {this.CanonicaliseName}({this.CanonicaliseParameters})");
+			this.Writer.OpenBlock();
+		}
+
+		/// <summary>Declares the register, where the naxp needs one, ahead of the loop that reads the text.</summary>
+		/// <param name="zeroed">How an array is written zeroed: <c>{ 0 }</c> in C and <c>{}</c> in C++.</param>
+		public void DeclareRegister(string zeroed)
+		{
+			if (!this.NeedsRegister) { return; }
+
+			// The characters read, oldest first, so a reference of depth d is the one at
+			// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring, and it
+			// starts zeroed so that an early shift reads nothing undefined.
+			this.Writer.Line($"char {HeldName}[{this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}] = {zeroed};");
+		}
+
+		/// <summary>Keeps the character just read, where the naxp needs a register.</summary>
+		/// <param name="character">The character, as a <c>char</c>.</param>
+		public void KeepCharacter(string character)
+		{
+			if (!this.NeedsRegister) { return; }
+
+			string top = (this.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
+
+			if (this.RegisterDepth > 1)
+			{
+				this.Writer.Line($"for (int h = 0; h < {top}; ++h) {{ {HeldName}[h] = {HeldName}[h + 1]; }}");
+			}
+
+			this.Writer.Line($"{HeldName}[{top}] = {character};");
+		}
+
 		public void EmitSteppers()
 		{
 			string linkage = this.emitter.StepLinkage;

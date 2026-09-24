@@ -10,12 +10,13 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The fragment is two constants, four public functions and their steppers, every name in
+/// The fragment is three constants, eight public functions and their steppers, every name in
 /// snake_case under the caller's prefix, and its surface is the library's own
 /// <c>logmu::naxp</c>: a <c>string_view</c> in, a <c>std::string</c> out, <c>decode</c>
-/// throwing <c>std::out_of_range</c> and <c>try_decode</c> reporting instead. It needs
-/// <c>cstdint</c>, <c>stdexcept</c>, <c>string</c> and <c>string_view</c>, which the caller
-/// includes, and its first line says so.
+/// throwing <c>std::out_of_range</c> and <c>try_decode</c> reporting instead, and a
+/// <c>try_</c> overload writing into the caller's buffer wherever text comes out. It needs
+/// <c>cstdint</c>, <c>optional</c>, <c>stdexcept</c>, <c>string</c> and <c>string_view</c>,
+/// which the caller includes, and its first line says so.
 /// </para>
 /// <para>
 /// Every function is <c>inline</c> and both constants <c>inline constexpr</c>, so the fragment
@@ -39,6 +40,9 @@ sealed class CppEmitter : CFamilyEmitter
 
 	/// <summary>C++14's digit separator.</summary>
 	protected override string? DigitSeparator => "'";
+
+	/// <inheritdoc/>
+	protected override string TextParameters => "std::string_view text";
 
 	/// <inheritdoc/>
 	protected override string Pointer(string type, string name) => $"{type}* {name}";
@@ -67,8 +71,12 @@ sealed class CppEmitter : CFamilyEmitter
 	{
 		CodeWriter writer = fragment.Writer;
 
-		writer.Line("// Needs <cstdint>, <stdexcept>, <string> and <string_view>. Everything is inline, so the");
-		writer.Line("// fragment can sit in a header; give each naxp its own prefix where several share a program.");
+		writer.Line("// Needs <cstdint>, <optional>, <stdexcept>, <string> and <string_view>. Everything is inline,");
+		writer.Line("// so the fragment can sit in a header; give each naxp its own prefix where several share a");
+		writer.Line("// program.");
+		writer.Line();
+		this.Comment(writer, "The naxp this code was generated from.");
+		writer.Line($"inline constexpr std::string_view {fragment.PatternName} = {PatternLiteral(fragment.Context.Compilation.Pattern)};");
 		writer.Line();
 		this.Comment(writer, "The largest encoded value this naxp produces, which is also how many it has.");
 		writer.Line($"inline constexpr {fragment.ValueKeyword} {fragment.MaxEncodedValueName} = {fragment.MaxEncodedValueLiteral};");
@@ -85,6 +93,7 @@ sealed class CppEmitter : CFamilyEmitter
 		this.EmitAccepts(fragment);
 		this.EmitEncode(fragment);
 		this.EmitDecode(fragment);
+		this.EmitCanonicalForm(fragment);
 	}
 
 	void EmitAccepts(Fragment fragment)
@@ -125,39 +134,7 @@ sealed class CppEmitter : CFamilyEmitter
 		if (fragment.Canonicalises)
 		{
 			writer.Line($"char canonical[{fragment.BufferSize}] = {{}};");
-
-			if (fragment.NeedsRegister)
-			{
-				// The characters read, oldest first, so a reference of depth d is the one at
-				// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring, and
-				// it starts zeroed so that an early shift reads nothing undefined.
-				writer.Line($"char {Fragment.HeldName}[{fragment.RegisterDepth.ToString(CultureInfo.InvariantCulture)}] = {{}};");
-			}
-
-			writer.Line("int length = 0;");
-			writer.Line("int state = 0;");
-			writer.Line();
-			writer.Line("for (char c : text)");
-			writer.OpenBlock();
-
-			if (fragment.NeedsRegister)
-			{
-				string top = (fragment.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
-
-				if (fragment.RegisterDepth > 1)
-				{
-					writer.Line($"for (int h = 0; h < {top}; ++h) {{ {Fragment.HeldName}[h] = {Fragment.HeldName}[h + 1]; }}");
-				}
-
-				writer.Line($"{Fragment.HeldName}[{top}] = c;");
-			}
-
-			writer.Line($"state = {fragment.CanonicalStepName}(state, static_cast<unsigned char>(c), {fragment.StepArguments("length")});");
-			writer.Line();
-			writer.Line($"if (state < 0) {{ return {fragment.ValueZero}; }}");
-			writer.CloseBlock();
-			writer.Line();
-			writer.Line($"length = {fragment.FinishCanonicalName}(state, {fragment.FinishArguments()});");
+			writer.Line($"int length = {fragment.CanonicaliseName}(text, canonical);");
 			writer.Line();
 			writer.Line(fragment.ValueIsWidest
 				? $"return length < 0 ? 0ULL : {fragment.RankName}(canonical, length);"
@@ -225,6 +202,157 @@ sealed class CppEmitter : CFamilyEmitter
 		writer.Line("return true;");
 		writer.CloseBlock();
 		writer.Line();
+
+		writer.Line("/// Tries to write the string a value stands for, which is in canonical form, with no terminator.");
+		writer.Line("///");
+		writer.Line("/// @param value The encoded value.");
+		writer.Line($"/// @param destination Where the string is written. {fragment.MaxLengthName} characters always suffice.");
+		writer.Line("/// @param capacity How many characters there is room for.");
+		writer.Line("/// @param length How many characters were written, or zero where none were.");
+		writer.Line("/// @returns False where the value is not one this naxp produces, or the destination is too short, in which case nothing is written.");
+		writer.Line($"inline bool {tryDecodeName}({fragment.ValueKeyword} value, char* destination, std::size_t capacity, std::size_t& length)");
+		writer.OpenBlock();
+		writer.Line($"if (value < {fragment.ValueOne} || value > {fragment.MaxEncodedValueName})");
+		writer.OpenBlock();
+		writer.Line("length = 0;");
+		writer.Line("return false;");
+		writer.CloseBlock();
+		writer.Line();
+		writer.Line($"char buffer[{fragment.BufferSize}] = {{}};");
+		writer.Line($"int written = {fragment.DecodeCoreName}({fragment.DecodeCoreArgument}, buffer);");
+		writer.Line();
+		EmitCopyOut(writer, mayFail: false);
+	}
+
+	void EmitCanonicalForm(Fragment fragment)
+	{
+		CodeWriter writer = fragment.Writer;
+		string tryName = fragment.Name("TryCanonicalForm");
+
+		writer.Line("/// The canonical form of text, which is the text decoding its encoded value gives back.");
+		writer.Line("///");
+		writer.Line("/// @param text The text.");
+		writer.Line("/// @returns The canonical form, or no value where the text is invalid.");
+		writer.Line($"inline std::optional<std::string> {fragment.CanonicalFormName}(std::string_view text)");
+		writer.OpenBlock();
+		writer.Line($"char buffer[{fragment.BufferSize}] = {{}};");
+		writer.Line($"int length = {fragment.CanonicaliseName}(text, buffer);");
+		writer.Line();
+		writer.Line("if (length < 0) { return std::nullopt; }");
+		writer.Line();
+		writer.Line("return std::string(buffer, buffer + length);");
+		writer.CloseBlock();
+		writer.Line();
+
+		writer.Line("/// Tries to find the canonical form of text.");
+		writer.Line("///");
+		writer.Line("/// @param text The text.");
+		writer.Line("/// @param canonical_form Where the canonical form goes. Untouched where the text is invalid.");
+		writer.Line("/// @returns Whether the naxp accepts the text.");
+		writer.Line($"inline bool {tryName}(std::string_view text, std::string& canonical_form)");
+		writer.OpenBlock();
+		writer.Line($"char buffer[{fragment.BufferSize}] = {{}};");
+		writer.Line($"int length = {fragment.CanonicaliseName}(text, buffer);");
+		writer.Line();
+		writer.Line("if (length < 0) { return false; }");
+		writer.Line();
+		writer.Line("canonical_form.assign(buffer, buffer + length);");
+		writer.Line();
+		writer.Line("return true;");
+		writer.CloseBlock();
+		writer.Line();
+
+		writer.Line("/// Tries to write the canonical form of text, with no terminator.");
+		writer.Line("///");
+		writer.Line("/// @param text The text.");
+		writer.Line($"/// @param destination Where the canonical form is written. {fragment.MaxLengthName} characters always suffice.");
+		writer.Line("/// @param capacity How many characters there is room for.");
+		writer.Line("/// @param length How many characters were written, or zero where none were.");
+		writer.Line("/// @returns False where the text is invalid, or the destination is too short, in which case nothing is written.");
+		writer.Line($"inline bool {tryName}(std::string_view text, char* destination, std::size_t capacity, std::size_t& length)");
+		writer.OpenBlock();
+		writer.Line($"char buffer[{fragment.BufferSize}] = {{}};");
+		writer.Line($"int written = {fragment.CanonicaliseName}(text, buffer);");
+		writer.Line();
+		EmitCopyOut(writer, mayFail: true);
+	}
+
+	/// <summary>
+	/// The end of a function writing into the caller's buffer: the check that <c>written</c>
+	/// characters of <c>buffer</c> fit, the copy, and the length.
+	/// </summary>
+	/// <param name="writer">Where the fragment is going.</param>
+	/// <param name="mayFail">Whether <c>written</c> is -1 where the text was invalid.</param>
+	static void EmitCopyOut(CodeWriter writer, bool mayFail)
+	{
+		writer.Line(mayFail
+			? "if (written < 0 || static_cast<std::size_t>(written) > capacity)"
+			: "if (static_cast<std::size_t>(written) > capacity)");
+		writer.OpenBlock();
+		writer.Line("length = 0;");
+		writer.Line("return false;");
+		writer.CloseBlock();
+		writer.Line();
+		writer.Line("std::char_traits<char>::copy(destination, buffer, static_cast<std::size_t>(written));");
+		writer.Line("length = static_cast<std::size_t>(written);");
+		writer.Line();
+		writer.Line("return true;");
+		writer.CloseBlock();
+		writer.Line();
+	}
+
+	/// <inheritdoc/>
+	protected override void EmitCanonicalise(Fragment fragment)
+	{
+		CodeWriter writer = fragment.Writer;
+
+		fragment.OpenCanonicalise();
+
+		if (!fragment.Canonicalises)
+		{
+			// Where nothing is unified an accepted string is its own canonical form, and being
+			// accepted it fits the buffer.
+			writer.Line($"if (!{fragment.AcceptsName}(text)) {{ return -1; }}");
+			writer.Line();
+			writer.Line("text.copy(canonical, text.size());");
+			writer.Line();
+			writer.Line("return static_cast<int>(text.size());");
+			writer.CloseBlock();
+			writer.Line();
+
+			return;
+		}
+
+		fragment.DeclareRegister("{}");
+		writer.Line("int length = 0;");
+		writer.Line("int state = 0;");
+		writer.Line();
+		writer.Line("for (char c : text)");
+		writer.OpenBlock();
+		fragment.KeepCharacter("c");
+		writer.Line($"state = {fragment.CanonicalStepName}(state, static_cast<unsigned char>(c), {fragment.StepArguments("length")});");
+		writer.Line();
+		writer.Line("if (state < 0) { return -1; }");
+		writer.CloseBlock();
+		writer.Line();
+		writer.Line($"return {fragment.FinishCanonicalName}(state, {fragment.FinishArguments()});");
+		writer.CloseBlock();
+		writer.Line();
+	}
+
+	/// <summary>
+	/// A pattern as a C++ literal: raw where every character is printable and nothing in it
+	/// closes a raw string early, which keeps its backslashes as they were written, and escaped
+	/// otherwise.
+	/// </summary>
+	static string PatternLiteral(string text)
+	{
+		foreach (char c in text)
+		{
+			if (c < ' ' || c > '~') { return StringLiteral(text); }
+		}
+
+		return text.Contains(")\"") ? StringLiteral(text) : $"R\"({text})\"";
 	}
 	#endregion
 }

@@ -1,6 +1,6 @@
 {
 	"name": "@naxp/naxp",
-	"version": "0.11.0",
+	"version": "0.12.0",
 	"description": "A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.",
 	"keywords": [
 		"naxp",

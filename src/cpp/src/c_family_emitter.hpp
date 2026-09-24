@@ -58,6 +58,14 @@ namespace logmu::detail
 		/// Writes the public functions, which are the whole difference between the two languages.
 		virtual void emit_publics(fragment& fragment) const = 0;
 
+		/// Writes the function that puts the canonical form of text into a buffer of the longest
+		/// length, which every public function needing a canonical form calls. It reads its text as
+		/// the public functions do, which is the language's own business.
+		virtual void emit_canonicalise(fragment& fragment) const = 0;
+
+		/// How text is taken in: a pointer and a length in C, a `string_view` in C++.
+		virtual std::string text_parameters() const = 0;
+
 		/// The linkage a stepper is declared with: `static` in C, `inline` in C++.
 		virtual std::string step_linkage() const = 0;
 
@@ -103,6 +111,12 @@ namespace logmu::detail
 		/// ones in hexadecimal. A hexadecimal escape runs to the closing quote, so it is safe here
 		/// where it would not be inside a string.
 		static std::string char_literal(char c);
+
+		/// A string as a literal. A pattern may hold whitespace other than the space, which is
+		/// escaped along with the quote and the backslash, and a question mark after another is
+		/// escaped too, so that no pair of them starts a trigraph where a compiler still reads
+		/// trigraphs.
+		static std::string string_literal(const std::string& text);
 
 		/// An unsigned 64-bit literal, grouped where the language has a separator.
 		std::string literal(std::uint64_t value) const
@@ -153,6 +167,12 @@ namespace logmu::detail
 			return this->context.max_length;
 		}
 
+		/// The naxp the fragment is generated from.
+		const std::string& pattern() const
+		{
+			return this->context.compiled.pattern();
+		}
+
 		int register_depth() const
 		{
 			return this->context.register_depth;
@@ -175,11 +195,14 @@ namespace logmu::detail
 		}
 
 		// The generated names, each the prefix plus the bare member name in snake_case.
+		std::string pattern_name;
 		std::string max_encoded_value_name;
 		std::string max_length_name;
 		std::string accepts_name;
 		std::string encode_name;
 		std::string decode_name;
+		std::string canonical_form_name;
+		std::string canonicalise_name;
 		std::string rank_name;
 		std::string decode_core_name;
 		std::string accept_step_name;
@@ -231,11 +254,25 @@ namespace logmu::detail
 		/// they are what a reader is looking for.
 		void emit_prototypes();
 
+		/// Opens the function that canonicalises, with its comment, which both languages share.
+		void open_canonicalise();
+
+		/// Declares the register, where the naxp needs one, ahead of the loop that reads the text.
+		///
+		/// @param zeroed How an array is written zeroed: `{ 0 }` in C and `{}` in C++.
+		void declare_register(const std::string& zeroed);
+
+		/// Keeps the character just read, where the naxp needs a register.
+		///
+		/// @param character The character, as a `char`.
+		void keep_character(const std::string& character);
+
 		void emit_steppers();
 
 	private:
 		// The steppers' signatures. Each parameter list is written once here and read by the
 		// prototype and the definition alike, so the two cannot drift.
+		std::string canonicalise_parameters() const;
 		std::string rank_parameters() const;
 		std::string decode_core_parameters() const;
 		std::string accept_step_parameters() const;

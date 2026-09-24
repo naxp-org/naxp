@@ -15,15 +15,16 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The fragment is a set of const and function declarations - two consts, the public functions and
-/// their private steppers - every name prefixed with the caller's prefix and camel cased, which is
-/// what JavaScript readers expect. Nothing is exported: the module wrapper, the export list and any
-/// header comment are the caller's job.
+/// The fragment is a set of const and function declarations - three consts, the public functions
+/// and their private steppers - every name prefixed with the caller's prefix and camel cased, which
+/// is what JavaScript readers expect. Nothing is exported: the module wrapper, the export list and
+/// any header comment are the caller's job.
 /// </para>
 /// <para>
 /// Characters are handled as ASCII code points rather than one-character strings, so the steppers
-/// compare numbers and the byte entry points feed their bytes straight in. That is why one stepper
-/// serves both the string and the <c>Uint8Array</c> forms, where the C# emitter needs a cast.
+/// compare numbers and bytes feed straight in. That is why each public function takes a string or a
+/// <c>Uint8Array</c> alike, as the library's <c>Naxp</c> does, where the C# emitter needs an
+/// overload and a cast.
 /// </para>
 /// <para>
 /// JavaScript has one number type, exact to 2^53 - 1, so the emitter reads the naxp's largest encoded value
@@ -106,14 +107,16 @@ sealed class JavaScriptEmitter : Emitter
 		readonly Context context;
 
 		// The generated names, each the prefix plus the bare member name, camel cased.
+		readonly string patternName;
 		readonly string maxEncodedValueName;
 		readonly string maxLengthName;
 		readonly string acceptsName;
-		readonly string acceptsBytesName;
 		readonly string encodeName;
-		readonly string encodeBytesName;
 		readonly string decodeName;
 		readonly string decodeToBytesName;
+		readonly string tryDecodeName;
+		readonly string getCanonicalFormName;
+		readonly string canonicaliseName;
 		readonly string rankName;
 		readonly string decodeCoreName;
 		readonly string acceptStepName;
@@ -139,14 +142,16 @@ sealed class JavaScriptEmitter : Emitter
 			this.one = this.big ? "1n" : "1";
 
 			string prefix = context.Prefix;
+			this.patternName = Camel(prefix, "Pattern");
 			this.maxEncodedValueName = Camel(prefix, "MaxEncodedValue");
 			this.maxLengthName = Camel(prefix, "MaxLength");
 			this.acceptsName = Camel(prefix, "Accepts");
-			this.acceptsBytesName = Camel(prefix, "AcceptsBytes");
 			this.encodeName = Camel(prefix, "Encode");
-			this.encodeBytesName = Camel(prefix, "EncodeBytes");
 			this.decodeName = Camel(prefix, "Decode");
 			this.decodeToBytesName = Camel(prefix, "DecodeToBytes");
+			this.tryDecodeName = Camel(prefix, "TryDecode");
+			this.getCanonicalFormName = Camel(prefix, "GetCanonicalForm");
+			this.canonicaliseName = Camel(prefix, "Canonicalise");
 			this.rankName = Camel(prefix, "Rank");
 			this.decodeCoreName = Camel(prefix, "DecodeCore");
 			this.acceptStepName = Camel(prefix, "AcceptStep");
@@ -175,21 +180,26 @@ sealed class JavaScriptEmitter : Emitter
 		/// <summary>The name the generated code keeps the code points it has read under.</summary>
 		const string HeldName = "held";
 
+		/// <summary>The name of the flag saying that a public function was given bytes rather than a string.</summary>
+		const string BytesName = "bytes";
+
 		bool Canonicalises => !this.TransducerStates.IsDefault;
 
 		public void Emit()
 		{
 			this.EmitConstants();
-			this.EmitAccepts(bytes: false);
-			this.EmitAccepts(bytes: true);
-			this.EmitEncode(bytes: false);
-			this.EmitEncode(bytes: true);
+			this.EmitAccepts();
+			this.EmitEncode();
 			this.EmitDecodePublics();
+			this.EmitGetCanonicalForm();
 			this.EmitSteppers();
 		}
 
 		void EmitConstants()
 		{
+			this.Writer.Line("/** The naxp this code was generated from. */");
+			this.Writer.Line($"const {this.patternName} = {StringLiteral(this.context.Compilation.Pattern)};");
+			this.Writer.Line();
 			this.Writer.Line("/** The largest encoded value this naxp produces, which is also how many it has. */");
 			this.Writer.Line($"const {this.maxEncodedValueName} = {this.Value(this.context.Compilation.MaxEncodedValue)};");
 			this.Writer.Line();
@@ -199,21 +209,18 @@ sealed class JavaScriptEmitter : Emitter
 		}
 
 		#region Public functions
-		void EmitAccepts(bool bytes)
+		void EmitAccepts()
 		{
-			this.Writer.Line(bytes
-				? "/** Whether this naxp accepts the ASCII text in a Uint8Array. A byte outside ASCII is never accepted."
-				: "/** Whether this naxp accepts a string.");
-			this.Writer.Line(bytes
-				? " * @param {Uint8Array} bytes"
-				: " * @param {string} text");
+			this.Writer.Line("/** Whether this naxp accepts a string, or the ASCII text in a Uint8Array. A byte outside ASCII is never accepted.");
+			this.Writer.Line(" * @param {string | Uint8Array} text");
 			this.Writer.Line(" * @returns {boolean}");
 			this.Writer.Line(" */");
-			this.Writer.Line($"function {(bytes ? this.acceptsBytesName : this.acceptsName)}({(bytes ? "bytes" : "text")}) {{");
+			this.Writer.Line($"function {this.acceptsName}(text) {{");
 			this.Writer.Indent();
+			this.Writer.Line($"const {BytesName} = typeof text !== 'string';");
 			this.Writer.Line("let state = 0;");
 			this.Writer.Line();
-			this.EmitReadLoop(bytes, code => $"state = {this.acceptStepName}(state, {code});", "return false;");
+			this.EmitReadLoop($"state = {this.acceptStepName}(state, c);", "return false;");
 			this.Writer.Line();
 			this.Writer.Line($"return {this.isAcceptingName}(state);");
 			this.Writer.Outdent();
@@ -221,46 +228,28 @@ sealed class JavaScriptEmitter : Emitter
 			this.Writer.Line();
 		}
 
-		void EmitEncode(bool bytes)
+		void EmitEncode()
 		{
-			this.Writer.Line(bytes
-				? "/** The encoded value of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where the text is invalid."
-				: "/** The encoded value of a string, from 1 to the largest encoded value, or zero where the string is invalid.");
-			this.Writer.Line(bytes
-				? " * @param {Uint8Array} bytes"
-				: " * @param {string} text");
+			this.Writer.Line("/** The encoded value of a string, or of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where it is invalid.");
+			this.Writer.Line(" * @param {string | Uint8Array} text");
 			this.Writer.Line($" * @returns {{{this.NumberType}}}");
 			this.Writer.Line(" */");
-			this.Writer.Line($"function {(bytes ? this.encodeBytesName : this.encodeName)}({(bytes ? "bytes" : "text")}) {{");
+			this.Writer.Line($"function {this.encodeName}(text) {{");
 			this.Writer.Indent();
 
 			if (this.Canonicalises)
 			{
-				this.Writer.Line("const canonical = [];");
-				this.Writer.Line("let state = 0;");
+				this.Writer.Line($"const canonical = {this.canonicaliseName}(text);");
 				this.Writer.Line();
-				if (this.NeedsRegister)
-				{
-					// The code points read, oldest first, so a reference of depth d is the one at
-					// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
-					this.Writer.Line($"const {HeldName} = new Array({this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}).fill(0);");
-					this.Writer.Line();
-				}
-
-				this.EmitReadLoop(
-					bytes,
-					code => $"state = {this.canonicalStepName}(state, {code}, {this.StepArguments()});",
-					$"return {this.zero};",
-					this.NeedsRegister ? code => $"{HeldName}.shift(); {HeldName}.push({code});" : null);
-				this.Writer.Line();
-				this.Writer.Line($"return {this.finishCanonicalName}(state, {this.FinishArguments()}) ? {this.rankName}(canonical) : {this.zero};");
+				this.Writer.Line($"return canonical === null ? {this.zero} : {this.rankName}(canonical);");
 			}
 			else
 			{
+				this.Writer.Line($"const {BytesName} = typeof text !== 'string';");
 				this.Writer.Line($"const acc = {{ total: {this.zero} }};");
 				this.Writer.Line("let state = 0;");
 				this.Writer.Line();
-				this.EmitReadLoop(bytes, code => $"state = {this.encodeStepName}(state, {code}, acc);", $"return {this.zero};");
+				this.EmitReadLoop($"state = {this.encodeStepName}(state, c, acc);", $"return {this.zero};");
 				this.Writer.Line();
 				this.Writer.Line($"return {this.isAcceptingName}(state) ? acc.total + {this.one} : {this.zero};");
 			}
@@ -271,20 +260,23 @@ sealed class JavaScriptEmitter : Emitter
 		}
 
 		/// <summary>
-		/// The loop both entry points read their input with. A byte is already the code point, and
-		/// anything above ASCII fits no transition, so one stepper serves both forms.
+		/// The loop every entry point reads its input with. A byte is already the code point, and
+		/// anything above ASCII fits no transition, so one stepper serves strings and bytes alike;
+		/// the function has already set the flag saying which it holds.
 		/// </summary>
-		void EmitReadLoop(bool bytes, Func<string, string> step, string onFault, Func<string, string>? before = null)
+		/// <param name="step">The stepping statement, over the code point <c>c</c>.</param>
+		/// <param name="onFault">What a failed step does.</param>
+		/// <param name="before">A statement between reading the code point and stepping, or null.</param>
+		void EmitReadLoop(string step, string onFault, string? before = null)
 		{
-			string source = bytes ? "bytes" : "text";
-			string code = bytes ? "bytes[i]" : "text.charCodeAt(i)";
-
-			this.Writer.Line($"for (let i = 0; i < {source}.length; i++) {{");
+			this.Writer.Line("for (let i = 0; i < text.length; i++) {");
 			this.Writer.Indent();
+			this.Writer.Line($"const c = {BytesName} ? text[i] : text.charCodeAt(i);");
+			this.Writer.Line();
 
-			if (before is not null) { this.Writer.Line(before(code)); }
+			if (before is not null) { this.Writer.Line(before); }
 
-			this.Writer.Line(step(code));
+			this.Writer.Line(step);
 			this.Writer.Line();
 			this.Writer.Line($"if (state < 0) {{ {onFault} }}");
 			this.Writer.Outdent();
@@ -321,6 +313,48 @@ sealed class JavaScriptEmitter : Emitter
 			this.Writer.Outdent();
 			this.Writer.Line("}");
 			this.Writer.Line();
+
+			this.Writer.Line("/** The string a value stands for, which is in canonical form, or null where the value is not one this naxp produces.");
+			this.Writer.Line($" * @param {{{this.NumberType}}} value");
+			this.Writer.Line(" * @returns {string | null}");
+			this.Writer.Line(" */");
+			this.Writer.Line($"function {this.tryDecodeName}(value) {{");
+			this.Writer.Indent();
+			this.Writer.Line($"if (value < {this.one} || value > {this.maxEncodedValueName}) {{ return null; }}");
+			this.Writer.Line();
+			this.Writer.Line($"return String.fromCharCode.apply(null, {this.decodeCoreName}(value));");
+			this.Writer.Outdent();
+			this.Writer.Line("}");
+			this.Writer.Line();
+		}
+
+		void EmitGetCanonicalForm()
+		{
+			this.Writer.Line("/** The canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid.");
+			this.Writer.Line(" * @param {string | Uint8Array} text");
+			this.Writer.Line(" * @returns {string | null}");
+			this.Writer.Line(" */");
+			this.Writer.Line($"function {this.getCanonicalFormName}(text) {{");
+			this.Writer.Indent();
+
+			if (this.Canonicalises)
+			{
+				this.Writer.Line($"const canonical = {this.canonicaliseName}(text);");
+				this.Writer.Line();
+				this.Writer.Line("return canonical === null ? null : String.fromCharCode.apply(null, canonical);");
+			}
+			else
+			{
+				// Where nothing is unified an accepted string is its own canonical form, so only bytes
+				// need anything done to them.
+				this.Writer.Line($"if (!{this.acceptsName}(text)) {{ return null; }}");
+				this.Writer.Line();
+				this.Writer.Line("return typeof text === 'string' ? text : String.fromCharCode.apply(null, text);");
+			}
+
+			this.Writer.Outdent();
+			this.Writer.Line("}");
+			this.Writer.Line();
 		}
 
 		void EmitRangeCheck(string message)
@@ -338,6 +372,32 @@ sealed class JavaScriptEmitter : Emitter
 		{
 			if (this.Canonicalises)
 			{
+				this.Writer.Line("/** The code points of the canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid. */");
+				this.Writer.Line($"function {this.canonicaliseName}(text) {{");
+				this.Writer.Indent();
+				this.Writer.Line($"const {BytesName} = typeof text !== 'string';");
+				this.Writer.Line("const canonical = [];");
+				this.Writer.Line("let state = 0;");
+				this.Writer.Line();
+
+				if (this.NeedsRegister)
+				{
+					// The code points read, oldest first, so a reference of depth d is the one at
+					// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+					this.Writer.Line($"const {HeldName} = new Array({this.RegisterDepth.ToString(CultureInfo.InvariantCulture)}).fill(0);");
+					this.Writer.Line();
+				}
+
+				this.EmitReadLoop(
+					$"state = {this.canonicalStepName}(state, c, {this.StepArguments()});",
+					"return null;",
+					this.NeedsRegister ? $"{HeldName}.shift(); {HeldName}.push(c);" : null);
+				this.Writer.Line();
+				this.Writer.Line($"return {this.finishCanonicalName}(state, {this.FinishArguments()}) ? canonical : null;");
+				this.Writer.Outdent();
+				this.Writer.Line("}");
+				this.Writer.Line();
+
 				this.Writer.Line("/** The rank of a canonical string, as code points, within the canonical language, or zero where it is not in it. */");
 				this.Writer.Line($"function {this.rankName}(codes) {{");
 				this.Writer.Indent();
@@ -767,6 +827,48 @@ sealed class JavaScriptEmitter : Emitter
 	}
 
 	#region Text helpers
+	/// <summary>
+	/// A string as a single-quoted JavaScript literal. A pattern may hold whitespace other than the
+	/// space, which is escaped along with the quote and the backslash.
+	/// </summary>
+	static string StringLiteral(string text)
+	{
+		var literal = new StringBuilder("'");
+
+		foreach (char c in text)
+		{
+			switch (c)
+			{
+				case '\'':
+				case '\\':
+					literal.Append('\\').Append(c);
+					break;
+				case '\t':
+					literal.Append("\\t");
+					break;
+				case '\n':
+					literal.Append("\\n");
+					break;
+				case '\r':
+					literal.Append("\\r");
+					break;
+				default:
+					if (c < ' ' || c > '~')
+					{
+						literal.Append("\\x").Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
+					}
+					else
+					{
+						literal.Append(c);
+					}
+
+					break;
+			}
+		}
+
+		return literal.Append('\'').ToString();
+	}
+
 	/// <summary>
 	/// An ASCII code point, in hexadecimal. Bare, with no comment naming the character: the
 	/// comparisons sit two or three to a line, and the annotations cost more in noise than they

@@ -27,6 +27,72 @@ namespace logmu::detail
 		const std::string span_of_byte = "global::System.Span<byte>";
 		const std::string argument_out_of_range_exception = "global::System.ArgumentOutOfRangeException";
 
+		/// The test for a target framework that has `NotNullWhen`, and so a language with `string?`.
+		const std::string nullable_condition = "#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER";
+
+		/// The attribute that tells a caller an out parameter is set wherever the method returns true.
+		const std::string not_null_when_true = "[global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)]";
+
+		/// A string as a C# literal: verbatim where every character is printable, which keeps a
+		/// pattern's backslashes as they were written, and escaped where the pattern holds
+		/// whitespace other than the space.
+		std::string csharp_string_literal(const std::string& text)
+		{
+			bool printable = true;
+
+			for (const char c : text)
+			{
+				if (c < ' ' || c > '~')
+				{
+					printable = false;
+				}
+			}
+
+			if (printable)
+			{
+				std::string literal = "@\"";
+
+				for (const char c : text)
+				{
+					literal += c == '"' ? std::string("\"\"") : std::string(1, c);
+				}
+
+				return literal + "\"";
+			}
+
+			std::string literal = "\"";
+
+			for (const char c : text)
+			{
+				if (c == '"' || c == '\\')
+				{
+					literal += '\\';
+					literal += c;
+				}
+				else if (c == '\t')
+				{
+					literal += "\\t";
+				}
+				else if (c == '\n')
+				{
+					literal += "\\n";
+				}
+				else if (c == '\r')
+				{
+					literal += "\\r";
+				}
+				else if (c < ' ' || c > '~')
+				{
+					literal += "\\u" + hex_upper(static_cast<unsigned char>(c), 4);
+				}
+				else
+				{
+					literal += c;
+				}
+			}
+
+			return literal + "\"";
+		}
 	}
 
 	/// One emission call's state: the context and the generated names built from the prefix.
@@ -82,10 +148,14 @@ namespace logmu::detail
 			return this->context.needs_register();
 		}
 
+		void emit_signature(const std::string& annotated, const std::string& plain);
 		void emit_constants();
 		void emit_accepts(bool bytes);
 		void emit_encode(bool bytes);
+		void emit_try_encode(bool bytes);
 		void emit_decode_publics();
+		void emit_canonical_publics(bool bytes);
+		void emit_canonicalise(bool bytes);
 		void emit_steppers();
 		void emit_accept_case(int id);
 		void emit_encode_case(int id);
@@ -102,13 +172,18 @@ namespace logmu::detail
 		emit_context& context;
 
 		// The generated names, each the prefix plus the bare member name.
+		std::string pattern_name;
 		std::string max_encoded_value_name;
 		std::string max_length_name;
 		std::string accepts_name;
 		std::string encode_name;
+		std::string try_encode_name;
 		std::string decode_name;
 		std::string decode_to_bytes_name;
 		std::string try_decode_name;
+		std::string get_canonical_form_name;
+		std::string try_get_canonical_form_name;
+		std::string canonicalise_name;
 		std::string rank_name;
 		std::string decode_core_name;
 		std::string accept_step_name;
@@ -221,13 +296,18 @@ namespace logmu::detail
 		this->decode_core_argument = this->value_is_widest ? "value" : "(ulong)value";
 
 		const std::string& prefix = context.prefix;
+		this->pattern_name = prefix + "Pattern";
 		this->max_encoded_value_name = prefix + "MaxEncodedValue";
 		this->max_length_name = prefix + "MaxLength";
 		this->accepts_name = prefix + "Accepts";
 		this->encode_name = prefix + "Encode";
+		this->try_encode_name = prefix + "TryEncode";
 		this->decode_name = prefix + "Decode";
 		this->decode_to_bytes_name = prefix + "DecodeToBytes";
 		this->try_decode_name = prefix + "TryDecode";
+		this->get_canonical_form_name = prefix + "GetCanonicalForm";
+		this->try_get_canonical_form_name = prefix + "TryGetCanonicalForm";
+		this->canonicalise_name = prefix + "Canonicalise";
 		this->rank_name = prefix + "Rank";
 		this->decode_core_name = prefix + "DecodeCore";
 		this->accept_step_name = prefix + "AcceptStep";
@@ -241,19 +321,53 @@ namespace logmu::detail
 
 	void csharp_emitter::fragment::emit()
 	{
+		code_writer& out = this->writer();
+
+		// Annotations only, so that nothing in the fragment's own bodies can warn.
+		out.line(nullable_condition);
+		out.line("#nullable enable annotations");
+		out.line("#endif");
+		out.line();
 		this->emit_constants();
 		this->emit_accepts(false);
 		this->emit_accepts(true);
 		this->emit_encode(false);
 		this->emit_encode(true);
+		this->emit_try_encode(false);
+		this->emit_try_encode(true);
 		this->emit_decode_publics();
+		this->emit_canonical_publics(false);
+		this->emit_canonical_publics(true);
 		this->emit_steppers();
+		out.line();
+		out.line(nullable_condition);
+		out.line("#nullable restore");
+		out.line("#endif");
+	}
+
+	/// Writes a signature annotated for nullable reference types where the framework allows it,
+	/// and plain where it does not.
+	///
+	/// @param annotated The signature with its annotations.
+	/// @param plain The signature C# 7.3 accepts.
+	void csharp_emitter::fragment::emit_signature(const std::string& annotated, const std::string& plain)
+	{
+		code_writer& out = this->writer();
+
+		out.line(nullable_condition);
+		out.line(annotated);
+		out.line("#else");
+		out.line(plain);
+		out.line("#endif");
 	}
 
 	void csharp_emitter::fragment::emit_constants()
 	{
 		code_writer& out = this->writer();
 
+		out.line("/// <summary>The naxp this code was generated from.</summary>");
+		out.line("public const string " + this->pattern_name + " = " + csharp_string_literal(this->context.compiled.pattern()) + ";");
+		out.line();
 		out.line("/// <summary>The largest encoded value this naxp produces, which is also how many it has.</summary>");
 		out.line("public const " + this->value_keyword + " " + this->max_encoded_value_name + " = " + this->max_encoded_value_value + ";");
 		out.line();
@@ -342,47 +456,42 @@ namespace logmu::detail
 		else
 		{
 			out.line(span_of_char + " canonical = stackalloc char[" + this->max_length_name + "];");
-
-			if (this->needs_register())
-			{
-				// The characters read, oldest first, so a reference of depth d is the one at
-				// register_depth - 1 - d. Shifting a buffer this small beats indexing a ring.
-				out.line(span_of_char + " " + std::string(held_name) + " = stackalloc char[" + decimal(this->register_depth()) + "];");
-			}
-
-			out.line("int length = 0;");
-			out.line("int state = 0;");
-			out.line();
-			out.line(bytes ? "foreach (byte b in text)" : "foreach (char c in text)");
-			out.open_block();
-
-			if (this->needs_register())
-			{
-				const std::string top = decimal(this->register_depth() - 1);
-				const std::string held(held_name);
-
-				if (this->register_depth() > 1)
-				{
-					out.line("for (int h = 0; h < " + top + "; ++h) { " + held + "[h] = " + held + "[h + 1]; }");
-				}
-
-				out.line(bytes ? held + "[" + top + "] = (char)b;" : held + "[" + top + "] = c;");
-			}
-
-			out.line(bytes
-				? "state = " + this->canonical_step_name + "(state, (char)b, " + this->step_arguments() + ");"
-				: "state = " + this->canonical_step_name + "(state, c, " + this->step_arguments() + ");");
-			out.line();
-			out.line("if (state < 0) { return " + this->value_zero + "; }");
-			out.close_block();
-			out.line();
-			out.line("length = " + this->finish_canonical_name + "(state, " + this->finish_arguments() + ");");
+			out.line("int length = " + this->canonicalise_name + "(text, canonical);");
 			out.line();
 			out.line(this->value_is_widest
 				? "return length < 0 ? 0UL : " + this->rank_name + "(canonical.Slice(0, length));"
 				: "return length < 0 ? (" + this->value_keyword + ")0 : (" + this->value_keyword + ")" + this->rank_name + "(canonical.Slice(0, length));");
 		}
 
+		out.close_block();
+		out.line();
+	}
+
+	void csharp_emitter::fragment::emit_try_encode(bool bytes)
+	{
+		code_writer& out = this->writer();
+
+		if (bytes)
+		{
+			out.line("/// <summary>Tries to encode ASCII text.</summary>");
+			out.line("/// <param name=\"text\">The ASCII text to encode.</param>");
+			out.line("/// <param name=\"encoded\">The encoded value, or zero where the text is invalid.</param>");
+			out.line("/// <returns>Whether the naxp accepts the text.</returns>");
+			out.line("public static bool " + this->try_encode_name + "(" + read_only_span_of_byte + " text, out " + this->value_keyword + " encoded)");
+		}
+		else
+		{
+			out.line("/// <summary>Tries to encode a string.</summary>");
+			out.line("/// <param name=\"text\">The string to encode.</param>");
+			out.line("/// <param name=\"encoded\">The encoded value, or zero where the string is invalid.</param>");
+			out.line("/// <returns>Whether the naxp accepts the string.</returns>");
+			out.line("public static bool " + this->try_encode_name + "(" + read_only_span_of_char + " text, out " + this->value_keyword + " encoded)");
+		}
+
+		out.open_block();
+		out.line("encoded = " + this->encode_name + "(text);");
+		out.line();
+		out.line("return encoded != " + this->value_zero + ";");
 		out.close_block();
 		out.line();
 	}
@@ -430,6 +539,27 @@ namespace logmu::detail
 		out.line("for (int i = 0; i < length; ++i) { result[i] = (byte)buffer[i]; }");
 		out.line();
 		out.line("return result;");
+		out.close_block();
+		out.line();
+
+		out.line("/// <summary>Tries to find the string a value stands for.</summary>");
+		out.line("/// <param name=\"value\">The encoded value.</param>");
+		out.line("/// <param name=\"text\">The string, which is in canonical form, or null where the value is not one this naxp produces.</param>");
+		out.line("/// <returns>Whether the value is one this naxp produces.</returns>");
+		this->emit_signature(
+			"public static bool " + this->try_decode_name + "(" + this->value_keyword + " value, " + not_null_when_true + " out string? text)",
+			"public static bool " + this->try_decode_name + "(" + this->value_keyword + " value, out string text)");
+		out.open_block();
+		out.line(range_check);
+		out.open_block();
+		out.line("text = null;");
+		out.line("return false;");
+		out.close_block();
+		out.line();
+		out.line(span_of_char + " destination = stackalloc char[" + this->max_length_name + "];");
+		out.line();
+		out.line("text = destination.Slice(0, " + this->decode_core_name + "(" + this->decode_core_argument + ", destination)).ToString();");
+		out.line("return true;");
 		out.close_block();
 		out.line();
 
@@ -497,11 +627,147 @@ namespace logmu::detail
 		out.line();
 	}
 
+	void csharp_emitter::fragment::emit_canonical_publics(bool bytes)
+	{
+		code_writer& out = this->writer();
+		const std::string text_type = bytes ? read_only_span_of_byte : read_only_span_of_char;
+		const std::string what = bytes ? "ASCII text" : "a string";
+		const std::string the_what = bytes ? "the text" : "the string";
+		const std::string text_doc = bytes ? "/// <param name=\"text\">The ASCII text.</param>" : "/// <param name=\"text\">The string.</param>";
+
+		out.line("/// <summary>The canonical form of " + what + ".</summary>");
+		out.line(text_doc);
+		out.line("/// <returns>The canonical form, or null where " + the_what + " is invalid.</returns>");
+		this->emit_signature(
+			"public static string? " + this->get_canonical_form_name + "(" + text_type + " text)",
+			"public static string " + this->get_canonical_form_name + "(" + text_type + " text)");
+		out.open_block();
+		out.line(span_of_char + " canonical = stackalloc char[" + this->max_length_name + "];");
+		out.line("int length = " + this->canonicalise_name + "(text, canonical);");
+		out.line();
+		out.line("return length < 0 ? null : canonical.Slice(0, length).ToString();");
+		out.close_block();
+		out.line();
+
+		out.line("/// <summary>Tries to find the canonical form of " + what + ".</summary>");
+		out.line(text_doc);
+		out.line("/// <param name=\"canonicalForm\">The canonical form, or null where " + the_what + " is invalid.</param>");
+		out.line("/// <returns>Whether the naxp accepts " + the_what + ".</returns>");
+		this->emit_signature(
+			"public static bool " + this->try_get_canonical_form_name + "(" + text_type + " text, " + not_null_when_true + " out string? canonicalForm)",
+			"public static bool " + this->try_get_canonical_form_name + "(" + text_type + " text, out string canonicalForm)");
+		out.open_block();
+		out.line("canonicalForm = " + this->get_canonical_form_name + "(text);");
+		out.line();
+		out.line("return canonicalForm != null;");
+		out.close_block();
+		out.line();
+
+		const std::string written = bytes ? "bytesWritten" : "charsWritten";
+
+		out.line("/// <summary>Tries to write the canonical form of " + what + ".</summary>");
+		out.line(text_doc);
+		out.line(bytes
+			? "/// <param name=\"destination\">Where the canonical form is written, as ASCII bytes.</param>"
+			: "/// <param name=\"destination\">Where the canonical form is written.</param>");
+		out.line(bytes
+			? "/// <param name=\"" + written + "\">How many bytes were written, or zero where none were.</param>"
+			: "/// <param name=\"" + written + "\">How many characters were written, or zero where none were.</param>");
+		out.line("/// <returns>False where " + the_what + " is invalid, or the destination is too short.</returns>");
+		out.line("public static bool " + this->try_get_canonical_form_name + "(" + text_type + " text, " + (bytes ? span_of_byte : span_of_char) + " destination, out int " + written + ")");
+		out.open_block();
+		out.line(span_of_char + " canonical = stackalloc char[" + this->max_length_name + "];");
+		out.line("int length = " + this->canonicalise_name + "(text, canonical);");
+		out.line();
+		out.line("if (length < 0 || length > destination.Length)");
+		out.open_block();
+		out.line(written + " = 0;");
+		out.line("return false;");
+		out.close_block();
+		out.line();
+		out.line(bytes
+			? "for (int i = 0; i < length; ++i) { destination[i] = (byte)canonical[i]; }"
+			: "canonical.Slice(0, length).CopyTo(destination);");
+		out.line();
+		out.line(written + " = length;");
+		out.line("return true;");
+		out.close_block();
+		out.line();
+	}
+
 	// Private methods
+
+	void csharp_emitter::fragment::emit_canonicalise(bool bytes)
+	{
+		code_writer& out = this->writer();
+		const std::string text_type = bytes ? read_only_span_of_byte : read_only_span_of_char;
+
+		out.line(bytes
+			? "/// <summary>Writes the canonical form of ASCII text into a buffer of <see cref=\"" + this->max_length_name + "\"/> characters, and returns its length, or -1 where the text is invalid.</summary>"
+			: "/// <summary>Writes the canonical form of a string into a buffer of <see cref=\"" + this->max_length_name + "\"/> characters, and returns its length, or -1 where the string is invalid.</summary>");
+		out.line("static int " + this->canonicalise_name + "(" + text_type + " text, " + span_of_char + " canonical)");
+		out.open_block();
+
+		if (!this->canonicalises())
+		{
+			// Where nothing is unified an accepted string is its own canonical form, and being
+			// accepted it fits the buffer.
+			out.line("if (!" + this->accepts_name + "(text)) { return -1; }");
+			out.line();
+			out.line(bytes
+				? "for (int i = 0; i < text.Length; ++i) { canonical[i] = (char)text[i]; }"
+				: "text.CopyTo(canonical);");
+			out.line();
+			out.line("return text.Length;");
+			out.close_block();
+			out.line();
+
+			return;
+		}
+
+		if (this->needs_register())
+		{
+			// The characters read, oldest first, so a reference of depth d is the one at
+			// register_depth - 1 - d. Shifting a buffer this small beats indexing a ring.
+			out.line(span_of_char + " " + held_name + " = stackalloc char[" + decimal(this->register_depth()) + "];");
+		}
+
+		out.line("int length = 0;");
+		out.line("int state = 0;");
+		out.line();
+		out.line(bytes ? "foreach (byte b in text)" : "foreach (char c in text)");
+		out.open_block();
+
+		if (this->needs_register())
+		{
+			const std::string top = decimal(this->register_depth() - 1);
+
+			if (this->register_depth() > 1)
+			{
+				out.line("for (int h = 0; h < " + top + "; ++h) { " + held_name + "[h] = " + held_name + "[h + 1]; }");
+			}
+
+			out.line(bytes ? held_name + "[" + top + "] = (char)b;" : held_name + "[" + top + "] = c;");
+		}
+
+		out.line(bytes
+			? "state = " + this->canonical_step_name + "(state, (char)b, " + this->step_arguments() + ");"
+			: "state = " + this->canonical_step_name + "(state, c, " + this->step_arguments() + ");");
+		out.line();
+		out.line("if (state < 0) { return -1; }");
+		out.close_block();
+		out.line();
+		out.line("return " + this->finish_canonical_name + "(state, " + this->finish_arguments() + ");");
+		out.close_block();
+		out.line();
+	}
 
 	void csharp_emitter::fragment::emit_steppers()
 	{
 		code_writer& out = this->writer();
+
+		this->emit_canonicalise(false);
+		this->emit_canonicalise(true);
 
 		if (this->canonicalises())
 		{

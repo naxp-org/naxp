@@ -5,7 +5,7 @@ A **naxp** ('encoded ASCII expression') uses a regex-like syntax to define how A
 With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
 ```bash
-npm install @naxp/naxp@0.11.0
+npm install @naxp/naxp@0.12.0
 ```
 
 The **naxp** package has zero dependencies and comprises plain ECMAScript modules with no build step. TypeScript declarations are included. Requires Node 18 or later. Runs as is in a browser.
@@ -92,10 +92,12 @@ If the error relates to the whole **naxp** then the whole text range is specifie
 |:---|:---|
 | `pattern` | The text pattern defining the **naxp**. |
 | `maxEncodedValue` | The largest encoded value, which is also the number of valid encoded values (`bigint`). |
+| `maxLength` | The length of the longest text `decode` can return, which bounds every canonical form. |
 | `accepts(text)` | Whether the text is valid for the **naxp**. |
 | `encode(text)` | The encoded value for the text, from `1n` to `maxEncodedValue`, or `0n` if the text is invalid. |
 | `tryDecode(value)` | The *canonical* text for an encoded value or `null` if the encoded value is out of range. |
 | `decode(value)` | Same as `tryDecode(value)` except that it throws `RangeError` if the encoded value is out of range, i.e. less than `1n` or greater than `maxEncodedValue`. |
+| `decodeToBytes(value)` | Same as `decode(value)` except that the text comes back as a `Uint8Array` of ASCII. |
 | `getCanonicalForm(text)` | The canonical version of the text, or `null` if the text is invalid. Same as `tryDecode(encode(text))`. |
 | `emit(language, prefix, valueType)` | Source code for this **naxp** in `CSharp`, `JavaScript`, `C` or `Cpp`, answering the same questions as the members above. It runs on its own, with no reference to this package. See [code generation](https://naxp.org/code-gen/). |
 | `toString()` | The same as `pattern`. |

@@ -5,7 +5,7 @@ import { CodeWriter } from './code-writer.js';
 import { COPY_MARKER } from './tx.js';
 
 /** The version a generated header names, which writing one is the caller's job. */
-const PACKAGE_VERSION = '0.11.0';
+const PACKAGE_VERSION = '0.12.0';
 
 /**
  * The integer type generated code uses for encoded values.
@@ -667,7 +667,7 @@ export class Context {
 			: compilation.canonicalMachine.registerDepth;
 
 		/** The length of the longest canonical string, which bounds every buffer generated code needs. */
-		this.maxLength = longestPath(compilation.canonical);
+		this.maxLength = compilation.maxLength;
 	}
 
 	/**
@@ -779,36 +779,6 @@ function buildTransducer(machine) {
 			next: idOf.get(transition.next),
 		})),
 	}));
-}
-
-/**
- * The length of the longest string a machine generates.
- *
- * The states are listed in creation order and every transition points at an earlier state, because
- * the builder interns each state's successors before the state itself, so a single pass has every
- * target's length ready when it is read.
- *
- * @param {import('./state-map.js').StateMap} map The machine.
- * @returns {number} The length.
- */
-function longestPath(map) {
-	const lengths = new Array(map.states.length).fill(0);
-
-	for (let id = 0; id < map.states.length; ++id) {
-		let longest = 0;
-
-		for (const transition of map.states[id].transitions) {
-			if (transition.set.isEmpty) { continue; }
-
-			const viaTransition = lengths[transition.next.id] + 1;
-
-			if (viaTransition > longest) { longest = viaTransition; }
-		}
-
-		lengths[id] = longest;
-	}
-
-	return lengths[map.start.id];
 }
 
 /**

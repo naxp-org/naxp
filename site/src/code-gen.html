@@ -84,15 +84,24 @@ try {
     </p>
 
     <p>
-      The generated code is fully documented in place, but, in broad terms 
+      The generated code API corresponds to the
+      <a href="/libraries/">library</a>'s
+      functionality for a single <strong>naxp</strong>.
+      It is fully documented in place, but, in broad terms
       (noting that actual naming conventions vary by language),
     </p>
     <ul>
       <li><code>accepts</code> tests whether text is valid,</li>
       <li><code>encode</code> gets the encoded value of text (with <code>0</code> indicating invalid text),</li>
       <li><code>decode</code> and friends get the (canonical) text from an encoded value,</li>
+      <li><code>getCanonicalForm</code> and friends get the canonical form of text,</li>
+      <li><code>pattern</code> is the <strong>naxp</strong> the code was generated from,</li>
       <li><code>maxEncodedValue</code> is the largest possible encoded value, and</li>
-      <li><code>maxLength</code> is the maximum number of ASCII characters for valid text.</li>
+      <li>
+        <code>maxLength</code> is the length of the longest canonical text 
+        &ndash; a buffer this size is sufficient for any text returned by
+        <code>decode</code> or <code>getCanonicalForm</code>.
+      </li>
     </ul>
 
   </div>

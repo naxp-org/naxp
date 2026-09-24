@@ -149,8 +149,28 @@ sealed class TxMachine
 	/// <returns>Whether the string is accepted.</returns>
 	public bool TryCanonicalise(ReadOnlySpan<char> text, out string? canonical)
 	{
-		var builder = new StringBuilder();
+		// No canonical form is longer than the longest string a naxp can generate, and a walk
+		// never emits more than the canonical form of some string it could still become.
+		Span<char> buffer = stackalloc char[NaxpLimits.MaxStringLength];
+		int length = this.Canonicalise(text, buffer);
+
+		canonical = length < 0 ? null : buffer.Slice(0, length).ToString();
+
+		return canonical is not null;
+	}
+
+	/// <summary>
+	/// Writes the canonical form of a string into a buffer.
+	/// </summary>
+	/// <param name="text">The string.</param>
+	/// <param name="destination">
+	/// Where the canonical form goes, which holds the longest string in the canonical language.
+	/// </param>
+	/// <returns>The length of the canonical form, or -1 where the string is invalid.</returns>
+	public int Canonicalise(ReadOnlySpan<char> text, Span<char> destination)
+	{
 		TxState state = this.Start;
+		int length = 0;
 
 		for (int i = 0; i < text.Length; ++i)
 		{
@@ -161,49 +181,43 @@ sealed class TxMachine
 			{
 				if (!transition.Set.Contains(c)) { continue; }
 
-				AppendOutput(builder, transition.Output, text, i);
+				length = WriteOutput(destination, length, transition.Output, text, i);
 				next = transition.Next;
 				break;
 			}
 
-			if (next is null)
-			{
-				canonical = null;
-				return false;
-			}
+			if (next is null) { return -1; }
 
 			state = next;
 		}
 
-		if (state.EndOutput is null)
-		{
-			canonical = null;
-			return false;
-		}
+		if (state.EndOutput is null) { return -1; }
 
 		// The end output reaches back from the last character read, as a transition's does from
 		// the character that took it.
-		AppendOutput(builder, state.EndOutput, text, text.Length - 1);
-		canonical = builder.ToString();
-
-		return true;
+		return WriteOutput(destination, length, state.EndOutput, text, text.Length - 1);
 	}
 
-	/// <summary>Appends an output, resolving each reference to the character it stands for.</summary>
-	static void AppendOutput(StringBuilder builder, string output, ReadOnlySpan<char> text, int at)
+	/// <summary>
+	/// Writes an output after the first <paramref name="length"/> characters of a buffer,
+	/// resolving each reference to the character it stands for, and returns the new length.
+	/// </summary>
+	static int WriteOutput(Span<char> destination, int length, string output, ReadOnlySpan<char> text, int at)
 	{
 		for (int i = 0; i < output.Length; ++i)
 		{
 			if (output[i] == Tx.CopyMarker)
 			{
-				builder.Append(text[at - (output[i + 1] - TxReference.DepthBase)]);
+				destination[length++] = text[at - (output[i + 1] - TxReference.DepthBase)];
 				++i;
 			}
 			else
 			{
-				builder.Append(output[i]);
+				destination[length++] = output[i];
 			}
 		}
+
+		return length;
 	}
 }
 

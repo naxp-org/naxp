@@ -10,6 +10,7 @@
 #include "emitter.hpp"
 #include "fault.hpp"
 #include "javascript_emitter.hpp"
+#include "naxp_limits.hpp"
 #include "relations.hpp"
 #include "value_agreement.hpp"
 
@@ -42,6 +43,23 @@ namespace logmu
 			// The code and the span are in the message because a thrown exception is all
 			// anybody gets.
 			return parts.code + " at " + std::to_string(parts.offset) + ".." + std::to_string(parts.offset + parts.length) + ": " + parts.message;
+		}
+
+		/// Copies the first `written` characters of a buffer into the caller's where they fit,
+		/// and nothing at all where they do not or where `written` is -1 for a failure.
+		bool copy_out(const char* buffer, int written, char* destination, std::size_t capacity, std::size_t& length) noexcept
+		{
+			if (written < 0 || static_cast<std::size_t>(written) > capacity)
+			{
+				length = 0;
+
+				return false;
+			}
+
+			std::char_traits<char>::copy(destination, buffer, static_cast<std::size_t>(written));
+			length = static_cast<std::size_t>(written);
+
+			return true;
 		}
 	}
 
@@ -129,6 +147,13 @@ namespace logmu
 		return this->compilation->try_decode(encoded_value, text);
 	}
 
+	bool naxp::try_decode(std::uint64_t encoded_value, char* destination, std::size_t capacity, std::size_t& length) const
+	{
+		char buffer[detail::limits::max_string_length];
+
+		return copy_out(buffer, this->compilation->decode(encoded_value, buffer), destination, capacity, length);
+	}
+
 	std::optional<std::string> naxp::canonical_form(std::string_view text) const
 	{
 		std::string canonical;
@@ -139,6 +164,18 @@ namespace logmu
 		}
 
 		return canonical;
+	}
+
+	bool naxp::try_canonical_form(std::string_view text, std::string& canonical_form) const
+	{
+		return this->compilation->try_get_canonical_form(text, canonical_form);
+	}
+
+	bool naxp::try_canonical_form(std::string_view text, char* destination, std::size_t capacity, std::size_t& length) const
+	{
+		char buffer[detail::limits::max_string_length];
+
+		return copy_out(buffer, this->compilation->canonicalise(text, buffer), destination, capacity, length);
 	}
 
 	std::string naxp::emit(

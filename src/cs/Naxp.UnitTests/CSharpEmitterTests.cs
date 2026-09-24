@@ -41,6 +41,61 @@ public class CSharpEmitterTests
 	}
 
 	[Fact]
+	public void Emit_WritesThePatternVerbatimWhereItCan()
+	{
+		Assert.Contains(@"public const string Pattern = @""\A""""B"";", Emit(@"\A""B"), StringComparison.Ordinal);
+		Assert.Contains(@"public const string Pattern = ""A\tB"";", Emit("A\tB"), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Emit_GeneratesEveryMemberOfTheLibraryForOneNaxp()
+	{
+		string source = CSharpEmitter.Instance.Emit(Compile("(B|b)!B"), string.Empty, NaxpValueType.UInt8);
+
+		string[] members =
+		{
+			"public static bool TryEncode(global::System.ReadOnlySpan<char> text, out byte encoded)",
+			"public static bool TryEncode(global::System.ReadOnlySpan<byte> text, out byte encoded)",
+			"public static byte[] DecodeToBytes(byte value)",
+			"public static bool TryDecode(byte value, out string text)",
+			"public static bool TryDecode(byte value, global::System.Span<char> destination, out int charsWritten)",
+			"public static bool TryDecode(byte value, global::System.Span<byte> destination, out int bytesWritten)",
+			"public static string GetCanonicalForm(global::System.ReadOnlySpan<char> text)",
+			"public static string GetCanonicalForm(global::System.ReadOnlySpan<byte> text)",
+			"public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<char> text, out string canonicalForm)",
+			"public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<byte> text, out string canonicalForm)",
+			"public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<char> text, global::System.Span<char> destination, out int charsWritten)",
+			"public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<byte> text, global::System.Span<byte> destination, out int bytesWritten)",
+		};
+
+		foreach (string member in members)
+		{
+			Assert.Contains(member, source, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// The nullable annotations sit behind a test of the target framework, so the fragment still
+	/// compiles as C# 7.3. Five signatures carry one, and each has its plain twin.
+	/// </summary>
+	[Fact]
+	public void Emit_PutsNullableAnnotationsBehindTheFrameworkTest()
+	{
+		string source = Emit("(B|b)!B");
+		const string condition = "#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER\n";
+
+		Assert.StartsWith(condition + "#nullable enable annotations\n#endif\n", source, StringComparison.Ordinal);
+		Assert.EndsWith(condition + "#nullable restore\n#endif\n", source, StringComparison.Ordinal);
+		Assert.Contains(
+			condition + "public static string? GetCanonicalForm(global::System.ReadOnlySpan<char> text)\n"
+			+ "#else\npublic static string GetCanonicalForm(global::System.ReadOnlySpan<char> text)\n#endif\n",
+			source,
+			StringComparison.Ordinal);
+		Assert.Equal(5, source.Split(new[] { "string?" }, StringSplitOptions.None).Length - 1);
+		Assert.Equal(5, source.Split(new[] { "#else" }, StringSplitOptions.None).Length - 1);
+	}
+
+	[Fact]
 	public void Emit_IsAFragmentWithoutParaphernalia()
 	{
 		string source = Emit("A|B");

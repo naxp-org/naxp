@@ -2,7 +2,6 @@
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
-using System.Text;
 
 namespace LogMu;
 
@@ -79,14 +78,34 @@ static class Codec
 	{
 		if (map is null) { throw new ArgumentNullException(nameof(map)); }
 
-		text = null;
+		// A path through an acyclic machine visits no state twice, so no string is as long as
+		// the machine has states.
+		Span<char> buffer = stackalloc char[map.States.Count];
+		int length = Decode(map, value, buffer);
+
+		text = length < 0 ? null : buffer.Slice(0, length).ToString();
+
+		return text is not null;
+	}
+
+	/// <summary>
+	/// Writes the string of a value into a buffer, which is the value's position in the canonical
+	/// language.
+	/// </summary>
+	/// <param name="map">The machine for the canonical language.</param>
+	/// <param name="value">The value, from 1 to the size of that language.</param>
+	/// <param name="destination">Where the string goes, which holds the longest string in the language.</param>
+	/// <returns>The length of the string, or -1 if the value is out of range.</returns>
+	public static int Decode(StateMap map, ulong value, Span<char> destination)
+	{
+		if (map is null) { throw new ArgumentNullException(nameof(map)); }
 
 		// Zero is reserved for invalid text, so it decodes to nothing.
-		if (value == 0UL || value > map.StringCount) { return false; }
+		if (value == 0UL || value > map.StringCount) { return -1; }
 
-		var builder = new StringBuilder();
 		State state = map.Start;
 		ulong remaining = value;
+		int length = 0;
 
 		while (!state.IsTerminal)
 		{
@@ -96,7 +115,7 @@ static class Codec
 			{
 				if (transition.Set.IsEmpty)
 				{
-					if (remaining == 1UL) { text = builder.ToString(); return true; }
+					if (remaining == 1UL) { return length; }
 
 					remaining -= 1UL;
 					continue;
@@ -107,7 +126,7 @@ static class Codec
 
 				if (remaining <= block)
 				{
-					builder.Append(transition.Set.CharacterAt((int)((remaining - 1UL) / perCharacter)));
+					destination[length++] = transition.Set.CharacterAt((int)((remaining - 1UL) / perCharacter));
 					remaining = ((remaining - 1UL) % perCharacter) + 1UL;
 					next = transition.Next;
 					break;
@@ -118,12 +137,11 @@ static class Codec
 
 			// The value was checked against the count of the start state, and each step leaves
 			// it within the count of the state it moves to, so this cannot be reached.
-			if (next is null) { return false; }
+			if (next is null) { return -1; }
 
 			state = next;
 		}
 
-		text = builder.ToString();
-		return true;
+		return length;
 	}
 }

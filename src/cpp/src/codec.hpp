@@ -17,13 +17,14 @@ namespace logmu::detail::codec
 	/// not hold it.
 	std::uint64_t encode(const state_map& map, std::string_view text) noexcept;
 
-	/// The string an encoded value stands for.
+	/// Writes the string an encoded value stands for into a buffer.
 	///
 	/// @param map The machine.
 	/// @param value The value, from 1 to the machine's string count.
-	/// @param text Where the string goes. Untouched where the value is out of range.
-	/// @returns Whether the value is one the machine can produce.
-	bool try_decode(const state_map& map, std::uint64_t value, std::string& text);
+	/// @param destination Where the string goes, which holds the longest string in the
+	///     machine's language.
+	/// @returns The length of the string, or -1 where the value is out of range.
+	int decode(const state_map& map, std::uint64_t value, char* destination);
 }
 
 #endif

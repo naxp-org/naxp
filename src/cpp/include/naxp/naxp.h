@@ -9,9 +9,9 @@
    null pointer or a false return, and a fault is handed back as an object to be read and
    then freed.
 
-   Text is always a pointer and a length, never a NUL-terminated string, because a naxp may
-   accept text holding any ASCII character. Where a caller does hold a C string, strlen gives
-   the length.
+   Text is a pointer and a length, because a naxp may accept text holding any ASCII character,
+   NUL among them. Each function that takes or writes text also has a _cstr twin for a caller
+   holding NUL-terminated strings, which is the generated C code's shape as well.
 */
 
 #ifndef NAXP_NAXP_H
@@ -66,10 +66,10 @@ size_t naxp_fault_length(const naxp_fault *fault);
 void naxp_fault_free(naxp_fault *fault);
 
 /*
-   The pattern a naxp was parsed from. The pointer is valid until the naxp is freed, and the
-   pattern is NUL-terminated as well as measured, so length may be NULL.
+   The pattern a naxp was parsed from, NUL-terminated. A pattern never holds a NUL, so strlen
+   gives its length. The pointer is valid until the naxp is freed.
 */
-const char *naxp_pattern(const naxp *expression, size_t *length);
+const char *naxp_pattern(const naxp *expression);
 
 /*
    The largest encoded value a naxp produces. Encoded values run from 1 with no gaps, so this
@@ -86,11 +86,17 @@ size_t naxp_max_length(const naxp *expression);
 /* Whether a naxp accepts text. A byte outside ASCII is never accepted. */
 bool naxp_accepts(const naxp *expression, const char *text, size_t text_length);
 
+/* Whether a naxp accepts a NUL-terminated string. */
+bool naxp_accepts_cstr(const naxp *expression, const char *text);
+
 /*
    The encoded value of text: from 1 to naxp_max_encoded_value, or zero where the text is
    invalid for the naxp.
 */
 uint64_t naxp_encode(const naxp *expression, const char *text, size_t text_length);
+
+/* The encoded value of a NUL-terminated string, or zero where the string is invalid. */
+uint64_t naxp_encode_cstr(const naxp *expression, const char *text);
 
 /*
    Writes the text an encoded value stands for, which is in canonical form.
@@ -105,6 +111,15 @@ uint64_t naxp_encode(const naxp *expression, const char *text, size_t text_lengt
 bool naxp_decode(const naxp *expression, uint64_t encoded_value, char *destination, size_t capacity, size_t *length);
 
 /*
+   Writes the text an encoded value stands for as a NUL-terminated string. naxp_max_length + 1
+   bytes always suffice.
+
+   Returns false where the value is not one the naxp produces, or the destination is too short,
+   in which case nothing is written.
+*/
+bool naxp_decode_cstr(const naxp *expression, uint64_t encoded_value, char *destination, size_t capacity);
+
+/*
    Writes the canonical form of text, which is the text naxp_decode gives back for its encoded
    value. The parameters are those of naxp_decode.
 
@@ -112,6 +127,15 @@ bool naxp_decode(const naxp *expression, uint64_t encoded_value, char *destinati
    which case nothing is written.
 */
 bool naxp_canonical_form(const naxp *expression, const char *text, size_t text_length, char *destination, size_t capacity, size_t *length);
+
+/*
+   Writes the canonical form of a NUL-terminated string as a NUL-terminated string.
+   naxp_max_length + 1 bytes always suffice.
+
+   Returns false where the string is invalid for the naxp, or the destination is too short, in
+   which case nothing is written.
+*/
+bool naxp_canonical_form_cstr(const naxp *expression, const char *text, char *destination, size_t capacity);
 
 /* How one set stands to another, for two sets called a and b. */
 typedef enum naxp_set_relationship

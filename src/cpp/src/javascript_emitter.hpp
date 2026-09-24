@@ -16,15 +16,15 @@ namespace logmu::detail
 	/// The JavaScript emitter: one naxp as a fragment of declarations, in the shape a module or a
 	/// script tag can hold.
 	///
-	/// The fragment is a set of const and function declarations, two consts, the public functions
-	/// and their private steppers, every name prefixed with the caller's prefix and camel cased,
-	/// which is what JavaScript readers expect. Nothing is exported: the module wrapper, the
-	/// export list and any header comment are the caller's job.
+	/// The fragment is a set of const and function declarations, three consts, the public
+	/// functions and their private steppers, every name prefixed with the caller's prefix and
+	/// camel cased, which is what JavaScript readers expect. Nothing is exported: the module
+	/// wrapper, the export list and any header comment are the caller's job.
 	///
 	/// Characters are handled as ASCII code points rather than one-character strings, so the
-	/// steppers compare numbers and the byte entry points feed their bytes straight in. That is
-	/// why one stepper serves both the string and the `Uint8Array` forms, where the C# emitter
-	/// needs a cast.
+	/// steppers compare numbers and bytes feed straight in. That is why each public function
+	/// takes a string or a `Uint8Array` alike, as the library's `Naxp` does, where the C# emitter
+	/// needs an overload and a cast.
 	///
 	/// JavaScript has one number type, exact to 2^53 - 1, so the emitter reads the naxp's largest
 	/// encoded value and picks: ordinary numbers where every value and every intermediate rank

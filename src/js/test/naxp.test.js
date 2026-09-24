@@ -177,6 +177,23 @@ test('decode throws outside the range and tryDecode reports it', () => {
 	assert.equal(naxp.decode(100n), '99');
 });
 
+test('decodeToBytes spells what decode gives, and throws where it does', () => {
+	const naxp = Naxp.parse(POSTCODE);
+	const value = naxp.encode('M11AA');
+
+	assert.deepEqual(naxp.decodeToBytes(value), new Uint8Array([...'M1 1AA'].map(c => c.charCodeAt(0))));
+	assert.throws(() => naxp.decodeToBytes(0), RangeError);
+});
+
+test('the longest length bounds every decoded string and is reached', () => {
+	assert.equal(Naxp.parse(POSTCODE).maxLength, 8);
+	assert.equal(Naxp.parse('A|BCD|EF').maxLength, 3);
+	assert.equal(Naxp.parse('()').maxLength, 0);
+
+	// The canonical language decides it, not the accepted one: the longer spelling is not printed.
+	assert.equal(Naxp.parse('(AB|A)!A').maxLength, 1);
+});
+
 test('decode takes a bigint or a safe integer, and throws on anything else', () => {
 	const naxp = Naxp.parse('\\9{2}');
 
@@ -328,6 +345,11 @@ test('every naxp the test data accepts compiles, and every value round trips', (
 					failures.push(
 						`${item.naxp}: ${encoded} decodes to '${naxp.decode(encoded)}', `
 						+ `the data says '${value.canon}'.`);
+				}
+
+				if (value.canon.length > naxp.maxLength) {
+					failures.push(
+						`${item.naxp}: '${value.canon}' is longer than the longest length, ${naxp.maxLength}.`);
 				}
 			}
 		}

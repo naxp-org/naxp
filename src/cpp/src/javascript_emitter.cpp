@@ -10,7 +10,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -18,6 +17,50 @@
 
 namespace logmu::detail
 {
+	namespace
+	{
+		/// The name of the flag saying that a public function was given bytes rather than a string.
+		const std::string bytes_name = "bytes";
+
+		/// A string as a single-quoted JavaScript literal. A pattern may hold whitespace other than
+		/// the space, which is escaped along with the quote and the backslash.
+		std::string javascript_string_literal(const std::string& text)
+		{
+			std::string literal = "'";
+
+			for (const char c : text)
+			{
+				if (c == '\'' || c == '\\')
+				{
+					literal += '\\';
+					literal += c;
+				}
+				else if (c == '\t')
+				{
+					literal += "\\t";
+				}
+				else if (c == '\n')
+				{
+					literal += "\\n";
+				}
+				else if (c == '\r')
+				{
+					literal += "\\r";
+				}
+				else if (c < ' ' || c > '~')
+				{
+					literal += "\\x" + hex_upper(static_cast<unsigned char>(c), 2);
+				}
+				else
+				{
+					literal += c;
+				}
+			}
+
+			return literal + "'";
+		}
+	}
+
 	/// One emission call's state: the context, the generated names, and the choice between
 	/// numbers and BigInt. Per call so the shared instance stays stateless.
 	class javascript_emitter::fragment
@@ -72,14 +115,11 @@ namespace logmu::detail
 		}
 
 		void emit_constants();
-		void emit_accepts(bool bytes);
-		void emit_encode(bool bytes);
-		void emit_read_loop(
-			bool bytes,
-			const std::function<std::string(const std::string&)>& step,
-			const std::string& on_fault,
-			const std::function<std::string(const std::string&)>& before = nullptr);
+		void emit_accepts();
+		void emit_encode();
+		void emit_read_loop(const std::string& step, const std::string& on_fault, const std::optional<std::string>& before = std::nullopt);
 		void emit_decode_publics();
+		void emit_get_canonical_form();
 		void emit_range_check(const std::string& message);
 		void emit_steppers();
 		void emit_accept_case(int id);
@@ -115,14 +155,16 @@ namespace logmu::detail
 		emit_context& context;
 
 		// The generated names, each the prefix plus the bare member name, camel cased.
+		std::string pattern_name;
 		std::string max_encoded_value_name;
 		std::string max_length_name;
 		std::string accepts_name;
-		std::string accepts_bytes_name;
 		std::string encode_name;
-		std::string encode_bytes_name;
 		std::string decode_name;
 		std::string decode_to_bytes_name;
+		std::string try_decode_name;
+		std::string get_canonical_form_name;
+		std::string canonicalise_name;
 		std::string rank_name;
 		std::string decode_core_name;
 		std::string accept_step_name;
@@ -218,14 +260,16 @@ namespace logmu::detail
 		this->one = this->big ? "1n" : "1";
 
 		const std::string& prefix = context.prefix;
+		this->pattern_name = camel(prefix, "Pattern");
 		this->max_encoded_value_name = camel(prefix, "MaxEncodedValue");
 		this->max_length_name = camel(prefix, "MaxLength");
 		this->accepts_name = camel(prefix, "Accepts");
-		this->accepts_bytes_name = camel(prefix, "AcceptsBytes");
 		this->encode_name = camel(prefix, "Encode");
-		this->encode_bytes_name = camel(prefix, "EncodeBytes");
 		this->decode_name = camel(prefix, "Decode");
 		this->decode_to_bytes_name = camel(prefix, "DecodeToBytes");
+		this->try_decode_name = camel(prefix, "TryDecode");
+		this->get_canonical_form_name = camel(prefix, "GetCanonicalForm");
+		this->canonicalise_name = camel(prefix, "Canonicalise");
 		this->rank_name = camel(prefix, "Rank");
 		this->decode_core_name = camel(prefix, "DecodeCore");
 		this->accept_step_name = camel(prefix, "AcceptStep");
@@ -240,11 +284,10 @@ namespace logmu::detail
 	void javascript_emitter::fragment::emit()
 	{
 		this->emit_constants();
-		this->emit_accepts(false);
-		this->emit_accepts(true);
-		this->emit_encode(false);
-		this->emit_encode(true);
+		this->emit_accepts();
+		this->emit_encode();
 		this->emit_decode_publics();
+		this->emit_get_canonical_form();
 		this->emit_steppers();
 	}
 
@@ -252,6 +295,9 @@ namespace logmu::detail
 	{
 		code_writer& out = this->writer();
 
+		out.line("/** The naxp this code was generated from. */");
+		out.line("const " + this->pattern_name + " = " + javascript_string_literal(this->context.compiled.pattern()) + ";");
+		out.line();
 		out.line("/** The largest encoded value this naxp produces, which is also how many it has. */");
 		out.line("const " + this->max_encoded_value_name + " = " + this->value(this->context.compiled.max_encoded_value()) + ";");
 		out.line();
@@ -262,23 +308,20 @@ namespace logmu::detail
 
 	// Public functions
 
-	void javascript_emitter::fragment::emit_accepts(bool bytes)
+	void javascript_emitter::fragment::emit_accepts()
 	{
 		code_writer& out = this->writer();
 
-		out.line(bytes
-			? "/** Whether this naxp accepts the ASCII text in a Uint8Array. A byte outside ASCII is never accepted."
-			: "/** Whether this naxp accepts a string.");
-		out.line(bytes
-			? " * @param {Uint8Array} bytes"
-			: " * @param {string} text");
+		out.line("/** Whether this naxp accepts a string, or the ASCII text in a Uint8Array. A byte outside ASCII is never accepted.");
+		out.line(" * @param {string | Uint8Array} text");
 		out.line(" * @returns {boolean}");
 		out.line(" */");
-		out.line("function " + (bytes ? this->accepts_bytes_name : this->accepts_name) + "(" + (bytes ? "bytes" : "text") + ") {");
+		out.line("function " + this->accepts_name + "(text) {");
 		out.indent_more();
+		out.line("const " + bytes_name + " = typeof text !== 'string';");
 		out.line("let state = 0;");
 		out.line();
-		this->emit_read_loop(bytes, [this](const std::string& code) { return "state = " + this->accept_step_name + "(state, " + code + ");"; }, "return false;");
+		this->emit_read_loop("state = " + this->accept_step_name + "(state, c);", "return false;");
 		out.line();
 		out.line("return " + this->is_accepting_name + "(state);");
 		out.indent_less();
@@ -286,51 +329,30 @@ namespace logmu::detail
 		out.line();
 	}
 
-	void javascript_emitter::fragment::emit_encode(bool bytes)
+	void javascript_emitter::fragment::emit_encode()
 	{
 		code_writer& out = this->writer();
 
-		out.line(bytes
-			? "/** The encoded value of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where the text is invalid."
-			: "/** The encoded value of a string, from 1 to the largest encoded value, or zero where the string is invalid.");
-		out.line(bytes
-			? " * @param {Uint8Array} bytes"
-			: " * @param {string} text");
+		out.line("/** The encoded value of a string, or of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where it is invalid.");
+		out.line(" * @param {string | Uint8Array} text");
 		out.line(" * @returns {" + this->number_type() + "}");
 		out.line(" */");
-		out.line("function " + (bytes ? this->encode_bytes_name : this->encode_name) + "(" + (bytes ? "bytes" : "text") + ") {");
+		out.line("function " + this->encode_name + "(text) {");
 		out.indent_more();
 
 		if (this->canonicalises())
 		{
-			out.line("const canonical = [];");
-			out.line("let state = 0;");
+			out.line("const canonical = " + this->canonicalise_name + "(text);");
 			out.line();
-
-			if (this->needs_register())
-			{
-				// The code points read, oldest first, so a reference of depth d is the one at
-				// register_depth - 1 - d. Shifting a buffer this small beats indexing a ring.
-				out.line("const " + held_name + " = new Array(" + decimal(this->register_depth()) + ").fill(0);");
-				out.line();
-			}
-
-			this->emit_read_loop(
-				bytes,
-				[this](const std::string& code) { return "state = " + this->canonical_step_name + "(state, " + code + ", " + this->step_arguments() + ");"; },
-				"return " + this->zero + ";",
-				this->needs_register()
-					? std::function<std::string(const std::string&)>([](const std::string& code) { return held_name + ".shift(); " + held_name + ".push(" + code + ");"; })
-					: nullptr);
-			out.line();
-			out.line("return " + this->finish_canonical_name + "(state, " + this->finish_arguments() + ") ? " + this->rank_name + "(canonical) : " + this->zero + ";");
+			out.line("return canonical === null ? " + this->zero + " : " + this->rank_name + "(canonical);");
 		}
 		else
 		{
+			out.line("const " + bytes_name + " = typeof text !== 'string';");
 			out.line("const acc = { total: " + this->zero + " };");
 			out.line("let state = 0;");
 			out.line();
-			this->emit_read_loop(bytes, [this](const std::string& code) { return "state = " + this->encode_step_name + "(state, " + code + ", acc);"; }, "return " + this->zero + ";");
+			this->emit_read_loop("state = " + this->encode_step_name + "(state, c, acc);", "return " + this->zero + ";");
 			out.line();
 			out.line("return " + this->is_accepting_name + "(state) ? acc.total + " + this->one + " : " + this->zero + ";");
 		}
@@ -340,27 +362,28 @@ namespace logmu::detail
 		out.line();
 	}
 
-	/// The loop both entry points read their input with. A byte is already the code point, and
-	/// anything above ASCII fits no transition, so one stepper serves both forms.
-	void javascript_emitter::fragment::emit_read_loop(
-		bool bytes,
-		const std::function<std::string(const std::string&)>& step,
-		const std::string& on_fault,
-		const std::function<std::string(const std::string&)>& before)
+	/// The loop every entry point reads its input with. A byte is already the code point, and
+	/// anything above ASCII fits no transition, so one stepper serves strings and bytes alike; the
+	/// function has already set the flag saying which it holds.
+	///
+	/// @param step The stepping statement, over the code point `c`.
+	/// @param on_fault What a failed step does.
+	/// @param before A statement between reading the code point and stepping, if any.
+	void javascript_emitter::fragment::emit_read_loop(const std::string& step, const std::string& on_fault, const std::optional<std::string>& before)
 	{
 		code_writer& out = this->writer();
-		const std::string source = bytes ? "bytes" : "text";
-		const std::string code = bytes ? "bytes[i]" : "text.charCodeAt(i)";
 
-		out.line("for (let i = 0; i < " + source + ".length; i++) {");
+		out.line("for (let i = 0; i < text.length; i++) {");
 		out.indent_more();
+		out.line("const c = " + bytes_name + " ? text[i] : text.charCodeAt(i);");
+		out.line();
 
-		if (before != nullptr)
+		if (before.has_value())
 		{
-			out.line(before(code));
+			out.line(*before);
 		}
 
-		out.line(step(code));
+		out.line(step);
 		out.line();
 		out.line("if (state < 0) { " + on_fault + " }");
 		out.indent_less();
@@ -398,6 +421,50 @@ namespace logmu::detail
 		out.indent_less();
 		out.line("}");
 		out.line();
+
+		out.line("/** The string a value stands for, which is in canonical form, or null where the value is not one this naxp produces.");
+		out.line(" * @param {" + this->number_type() + "} value");
+		out.line(" * @returns {string | null}");
+		out.line(" */");
+		out.line("function " + this->try_decode_name + "(value) {");
+		out.indent_more();
+		out.line("if (value < " + this->one + " || value > " + this->max_encoded_value_name + ") { return null; }");
+		out.line();
+		out.line("return String.fromCharCode.apply(null, " + this->decode_core_name + "(value));");
+		out.indent_less();
+		out.line("}");
+		out.line();
+	}
+
+	void javascript_emitter::fragment::emit_get_canonical_form()
+	{
+		code_writer& out = this->writer();
+
+		out.line("/** The canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid.");
+		out.line(" * @param {string | Uint8Array} text");
+		out.line(" * @returns {string | null}");
+		out.line(" */");
+		out.line("function " + this->get_canonical_form_name + "(text) {");
+		out.indent_more();
+
+		if (this->canonicalises())
+		{
+			out.line("const canonical = " + this->canonicalise_name + "(text);");
+			out.line();
+			out.line("return canonical === null ? null : String.fromCharCode.apply(null, canonical);");
+		}
+		else
+		{
+			// Where nothing is unified an accepted string is its own canonical form, so only bytes
+			// need anything done to them.
+			out.line("if (!" + this->accepts_name + "(text)) { return null; }");
+			out.line();
+			out.line("return typeof text === 'string' ? text : String.fromCharCode.apply(null, text);");
+		}
+
+		out.indent_less();
+		out.line("}");
+		out.line();
 	}
 
 	void javascript_emitter::fragment::emit_range_check(const std::string& message)
@@ -420,6 +487,32 @@ namespace logmu::detail
 
 		if (this->canonicalises())
 		{
+			out.line("/** The code points of the canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid. */");
+			out.line("function " + this->canonicalise_name + "(text) {");
+			out.indent_more();
+			out.line("const " + bytes_name + " = typeof text !== 'string';");
+			out.line("const canonical = [];");
+			out.line("let state = 0;");
+			out.line();
+
+			if (this->needs_register())
+			{
+				// The code points read, oldest first, so a reference of depth d is the one at
+				// register_depth - 1 - d. Shifting a buffer this small beats indexing a ring.
+				out.line("const " + held_name + " = new Array(" + decimal(this->register_depth()) + ").fill(0);");
+				out.line();
+			}
+
+			this->emit_read_loop(
+				"state = " + this->canonical_step_name + "(state, c, " + this->step_arguments() + ");",
+				"return null;",
+				this->needs_register() ? std::optional<std::string>(held_name + ".shift(); " + held_name + ".push(c);") : std::nullopt);
+			out.line();
+			out.line("return " + this->finish_canonical_name + "(state, " + this->finish_arguments() + ") ? canonical : null;");
+			out.indent_less();
+			out.line("}");
+			out.line();
+
 			out.line("/** The rank of a canonical string, as code points, within the canonical language, or zero where it is not in it. */");
 			out.line("function " + this->rank_name + "(codes) {");
 			out.indent_more();

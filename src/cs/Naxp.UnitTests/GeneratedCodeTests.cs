@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 // Compiling and running the generated code needs Roslyn, which the test project only references
@@ -26,6 +26,15 @@ delegate string GeneratedDecode(ulong value);
 delegate byte[] GeneratedDecodeToBytes(ulong value);
 delegate bool GeneratedTryDecodeChars(ulong value, Span<char> destination, out int charsWritten);
 delegate bool GeneratedTryDecodeBytes(ulong value, Span<byte> destination, out int bytesWritten);
+delegate bool GeneratedTryEncodeChars(ReadOnlySpan<char> text, out ulong encoded);
+delegate bool GeneratedTryEncodeBytes(ReadOnlySpan<byte> text, out ulong encoded);
+delegate bool GeneratedTryDecodeString(ulong value, out string? text);
+delegate string? GeneratedCanonicalFormChars(ReadOnlySpan<char> text);
+delegate string? GeneratedCanonicalFormBytes(ReadOnlySpan<byte> text);
+delegate bool GeneratedTryCanonicalFormChars(ReadOnlySpan<char> text, out string? canonicalForm);
+delegate bool GeneratedTryCanonicalFormBytes(ReadOnlySpan<byte> text, out string? canonicalForm);
+delegate bool GeneratedTryCanonicalFormIntoChars(ReadOnlySpan<char> text, Span<char> destination, out int charsWritten);
+delegate bool GeneratedTryCanonicalFormIntoBytes(ReadOnlySpan<byte> text, Span<byte> destination, out int bytesWritten);
 delegate byte GeneratedEncodeNarrow(ReadOnlySpan<char> text);
 delegate string GeneratedDecodeNarrow(byte value);
 
@@ -220,6 +229,118 @@ public class GeneratedCodeTests
 	}
 
 	/// <summary>
+	/// The members that go beyond encoding and decoding - the pattern, <c>TryEncode</c>, the
+	/// string <c>TryDecode</c> and every form of the canonical form - asked the conformance data's
+	/// questions.
+	/// </summary>
+	[Fact]
+	public void Generated_CanonicalFormsAndTries_AsTheTestDataSays()
+	{
+		var failures = new List<string>();
+
+		foreach (ConformanceCase item in TestData.Cases)
+		{
+			GeneratedNaxp generated = Compiled.Value[item.Naxp];
+
+			if (generated.Pattern != item.Naxp) { failures.Add($"{item.Naxp} generated the pattern '{generated.Pattern}'."); }
+
+			IEnumerable<(string In, ulong Out, string? Canon)> rows = item.Values
+				.Select(v => (v.In, (ulong)v.Out, v.Out == 0L ? null : v.Canon))
+				.Concat(item.Invalid.Select(t => (t, 0UL, (string?)null)));
+
+			foreach ((string text, ulong expected, string? canon) in rows)
+			{
+				byte[] bytes = AsciiBytes(text);
+				bool valid = expected != 0UL;
+
+				if (generated.TryEncodeChars(text, out ulong encoded) != valid || encoded != expected
+					|| generated.TryEncodeBytes(bytes, out encoded) != valid || encoded != expected)
+				{
+					failures.Add($"{item.Naxp} answers TryEncode('{text}') against the test data.");
+				}
+
+				if (generated.CanonicalFormChars(text) != canon || generated.CanonicalFormBytes(bytes) != canon
+					|| generated.TryCanonicalFormChars(text, out string? tried) != valid || tried != canon
+					|| generated.TryCanonicalFormBytes(bytes, out tried) != valid || tried != canon)
+				{
+					failures.Add($"{item.Naxp} gives the canonical form of '{text}' against the test data.");
+				}
+
+				var chars = new char[generated.MaxLength];
+				var octets = new byte[generated.MaxLength];
+				bool charsOk = generated.TryCanonicalFormIntoChars(text, chars, out int charsWritten);
+				bool bytesOk = generated.TryCanonicalFormIntoBytes(bytes, octets, out int bytesWritten);
+
+				if (charsOk != valid || bytesOk != valid
+					|| (valid && (new string(chars, 0, charsWritten) != canon || Ascii(octets, bytesWritten) != canon))
+					|| (!valid && (charsWritten != 0 || bytesWritten != 0)))
+				{
+					failures.Add($"{item.Naxp} writes the canonical form of '{text}' against the test data.");
+				}
+
+				if (!valid) { continue; }
+
+				if (canon!.Length > 0 && generated.TryCanonicalFormIntoChars(text, new char[canon.Length - 1], out _))
+				{
+					failures.Add($"{item.Naxp} wrote the canonical form of '{text}' into a buffer one too short.");
+				}
+
+				if (!generated.TryDecodeString(expected, out string? decoded) || decoded != canon)
+				{
+					failures.Add($"{item.Naxp} answers TryDecode({expected}) with '{decoded}'.");
+				}
+			}
+
+			if (generated.TryDecodeString(0UL, out string? none) || none is not null)
+			{
+				failures.Add($"{item.Naxp} decodes zero.");
+			}
+		}
+
+		AssertNoFailures(failures);
+	}
+
+	/// <summary>
+	/// Where the target framework has <c>NotNullWhen</c>, the fragment annotates its members for
+	/// nullable reference types, and a project with nullable warnings on compiles it and uses it
+	/// without one.
+	/// </summary>
+	[Fact]
+	public void Generated_NullableBranch_CompilesCleanlyWithWarningsOn()
+	{
+		Assert.True(Compiler.TryCompile("(B|b)!B", out Compilation? compilation, out NaxpError? error), error?.ToString());
+
+		string fragment = CSharpEmitter.Instance.Emit(compilation!, string.Empty, initialIndent: "\t\t");
+
+		// A use a caller would write, which warns unless a true return proves the out value.
+		string use = "namespace LogMu.Generated" + Environment.NewLine
+			+ "{" + Environment.NewLine
+			+ "\tinternal static class Use" + Environment.NewLine
+			+ "\t{" + Environment.NewLine
+			+ "\t\tinternal static int Length(string s) => Annotated.TryGetCanonicalForm(s, out var form) ? form.Length : 0;" + Environment.NewLine
+			+ "\t\tinternal static int Decoded() => Annotated.TryDecode(1UL, out var text) ? text.Length : 0;" + Environment.NewLine
+			+ "\t}" + Environment.NewLine
+			+ "}" + Environment.NewLine;
+
+		CSharpParseOptions options = CSharpParseOptions.Default.WithPreprocessorSymbols("NETCOREAPP3_0_OR_GREATER");
+
+		CSharpCompilation compiled = CSharpCompilation.Create(
+			"LogMu.GeneratedAnnotated",
+			new[] { CSharpSyntaxTree.ParseText(Wrap("Annotated", fragment), options), CSharpSyntaxTree.ParseText(use, options) },
+			References(),
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+		Diagnostic[] complaints = compiled.GetDiagnostics()
+			.Where(d => d.Severity >= DiagnosticSeverity.Warning)
+			.ToArray();
+
+		Assert.True(
+			complaints.Length == 0,
+			$"The annotated fragment did not compile cleanly:{Environment.NewLine}{string.Join(Environment.NewLine, complaints.Select(c => c.ToString()))}");
+		Assert.Contains("out string? text", fragment);
+	}
+
+	/// <summary>
 	/// The chunked machines answer just as the library does. Correctness elsewhere is carried by
 	/// the conformance cases, which all fit one chunk; these two are the split's only exercise.
 	/// </summary>
@@ -370,6 +491,7 @@ public class GeneratedCodeTests
 
 	static GeneratedNaxp Bind(Type type)
 		=> new GeneratedNaxp(
+			(string)type.GetField("Pattern")!.GetRawConstantValue()!,
 			(ulong)type.GetField("MaxEncodedValue")!.GetRawConstantValue()!,
 			(int)type.GetField("MaxLength")!.GetRawConstantValue()!,
 			type.GetMethod("Accepts", new[] { typeof(ReadOnlySpan<char>) })!.CreateDelegate<GeneratedAcceptsChars>(),
@@ -379,7 +501,17 @@ public class GeneratedCodeTests
 			type.GetMethod("Decode")!.CreateDelegate<GeneratedDecode>(),
 			type.GetMethod("DecodeToBytes")!.CreateDelegate<GeneratedDecodeToBytes>(),
 			type.GetMethod("TryDecode", new[] { typeof(ulong), typeof(Span<char>), typeof(int).MakeByRefType() })!.CreateDelegate<GeneratedTryDecodeChars>(),
-			type.GetMethod("TryDecode", new[] { typeof(ulong), typeof(Span<byte>), typeof(int).MakeByRefType() })!.CreateDelegate<GeneratedTryDecodeBytes>());
+			type.GetMethod("TryDecode", new[] { typeof(ulong), typeof(Span<byte>), typeof(int).MakeByRefType() })!.CreateDelegate<GeneratedTryDecodeBytes>(),
+			new GeneratedExtras(
+				type.GetMethod("TryEncode", new[] { typeof(ReadOnlySpan<char>), typeof(ulong).MakeByRefType() })!.CreateDelegate<GeneratedTryEncodeChars>(),
+				type.GetMethod("TryEncode", new[] { typeof(ReadOnlySpan<byte>), typeof(ulong).MakeByRefType() })!.CreateDelegate<GeneratedTryEncodeBytes>(),
+				type.GetMethod("TryDecode", new[] { typeof(ulong), typeof(string).MakeByRefType() })!.CreateDelegate<GeneratedTryDecodeString>(),
+				type.GetMethod("GetCanonicalForm", new[] { typeof(ReadOnlySpan<char>) })!.CreateDelegate<GeneratedCanonicalFormChars>(),
+				type.GetMethod("GetCanonicalForm", new[] { typeof(ReadOnlySpan<byte>) })!.CreateDelegate<GeneratedCanonicalFormBytes>(),
+				type.GetMethod("TryGetCanonicalForm", new[] { typeof(ReadOnlySpan<char>), typeof(string).MakeByRefType() })!.CreateDelegate<GeneratedTryCanonicalFormChars>(),
+				type.GetMethod("TryGetCanonicalForm", new[] { typeof(ReadOnlySpan<byte>), typeof(string).MakeByRefType() })!.CreateDelegate<GeneratedTryCanonicalFormBytes>(),
+				type.GetMethod("TryGetCanonicalForm", new[] { typeof(ReadOnlySpan<char>), typeof(Span<char>), typeof(int).MakeByRefType() })!.CreateDelegate<GeneratedTryCanonicalFormIntoChars>(),
+				type.GetMethod("TryGetCanonicalForm", new[] { typeof(ReadOnlySpan<byte>), typeof(Span<byte>), typeof(int).MakeByRefType() })!.CreateDelegate<GeneratedTryCanonicalFormIntoBytes>()));
 
 	static byte[] AsciiBytes(string text)
 	{
@@ -389,6 +521,8 @@ public class GeneratedCodeTests
 
 		return bytes;
 	}
+
+	static string Ascii(byte[] bytes, int length) => new string(bytes.Take(length).Select(b => (char)b).ToArray());
 
 	static void AssertNoFailures(List<string> failures)
 	{
@@ -400,6 +534,7 @@ public class GeneratedCodeTests
 	sealed class GeneratedNaxp
 	{
 		public GeneratedNaxp(
+			string pattern,
 			ulong maxEncodedValue,
 			int maxLength,
 			GeneratedAcceptsChars acceptsChars,
@@ -409,8 +544,10 @@ public class GeneratedCodeTests
 			GeneratedDecode decode,
 			GeneratedDecodeToBytes decodeToBytes,
 			GeneratedTryDecodeChars tryDecodeChars,
-			GeneratedTryDecodeBytes tryDecodeBytes)
+			GeneratedTryDecodeBytes tryDecodeBytes,
+			GeneratedExtras extras)
 		{
+			this.Pattern = pattern;
 			this.MaxEncodedValue = maxEncodedValue;
 			this.MaxLength = maxLength;
 			this.AcceptsChars = acceptsChars;
@@ -421,7 +558,18 @@ public class GeneratedCodeTests
 			this.DecodeToBytes = decodeToBytes;
 			this.TryDecodeChars = tryDecodeChars;
 			this.TryDecodeBytes = tryDecodeBytes;
+			this.TryEncodeChars = extras.TryEncodeChars;
+			this.TryEncodeBytes = extras.TryEncodeBytes;
+			this.TryDecodeString = extras.TryDecodeString;
+			this.CanonicalFormChars = extras.CanonicalFormChars;
+			this.CanonicalFormBytes = extras.CanonicalFormBytes;
+			this.TryCanonicalFormChars = extras.TryCanonicalFormChars;
+			this.TryCanonicalFormBytes = extras.TryCanonicalFormBytes;
+			this.TryCanonicalFormIntoChars = extras.TryCanonicalFormIntoChars;
+			this.TryCanonicalFormIntoBytes = extras.TryCanonicalFormIntoBytes;
 		}
+
+		public string Pattern { get; }
 
 		public ulong MaxEncodedValue { get; }
 
@@ -442,7 +590,37 @@ public class GeneratedCodeTests
 		public GeneratedTryDecodeChars TryDecodeChars { get; }
 
 		public GeneratedTryDecodeBytes TryDecodeBytes { get; }
+
+		public GeneratedTryEncodeChars TryEncodeChars { get; }
+
+		public GeneratedTryEncodeBytes TryEncodeBytes { get; }
+
+		public GeneratedTryDecodeString TryDecodeString { get; }
+
+		public GeneratedCanonicalFormChars CanonicalFormChars { get; }
+
+		public GeneratedCanonicalFormBytes CanonicalFormBytes { get; }
+
+		public GeneratedTryCanonicalFormChars TryCanonicalFormChars { get; }
+
+		public GeneratedTryCanonicalFormBytes TryCanonicalFormBytes { get; }
+
+		public GeneratedTryCanonicalFormIntoChars TryCanonicalFormIntoChars { get; }
+
+		public GeneratedTryCanonicalFormIntoBytes TryCanonicalFormIntoBytes { get; }
 	}
+
+	/// <summary>The members added with 0.12, bound separately so the constructor stays readable.</summary>
+	sealed record GeneratedExtras(
+		GeneratedTryEncodeChars TryEncodeChars,
+		GeneratedTryEncodeBytes TryEncodeBytes,
+		GeneratedTryDecodeString TryDecodeString,
+		GeneratedCanonicalFormChars CanonicalFormChars,
+		GeneratedCanonicalFormBytes CanonicalFormBytes,
+		GeneratedTryCanonicalFormChars TryCanonicalFormChars,
+		GeneratedTryCanonicalFormBytes TryCanonicalFormBytes,
+		GeneratedTryCanonicalFormIntoChars TryCanonicalFormIntoChars,
+		GeneratedTryCanonicalFormIntoBytes TryCanonicalFormIntoBytes);
 	#endregion
 }
 

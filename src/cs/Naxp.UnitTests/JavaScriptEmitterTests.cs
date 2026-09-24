@@ -1,4 +1,4 @@
-// Copyright (c) Tim Gordon.
+﻿// Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
@@ -35,15 +35,27 @@ public class JavaScriptEmitterTests
 	{
 		string source = Emit(@"\A\9", "Postcode");
 
+		Assert.Contains("const postcodePattern = '", source, StringComparison.Ordinal);
 		Assert.Contains("const postcodeMaxEncodedValue = 260;", source, StringComparison.Ordinal);
 		Assert.Contains("const postcodeMaxLength = 2;", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeAccepts(text) {", source, StringComparison.Ordinal);
-		Assert.Contains("function postcodeAcceptsBytes(bytes) {", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeEncode(text) {", source, StringComparison.Ordinal);
-		Assert.Contains("function postcodeEncodeBytes(bytes) {", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeDecode(value) {", source, StringComparison.Ordinal);
 		Assert.Contains("function postcodeDecodeToBytes(value) {", source, StringComparison.Ordinal);
+		Assert.Contains("function postcodeTryDecode(value) {", source, StringComparison.Ordinal);
+		Assert.Contains("function postcodeGetCanonicalForm(text) {", source, StringComparison.Ordinal);
 	}
+
+	/// <summary>
+	/// A quote, a backslash, a tab and a newline, which are what a pattern can hold that needs
+	/// escaping in a single-quoted literal.
+	/// </summary>
+	[Theory]
+	[InlineData(@"\A\9", @"'\\A\\9'")]
+	[InlineData("A'B", @"'A\'B'")]
+	[InlineData("A\tB\nC", @"'A\tB\nC'")]
+	public void Emit_EscapesThePattern(string naxp, string literal)
+		=> Assert.Contains($"const pattern = {literal};", Emit(naxp), StringComparison.Ordinal);
 
 	[Fact]
 	public void Emit_AllowsABlankPrefix()
@@ -55,16 +67,16 @@ public class JavaScriptEmitterTests
 	}
 
 	/// <summary>
-	/// One stepper serves the string and the byte entry points, because a byte is already the code
-	/// point it stands for.
+	/// One function serves strings and bytes, as the library's does, because a byte is already the
+	/// code point it stands for.
 	/// </summary>
 	[Fact]
 	public void Emit_ReadsCodePoints()
 	{
 		string source = Emit(@"\A\9");
 
-		Assert.Contains("acceptStep(state, text.charCodeAt(i));", source, StringComparison.Ordinal);
-		Assert.Contains("acceptStep(state, bytes[i]);", source, StringComparison.Ordinal);
+		Assert.Contains("const bytes = typeof text !== 'string';", source, StringComparison.Ordinal);
+		Assert.Contains("const c = bytes ? text[i] : text.charCodeAt(i);", source, StringComparison.Ordinal);
 		Assert.Contains("c >= 0x41 && c <= 0x5A", source, StringComparison.Ordinal);
 	}
 
@@ -214,12 +226,13 @@ public class JavaScriptEmitterTests
 			builder.AppendLine($"\t\tnaxp: {JsString(item.Naxp)},");
 			builder.AppendLine($"\t\tmaxEncodedValue: {prefix}MaxEncodedValue,");
 			builder.AppendLine($"\t\tmaxEncodedValueText: {JsString(item.MaxEncodedValue.ToString(CultureInfo.InvariantCulture))},");
+			builder.AppendLine($"\t\tpattern: {prefix}Pattern,");
 			builder.AppendLine($"\t\taccepts: {prefix}Accepts,");
-			builder.AppendLine($"\t\tacceptsBytes: {prefix}AcceptsBytes,");
 			builder.AppendLine($"\t\tencode: {prefix}Encode,");
-			builder.AppendLine($"\t\tencodeBytes: {prefix}EncodeBytes,");
 			builder.AppendLine($"\t\tdecode: {prefix}Decode,");
 			builder.AppendLine($"\t\tdecodeToBytes: {prefix}DecodeToBytes,");
+			builder.AppendLine($"\t\ttryDecode: {prefix}TryDecode,");
+			builder.AppendLine($"\t\tgetCanonicalForm: {prefix}GetCanonicalForm,");
 			builder.Append("\t\tvalues: [");
 
 			foreach (ConformanceValue value in item.Values)
@@ -273,6 +286,7 @@ public class JavaScriptEmitterTests
 		}
 
 		for (const c of cases) {
+			check(c.pattern === c.naxp, `${c.naxp}: pattern is '${c.pattern}'`);
 			check(String(c.maxEncodedValue) === c.maxEncodedValueText,
 				`${c.naxp}: maxEncodedValue is ${c.maxEncodedValue}, the test data says ${c.maxEncodedValueText}`);
 
@@ -281,12 +295,16 @@ public class JavaScriptEmitterTests
 
 				check(String(encoded) === expected,
 					`${c.naxp}: encode('${text}') is ${encoded}, the test data says ${expected}`);
-				check(String(c.encodeBytes(toBytes(text))) === expected,
-					`${c.naxp}: encodeBytes('${text}') disagrees with encode`);
+				check(String(c.encode(toBytes(text))) === expected,
+					`${c.naxp}: encode of the bytes of '${text}' disagrees with encode`);
 				check(c.accepts(text) === (expected !== '0'),
 					`${c.naxp}: accepts('${text}') is ${c.accepts(text)}, the test data says ${expected !== '0'}`);
-				check(c.acceptsBytes(toBytes(text)) === (expected !== '0'),
-					`${c.naxp}: acceptsBytes('${text}') disagrees with accepts`);
+				check(c.accepts(toBytes(text)) === (expected !== '0'),
+					`${c.naxp}: accepts of the bytes of '${text}' disagrees with accepts`);
+				check(c.getCanonicalForm(text) === (expected !== '0' ? canon : null),
+					`${c.naxp}: getCanonicalForm('${text}') is '${c.getCanonicalForm(text)}', the test data says '${canon}'`);
+				check(c.getCanonicalForm(toBytes(text)) === (expected !== '0' ? canon : null),
+					`${c.naxp}: getCanonicalForm of the bytes of '${text}' disagrees with getCanonicalForm`);
 
 				if (expected !== '0') {
 					const decoded = c.decode(encoded);
@@ -295,6 +313,8 @@ public class JavaScriptEmitterTests
 						`${c.naxp}: decode(${encoded}) is '${decoded}', the test data says '${canon}'`);
 					check(fromBytes(c.decodeToBytes(encoded)) === canon,
 						`${c.naxp}: decodeToBytes(${encoded}) disagrees with decode`);
+					check(c.tryDecode(encoded) === canon,
+						`${c.naxp}: tryDecode(${encoded}) disagrees with decode`);
 					check(String(c.encode(decoded)) === expected,
 						`${c.naxp}: '${decoded}' does not encode back to ${expected}`);
 				}
@@ -305,7 +325,12 @@ public class JavaScriptEmitterTests
 					`${c.naxp}: accepts('${invalid}'), which the test data says it must not`);
 				check(String(c.encode(invalid)) === '0',
 					`${c.naxp}: encode('${invalid}') is ${c.encode(invalid)} rather than zero`);
+				check(c.getCanonicalForm(invalid) === null,
+					`${c.naxp}: getCanonicalForm('${invalid}') is not null`);
 			}
+
+			check(c.tryDecode(typeof c.maxEncodedValue === 'bigint' ? 0n : 0) === null,
+				`${c.naxp}: tryDecode(0) is not null`);
 
 			let threw = false;
 

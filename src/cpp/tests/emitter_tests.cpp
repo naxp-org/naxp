@@ -42,6 +42,7 @@ NAXP_TEST(csharp_constants_carry_the_count_and_the_longest_string)
 
 	NAXP_CHECK(contains(source, "public const ulong MaxEncodedValue = 12UL;"));
 	NAXP_CHECK(contains(source, "public const int MaxLength = 2;"));
+	NAXP_CHECK(contains(source, "public const string Pattern = @\"#[1-12]\";"));
 }
 
 NAXP_TEST(javascript_names_are_camel_cased_under_the_prefix)
@@ -58,6 +59,8 @@ NAXP_TEST(c_names_are_snake_cased_at_case_boundaries)
 
 	NAXP_CHECK(contains(source, "static const uint64_t uk_postcode_max_encoded_value = 12ULL;"));
 	NAXP_CHECK(contains(source, "static inline bool uk_postcode_accepts_cstr(const char *text)"));
+	NAXP_CHECK(contains(source, "static inline const char *uk_postcode_pattern(void)"));
+	NAXP_CHECK(contains(source, "static inline bool uk_postcode_canonical_form_cstr(const char *text, char *destination, size_t capacity)"));
 }
 
 NAXP_TEST(cpp_fragment_is_inline_with_a_digit_separator)
@@ -67,6 +70,8 @@ NAXP_TEST(cpp_fragment_is_inline_with_a_digit_separator)
 	NAXP_CHECK(contains(source, "inline constexpr std::uint64_t max_encoded_value = 10'000'000'000'000'000'000ULL;"));
 	NAXP_CHECK(contains(source, "inline bool accepts(std::string_view text)"));
 	NAXP_CHECK(contains(source, "inline bool try_decode(std::uint64_t value, std::string& text)"));
+	NAXP_CHECK(contains(source, "inline constexpr std::string_view pattern = R\"(\\9{19})\";"));
+	NAXP_CHECK(contains(source, "inline bool try_canonical_form(std::string_view text, char* destination, std::size_t capacity, std::size_t& length)"));
 }
 
 NAXP_TEST(a_blank_prefix_gives_bare_names)
@@ -94,7 +99,7 @@ NAXP_TEST(the_formatting_arguments_shape_every_line)
 {
 	const std::string source = logmu::naxp::parse("A").emit(logmu::output_language::javascript, "", logmu::naxp_value_type::uint64, "  ", "\r\n", "    ");
 
-	NAXP_CHECK(contains(source, "  function accepts(text) {\r\n      let state = 0;\r\n"));
+	NAXP_CHECK(contains(source, "  function accepts(text) {\r\n      const bytes = typeof text !== 'string';\r\n"));
 }
 
 NAXP_TEST(a_prefix_that_is_not_an_identifier_is_refused)

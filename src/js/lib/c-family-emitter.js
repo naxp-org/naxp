@@ -44,6 +44,7 @@ export class CFamilyEmitter extends Emitter {
 		this.emitHeader(fragment);
 		fragment.emitPrototypes();
 		this.emitPublics(fragment);
+		this.emitCanonicalise(fragment);
 		fragment.emitSteppers();
 	}
 
@@ -111,6 +112,22 @@ export class CFamilyEmitter extends Emitter {
 	 */
 	emitPublics(fragment) {
 		throw new Error(`${this.constructor.name} does not implement emitPublics.`);
+	}
+
+	/**
+	 * Writes the function that puts the canonical form of text into a buffer of the longest
+	 * length, which every public function needing a canonical form calls. It reads its text as the
+	 * public functions do, which is the language's own business.
+	 *
+	 * @param {Fragment} fragment The call's state.
+	 */
+	emitCanonicalise(fragment) {
+		throw new Error(`${this.constructor.name} does not implement emitCanonicalise.`);
+	}
+
+	/** How text is taken in: a pointer and a length in C, a `string_view` in C++. */
+	get textParameters() {
+		throw new Error(`${this.constructor.name} does not implement textParameters.`);
 	}
 
 	/** The linkage a stepper is declared with: `static` in C, `inline` in C++. */
@@ -352,11 +369,14 @@ export class Fragment {
 		// The generated names, each the prefix plus the bare member name in snake_case.
 		const prefix = context.prefix;
 
+		this.patternName = snake(prefix, 'Pattern');
 		this.maxEncodedValueName = snake(prefix, 'MaxEncodedValue');
 		this.maxLengthName = snake(prefix, 'MaxLength');
 		this.acceptsName = snake(prefix, 'Accepts');
 		this.encodeName = snake(prefix, 'Encode');
 		this.decodeName = snake(prefix, 'Decode');
+		this.canonicalFormName = snake(prefix, 'CanonicalForm');
+		this.canonicaliseName = snake(prefix, 'Canonicalise');
 		this.rankName = snake(prefix, 'Rank');
 		this.decodeCoreName = snake(prefix, 'DecodeCore');
 		this.acceptStepName = snake(prefix, 'AcceptStep');
@@ -409,6 +429,8 @@ export class Fragment {
 	// Each parameter list is written once here and read by the prototype and the definition
 	// alike, so the two cannot drift.
 
+	get canonicaliseParameters() { return `${this.emitter.textParameters}, ${this.emitter.pointer('char', 'canonical')}`; }
+
 	get rankParameters() { return `${this.emitter.pointer('const char', 'canonical')}, int length`; }
 
 	get decodeCoreParameters() { return `${this.emitter.uint64} value, ${this.emitter.pointer('char', 'destination')}`; }
@@ -458,6 +480,7 @@ export class Fragment {
 		const linkage = this.emitter.stepLinkage;
 
 		this.emitter.comment(this.writer, 'The steppers, which are defined below the public functions.');
+		this.writer.line(`${linkage} int ${this.canonicaliseName}(${this.canonicaliseParameters});`);
 
 		if (this.canonicalises) {
 			this.writer.line(`${linkage} ${this.emitter.uint64} ${this.rankName}(${this.rankParameters});`);
@@ -499,6 +522,46 @@ export class Fragment {
 		for (let chunk = 0; chunk < chunkCount; ++chunk) {
 			this.writer.line(`${this.emitter.stepLinkage} int ${name}${chunk}(${parameters});`);
 		}
+	}
+
+	/**
+	 * Opens the function that canonicalises, with its comment, which both languages share.
+	 */
+	openCanonicalise() {
+		this.emitter.comment(this.writer, `Writes the canonical form of text into a buffer of ${this.maxLengthName} characters, and returns its length, or -1 where the text is invalid.`);
+		this.writer.line(`${this.emitter.stepLinkage} int ${this.canonicaliseName}(${this.canonicaliseParameters})`);
+		this.writer.openBlock();
+	}
+
+	/**
+	 * Declares the register, where the naxp needs one, ahead of the loop that reads the text.
+	 *
+	 * @param {string} zeroed How an array is written zeroed: `{ 0 }` in C and `{}` in C++.
+	 */
+	declareRegister(zeroed) {
+		if (!this.needsRegister) { return; }
+
+		// The characters read, oldest first, so a reference of depth d is the one at
+		// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring, and it starts
+		// zeroed so that an early shift reads nothing undefined.
+		this.writer.line(`char ${HELD_NAME}[${this.registerDepth}] = ${zeroed};`);
+	}
+
+	/**
+	 * Keeps the character just read, where the naxp needs a register.
+	 *
+	 * @param {string} character The character, as a `char`.
+	 */
+	keepCharacter(character) {
+		if (!this.needsRegister) { return; }
+
+		const top = this.registerDepth - 1;
+
+		if (this.registerDepth > 1) {
+			this.writer.line(`for (int h = 0; h < ${top}; ++h) { ${HELD_NAME}[h] = ${HELD_NAME}[h + 1]; }`);
+		}
+
+		this.writer.line(`${HELD_NAME}[${top}] = ${character};`);
 	}
 
 	/* ---------- the steppers ---------- */

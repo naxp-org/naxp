@@ -121,13 +121,14 @@ namespace logmu::detail
 		/// in any output reaches. Zero where no output holds one.
 		int register_depth;
 
-		/// The canonical form of a string, which is the string with each unified element
-		/// replaced by its rendering.
+		/// Writes the canonical form of a string, which is the string with each unified element
+		/// replaced by its rendering, into a buffer.
 		///
 		/// @param text The string.
-		/// @param canonical The canonical form. Untouched where the string is invalid.
-		/// @returns Whether the string is accepted.
-		bool try_canonicalise(std::string_view text, std::string& canonical) const;
+		/// @param destination Where the canonical form goes, which holds the longest string in
+		///     the canonical language.
+		/// @returns The length of the canonical form, or -1 where the string is invalid.
+		int canonicalise(std::string_view text, char* destination) const;
 	};
 
 	/// A character read but not yet placed, held in a pending output as how far back it was read

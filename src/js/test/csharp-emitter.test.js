@@ -34,6 +34,58 @@ test('the constants carry the count and the longest string', () => {
 	assert.ok(source.includes('public const int MaxLength = 2;'));
 });
 
+test('the pattern is verbatim where it can be and escaped where it cannot', () => {
+	assert.ok(emit('\\A"B').includes('public const string Pattern = @"\\A""B";'));
+	assert.ok(emit('A\tB').includes('public const string Pattern = "A\\tB";'));
+});
+
+test('every member of the library for one naxp is generated', () => {
+	const source = emit('(B|b)!B', '', NaxpValueType.UInt8);
+	const members = [
+		'public static bool TryEncode(global::System.ReadOnlySpan<char> text, out byte encoded)',
+		'public static bool TryEncode(global::System.ReadOnlySpan<byte> text, out byte encoded)',
+		'public static byte[] DecodeToBytes(byte value)',
+		'public static bool TryDecode(byte value, out string text)',
+		'public static bool TryDecode(byte value, global::System.Span<char> destination, out int charsWritten)',
+		'public static bool TryDecode(byte value, global::System.Span<byte> destination, out int bytesWritten)',
+		'public static string GetCanonicalForm(global::System.ReadOnlySpan<char> text)',
+		'public static string GetCanonicalForm(global::System.ReadOnlySpan<byte> text)',
+		'public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<char> text, out string canonicalForm)',
+		'public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<byte> text, out string canonicalForm)',
+		'public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<char> text, global::System.Span<char> destination, out int charsWritten)',
+		'public static bool TryGetCanonicalForm(global::System.ReadOnlySpan<byte> text, global::System.Span<byte> destination, out int bytesWritten)',
+	];
+
+	for (const member of members) {
+		assert.ok(source.includes(member), `${member} is missing`);
+	}
+});
+
+test('a naxp with nothing unified gives each accepted string back as its canonical form', () => {
+	const source = emit('AB|C');
+
+	assert.ok(source.includes('if (!Accepts(text)) { return -1; }'));
+	assert.ok(source.includes('text.CopyTo(canonical);'));
+});
+
+test('nullable annotations sit behind the framework test, so the fragment still compiles as C# 7.3', () => {
+	const source = emit('(B|b)!B');
+	const condition = '#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER\n';
+
+	assert.ok(source.startsWith(`${condition}#nullable enable annotations\n#endif\n`));
+	assert.ok(source.endsWith(`${condition}#nullable restore\n#endif\n`));
+	assert.ok(source.includes(
+		`${condition}public static string? GetCanonicalForm(global::System.ReadOnlySpan<char> text)\n`
+		+ '#else\npublic static string GetCanonicalForm(global::System.ReadOnlySpan<char> text)\n#endif\n'));
+	assert.ok(source.includes(
+		'public static bool TryDecode(ulong value, [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? text)'));
+
+	// Every annotation is inside a conditional, which the count of each proves: five signatures
+	// carry one, and each has its plain twin.
+	assert.equal(source.split('string?').length - 1, 5);
+	assert.equal(source.split('#else').length - 1, 5);
+});
+
 test('emitting the same naxp twice gives the same text', () => {
 	assert.equal(emit('K9\\9 9K9'), emit('K9\\9 9K9'));
 });

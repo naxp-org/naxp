@@ -394,6 +394,91 @@ public class NaxpTests
 		Assert.True(naxp.Accepts(Array.Empty<byte>()));
 		Assert.Equal(1UL, naxp.Encode(Array.Empty<byte>()));
 	}
+	[Fact]
+	public void ByteOverloads_GiveTheCanonicalForm()
+	{
+		Naxp naxp = Naxp.Parse(Postcode);
+
+		Assert.Equal("M1 1AA", naxp.GetCanonicalForm(Ascii("M11AA")));
+		Assert.Null(naxp.GetCanonicalForm(Ascii("M11A")));
+		Assert.True(naxp.TryGetCanonicalForm(Ascii("M11AA"), out string? canonicalForm));
+		Assert.Equal("M1 1AA", canonicalForm);
+		Assert.Null(naxp.GetCanonicalForm(new byte[NaxpLimits.MaxStringLength + 1]));
+	}
+	#endregion
+	#region Longest length and writing into buffers
+	[Theory]
+	[InlineData(Postcode, 8)]
+	[InlineData("A|BCD|EF", 3)]
+	[InlineData("()", 0)]
+	[InlineData("(AB|A)!A", 1)]
+	public void MaxLength_IsTheLongestCanonicalString(string pattern, int expected)
+		=> Assert.Equal(expected, Naxp.Parse(pattern).MaxLength);
+
+	[Fact]
+	public void DecodeToBytes_SpellsWhatDecodeGives()
+	{
+		Naxp naxp = Naxp.Parse(Postcode);
+
+		Assert.Equal(Ascii("M1 1AA"), naxp.DecodeToBytes(810639597UL));
+		Assert.Throws<ArgumentOutOfRangeException>(() => naxp.DecodeToBytes(0UL));
+	}
+
+	/// <summary>
+	/// Every overload that writes into a buffer, against the test data: a buffer of
+	/// <see cref="Naxp.MaxLength"/> always takes the answer, one of exactly its length does too, and
+	/// one shorter fails with nothing written.
+	/// </summary>
+	[Fact]
+	public void BufferOverloads_MatchTheTestData()
+	{
+		ConformanceTestData data = ConformanceTestData.Load();
+
+		foreach (ConformanceCase item in data.Cases)
+		{
+			Naxp naxp = Naxp.Parse(item.Naxp);
+			var chars = new char[naxp.MaxLength];
+			var bytes = new byte[naxp.MaxLength];
+			int written;
+
+			foreach (ConformanceValue value in item.Values)
+			{
+				string canon = value.Canon ?? value.In;
+
+				Assert.True(canon.Length <= naxp.MaxLength, $"{item.Naxp}: '{canon}' is longer than MaxLength.");
+
+				Assert.True(naxp.TryDecode((ulong)value.Out, chars, out written));
+				Assert.Equal(canon, new string(chars, 0, written));
+				Assert.True(naxp.TryDecode((ulong)value.Out, bytes, out written));
+				Assert.Equal(Ascii(canon), bytes.AsSpan(0, written).ToArray());
+				Assert.True(naxp.TryDecode((ulong)value.Out, new char[canon.Length], out written));
+
+				Assert.True(naxp.TryGetCanonicalForm(value.In, chars, out written));
+				Assert.Equal(canon, new string(chars, 0, written));
+				Assert.True(naxp.TryGetCanonicalForm(Ascii(value.In), bytes, out written));
+				Assert.Equal(Ascii(canon), bytes.AsSpan(0, written).ToArray());
+				Assert.Equal(canon, naxp.GetCanonicalForm(Ascii(value.In)));
+
+				if (canon.Length == 0) { continue; }
+
+				Assert.False(naxp.TryDecode((ulong)value.Out, new char[canon.Length - 1], out written));
+				Assert.Equal(0, written);
+				Assert.False(naxp.TryGetCanonicalForm(value.In, new char[canon.Length - 1], out written));
+				Assert.Equal(0, written);
+			}
+
+			foreach (string text in item.Invalid)
+			{
+				Assert.False(naxp.TryGetCanonicalForm(text, chars, out written));
+				Assert.Equal(0, written);
+				Assert.False(naxp.TryGetCanonicalForm(Ascii(text), bytes, out written));
+				Assert.Null(naxp.GetCanonicalForm(Ascii(text)));
+			}
+
+			Assert.False(naxp.TryDecode(0UL, chars, out written));
+			Assert.False(naxp.TryDecode(0UL, bytes, out written));
+		}
+	}
 	#endregion
 	#region Test data through the public surface
 	/// <summary>

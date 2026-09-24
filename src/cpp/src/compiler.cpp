@@ -87,37 +87,66 @@ namespace logmu::detail
 			return codec::encode(*this->canonical_map, text);
 		}
 
-		std::string canonical;
+		char canonical[limits::max_string_length];
+		const int length = this->rho_machine->canonicalise(text, canonical);
 
-		return this->try_get_canonical_form(text, canonical)
-			? codec::encode(*this->canonical_map, canonical)
-			: 0;
+		return length < 0 ? 0 : codec::encode(*this->canonical_map, std::string_view(canonical, static_cast<std::size_t>(length)));
 	}
 
 	bool compilation::try_decode(std::uint64_t value, std::string& text) const
 	{
-		return codec::try_decode(*this->canonical_map, value, text);
+		char buffer[limits::max_string_length];
+		const int length = this->decode(value, buffer);
+
+		if (length < 0)
+		{
+			return false;
+		}
+
+		text.assign(buffer, static_cast<std::size_t>(length));
+
+		return true;
+	}
+
+	int compilation::decode(std::uint64_t value, char* destination) const
+	{
+		return codec::decode(*this->canonical_map, value, destination);
 	}
 
 	bool compilation::try_get_canonical_form(std::string_view text, std::string& canonical) const
 	{
+		char buffer[limits::max_string_length];
+		const int length = this->canonicalise(text, buffer);
+
+		if (length < 0)
+		{
+			return false;
+		}
+
+		canonical.assign(buffer, static_cast<std::size_t>(length));
+
+		return true;
+	}
+
+	int compilation::canonicalise(std::string_view text, char* destination) const
+	{
 		// Where rho is the identity an accepted string is its own canonical form, so the answer
-		// is the machine's, and walking the tree for it would only rebuild what was passed in.
+		// is the machine's, and being in the canonical language it fits the buffer.
 		if (this->canonical_is_identity())
 		{
 			if (!this->accepts(text))
 			{
-				return false;
+				return -1;
 			}
 
-			canonical = std::string(text);
+			text.copy(destination, text.size());
 
-			return true;
+			return static_cast<int>(text.size());
 		}
 
 		// The machine is linear in the length of the input where a tree walk is not, and it is
 		// the form the emitters need, so it is the one the runtime uses.
-		return this->rho_machine->try_canonicalise(text, canonical);
+		return this->rho_machine->canonicalise(text, destination);
 	}
 
 	namespace compiler

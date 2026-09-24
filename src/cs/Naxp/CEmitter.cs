@@ -10,7 +10,7 @@ namespace LogMu;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The fragment is two constants, six public functions and their steppers, every name in
+/// The fragment is two constants, nine public functions and their steppers, every name in
 /// snake_case under the caller's prefix. It needs <c>stdbool.h</c>, <c>stddef.h</c>,
 /// <c>stdint.h</c> and <c>string.h</c>, which the caller includes, and its first line says so.
 /// Everything has internal linkage - the public functions <c>static inline</c>, the steppers
@@ -40,6 +40,9 @@ sealed class CEmitter : CFamilyEmitter
 
 	/// <summary>C never adopted a digit separator.</summary>
 	protected override string? DigitSeparator => null;
+
+	/// <inheritdoc/>
+	protected override string TextParameters => "const char *text, size_t text_length";
 
 	/// <inheritdoc/>
 	protected override string Pointer(string type, string name) => $"{type} *{name}";
@@ -83,9 +86,26 @@ sealed class CEmitter : CFamilyEmitter
 	/// <inheritdoc/>
 	protected override void EmitPublics(Fragment fragment)
 	{
+		this.EmitPattern(fragment);
 		this.EmitAccepts(fragment);
 		this.EmitEncode(fragment);
 		this.EmitDecode(fragment);
+		this.EmitCanonicalForm(fragment);
+	}
+
+	void EmitPattern(Fragment fragment)
+	{
+		CodeWriter writer = fragment.Writer;
+		string pattern = fragment.Context.Compilation.Pattern;
+
+		// A function rather than a constant, as the library's is, because an unused static array
+		// is a warning in C where an unused static inline function is not.
+		this.Comment(writer, "The naxp this code was generated from, NUL-terminated.");
+		writer.Line($"static inline const char *{fragment.PatternName}(void)");
+		writer.OpenBlock();
+		writer.Line($"return {StringLiteral(pattern)};");
+		writer.CloseBlock();
+		writer.Line();
 	}
 
 	void EmitAccepts(Fragment fragment)
@@ -129,39 +149,7 @@ sealed class CEmitter : CFamilyEmitter
 		if (fragment.Canonicalises)
 		{
 			writer.Line($"char canonical[{fragment.BufferSize}] = {{ 0 }};");
-
-			if (fragment.NeedsRegister)
-			{
-				// The characters read, oldest first, so a reference of depth d is the one at
-				// RegisterDepth - 1 - d. Shifting a buffer this small beats indexing a ring, and
-				// it starts zeroed so that an early shift reads nothing undefined.
-				writer.Line($"char {Fragment.HeldName}[{fragment.RegisterDepth.ToString(CultureInfo.InvariantCulture)}] = {{ 0 }};");
-			}
-
-			writer.Line("int length = 0;");
-			writer.Line("int state = 0;");
-			writer.Line();
-			writer.Line("for (size_t i = 0; i < text_length; ++i)");
-			writer.OpenBlock();
-
-			if (fragment.NeedsRegister)
-			{
-				string top = (fragment.RegisterDepth - 1).ToString(CultureInfo.InvariantCulture);
-
-				if (fragment.RegisterDepth > 1)
-				{
-					writer.Line($"for (int h = 0; h < {top}; ++h) {{ {Fragment.HeldName}[h] = {Fragment.HeldName}[h + 1]; }}");
-				}
-
-				writer.Line($"{Fragment.HeldName}[{top}] = text[i];");
-			}
-
-			writer.Line($"state = {fragment.CanonicalStepName}(state, (unsigned char)text[i], {fragment.StepArguments("&length")});");
-			writer.Line();
-			writer.Line($"if (state < 0) {{ return {fragment.ValueZero}; }}");
-			writer.CloseBlock();
-			writer.Line();
-			writer.Line($"length = {fragment.FinishCanonicalName}(state, {fragment.FinishArguments()});");
+			writer.Line($"int length = {fragment.CanonicaliseName}(text, text_length, canonical);");
 			writer.Line();
 			writer.Line(fragment.ValueIsWidest
 				? $"return length < 0 ? 0ULL : {fragment.RankName}(canonical, length);"
@@ -253,6 +241,98 @@ sealed class CEmitter : CFamilyEmitter
 		writer.Line("destination[length] = '\\0';");
 		writer.Line();
 		writer.Line("return true;");
+		writer.CloseBlock();
+		writer.Line();
+	}
+
+	void EmitCanonicalForm(Fragment fragment)
+	{
+		CodeWriter writer = fragment.Writer;
+		string cstrName = fragment.Name("CanonicalFormCstr");
+
+		writer.Line("/*");
+		writer.Line("   Writes the canonical form of text, which is the text decoding its encoded value gives back,");
+		writer.Line($"   with no terminator. {fragment.MaxLengthName} bytes always suffice. length, which may be NULL,");
+		writer.Line("   receives how many were written, or zero where none were.");
+		writer.Line();
+		writer.Line("   Returns false where the text is invalid, or the destination is too short, in which case");
+		writer.Line("   nothing is written.");
+		writer.Line("*/");
+		writer.Line($"static inline bool {fragment.CanonicalFormName}(const char *text, size_t text_length, char *destination, size_t capacity, size_t *length)");
+		writer.OpenBlock();
+		writer.Line($"char buffer[{fragment.BufferSize}] = {{ 0 }};");
+		writer.Line($"int written = {fragment.CanonicaliseName}(text, text_length, buffer);");
+		writer.Line();
+		writer.Line("if (written < 0 || (size_t)written > capacity)");
+		writer.OpenBlock();
+		writer.Line("if (length != NULL) { *length = 0; }");
+		writer.Line();
+		writer.Line("return false;");
+		writer.CloseBlock();
+		writer.Line();
+		writer.Line("memcpy(destination, buffer, (size_t)written);");
+		writer.Line();
+		writer.Line("if (length != NULL) { *length = (size_t)written; }");
+		writer.Line();
+		writer.Line("return true;");
+		writer.CloseBlock();
+		writer.Line();
+
+		writer.Line("/*");
+		writer.Line("   Writes the canonical form of a NUL-terminated string as a NUL-terminated string.");
+		writer.Line($"   {fragment.MaxLengthName} + 1 bytes always suffice.");
+		writer.Line();
+		writer.Line("   Returns false where the string is invalid, or the destination is too short, in which case");
+		writer.Line("   nothing is written.");
+		writer.Line("*/");
+		writer.Line($"static inline bool {cstrName}(const char *text, char *destination, size_t capacity)");
+		writer.OpenBlock();
+		writer.Line("size_t length;");
+		writer.Line();
+		writer.Line($"if (capacity == 0 || !{fragment.CanonicalFormName}(text, strlen(text), destination, capacity - 1, &length)) {{ return false; }}");
+		writer.Line();
+		writer.Line("destination[length] = '\\0';");
+		writer.Line();
+		writer.Line("return true;");
+		writer.CloseBlock();
+		writer.Line();
+	}
+
+	/// <inheritdoc/>
+	protected override void EmitCanonicalise(Fragment fragment)
+	{
+		CodeWriter writer = fragment.Writer;
+
+		fragment.OpenCanonicalise();
+
+		if (!fragment.Canonicalises)
+		{
+			// Where nothing is unified an accepted string is its own canonical form, and being
+			// accepted it fits the buffer.
+			writer.Line($"if (!{fragment.AcceptsName}(text, text_length)) {{ return -1; }}");
+			writer.Line();
+			writer.Line("memcpy(canonical, text, text_length);");
+			writer.Line();
+			writer.Line("return (int)text_length;");
+			writer.CloseBlock();
+			writer.Line();
+
+			return;
+		}
+
+		fragment.DeclareRegister("{ 0 }");
+		writer.Line("int length = 0;");
+		writer.Line("int state = 0;");
+		writer.Line();
+		writer.Line("for (size_t i = 0; i < text_length; ++i)");
+		writer.OpenBlock();
+		fragment.KeepCharacter("text[i]");
+		writer.Line($"state = {fragment.CanonicalStepName}(state, (unsigned char)text[i], {fragment.StepArguments("&length")});");
+		writer.Line();
+		writer.Line("if (state < 0) { return -1; }");
+		writer.CloseBlock();
+		writer.Line();
+		writer.Line($"return {fragment.FinishCanonicalName}(state, {fragment.FinishArguments()});");
 		writer.CloseBlock();
 		writer.Line();
 	}

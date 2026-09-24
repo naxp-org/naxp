@@ -17,7 +17,7 @@ namespace logmu::detail
 {
 	/// Emits a compiled naxp as a C# fragment.
 	///
-	/// The fragment is a set of static members, two consts, the public methods and their private
+	/// The fragment is a set of static members, three consts, the public methods and their private
 	/// steppers, answering the same questions as `LogMu.Naxp` for its one naxp, without calling
 	/// back into that library. Self-containment is a requirement rather than a taste: the code
 	/// lands in the caller's assembly, where nothing internal to the library is visible, and the
@@ -32,6 +32,13 @@ namespace logmu::detail
 	///
 	/// A switch is split into methods of at most `emitter::chunk_size` states, dispatched by
 	/// state number; that constant carries the per-method limits behind the split.
+	///
+	/// The fragment compiles as C# 7.3, which is what a .NET Framework project gets by default.
+	/// The members that can give back null are therefore written twice under `#if`: annotated,
+	/// with `NotNullWhen`, where the target framework has that attribute and so the language has
+	/// nullable reference types, and plain elsewhere. C# has no symbol for its own version, so the
+	/// framework is the test; a project on a modern framework that pins the language below C# 8
+	/// is the one case it gets wrong.
 	class csharp_emitter final : public emitter
 	{
 	public:

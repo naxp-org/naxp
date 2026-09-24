@@ -46,6 +46,13 @@ test('the prefix is snake cased onto every name', () => {
 	assert.ok(source.includes('static inline uint64_t postcode_encode_cstr(const char *text)'));
 	assert.ok(source.includes('static inline bool postcode_decode(uint64_t value, char *destination, size_t capacity, size_t *length)'));
 	assert.ok(source.includes('static inline bool postcode_decode_cstr(uint64_t value, char *destination, size_t capacity)'));
+	assert.ok(source.includes('static inline const char *postcode_pattern(void)'));
+	assert.ok(source.includes('static inline bool postcode_canonical_form(const char *text, size_t text_length, char *destination, size_t capacity, size_t *length)'));
+	assert.ok(source.includes('static inline bool postcode_canonical_form_cstr(const char *text, char *destination, size_t capacity)'));
+});
+
+test('a question mark after another is escaped, so that no trigraph can form', () => {
+	assert.ok(emit('A\\??').includes('return "A\\\\?\\?";'));
 });
 
 test('a run of capitals is one word until the letter that starts the next', () => {
@@ -116,7 +123,8 @@ test('a naxp that replaces canonicalises before it ranks', () => {
 	const source = emit('(B|b)!B');
 
 	assert.ok(source.includes('canonical_step(state, (unsigned char)text[i], canonical, &length);'));
-	assert.ok(source.includes('length = finish_canonical(state, canonical, length);'));
+	assert.ok(source.includes('return finish_canonical(state, canonical, length);'));
+	assert.ok(source.includes('int length = canonicalise(text, text_length, canonical);'));
 	assert.ok(source.includes('rank(canonical, length)'));
 	assert.ok(!source.includes(COPY_MARKER));
 });
@@ -195,7 +203,7 @@ function buildHarness() {
 	data.cases.forEach((item, i) => {
 		const snake = `case${i}`;
 
-		source += `\t{ ${cString(item.naxp)}, ${item.maxEncodedValue}ULL, ${snake}_max_encoded_value, ${snake}_accepts, ${snake}_accepts_cstr, ${snake}_encode, ${snake}_encode_cstr, ${snake}_decode, ${snake}_decode_cstr, ${snake}_values },\n`;
+		source += `\t{ ${cString(item.naxp)}, ${item.naxp.length}, ${item.maxEncodedValue}ULL, ${snake}_max_encoded_value, ${snake}_pattern, ${snake}_accepts, ${snake}_accepts_cstr, ${snake}_encode, ${snake}_encode_cstr, ${snake}_decode, ${snake}_decode_cstr, ${snake}_canonical_form, ${snake}_canonical_form_cstr, ${snake}_values },\n`;
 	});
 
 	source += '};\n\n';
@@ -215,14 +223,18 @@ const TYPES = `typedef struct
 typedef struct
 {
 	const char *naxp;
+	size_t naxp_length;
 	uint64_t max_encoded_value;
 	uint64_t fragment_max_encoded_value;
+	const char *(*pattern)(void);
 	bool (*accepts)(const char *, size_t);
 	bool (*accepts_cstr)(const char *);
 	uint64_t (*encode)(const char *, size_t);
 	uint64_t (*encode_cstr)(const char *);
 	bool (*decode)(uint64_t, char *, size_t, size_t *);
 	bool (*decode_cstr)(uint64_t, char *, size_t);
+	bool (*canonical_form)(const char *, size_t, char *, size_t, size_t *);
+	bool (*canonical_form_cstr)(const char *, char *, size_t);
 	const value_row *values;
 } naxp_case;
 
@@ -250,7 +262,10 @@ int main(void)
 	{
 		const naxp_case *c = &cases[i];
 
+		const char *pattern = c->pattern();
+
 		check(c->fragment_max_encoded_value == c->max_encoded_value, c->naxp, "max_encoded_value", "");
+		check(strlen(pattern) == c->naxp_length && memcmp(pattern, c->naxp, c->naxp_length) == 0, c->naxp, "pattern", "");
 
 		for (const value_row *row = c->values; row->in != NULL; ++row)
 		{
@@ -269,7 +284,26 @@ int main(void)
 				check(c->accepts_cstr(row->in) == valid, c->naxp, "accepts_cstr", row->in);
 			}
 
+			check(c->canonical_form(row->in, row->in_length, out, sizeof out, &length) == valid
+				&& (valid ? length == row->canon_length && memcmp(out, row->canon, length) == 0 : length == 0),
+				c->naxp, "canonical_form", row->in);
+
+			if (plain)
+			{
+				check(c->canonical_form_cstr(row->in, out, sizeof out) == valid
+					&& (!valid || (strlen(out) == row->canon_length && memcmp(out, row->canon, row->canon_length) == 0)),
+					c->naxp, "canonical_form_cstr", row->in);
+			}
+
 			if (!valid) { continue; }
+
+			/* Too short by one, then exactly long enough. */
+			if (row->canon_length > 0)
+			{
+				check(!c->canonical_form(row->in, row->in_length, out, row->canon_length - 1, &length) && length == 0, c->naxp, "canonical_form short", row->in);
+			}
+
+			check(c->canonical_form(row->in, row->in_length, out, row->canon_length, NULL), c->naxp, "canonical_form exact", row->in);
 
 			check(c->decode(encoded, out, sizeof out, &length) && length == row->canon_length && memcmp(out, row->canon, length) == 0,
 				c->naxp, "decode", row->in);

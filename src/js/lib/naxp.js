@@ -246,6 +246,11 @@ export class Naxp {
 		return this.#compilation.maxEncodedValue;
 	}
 
+	/** The length of the longest string this naxp can decode a value to. */
+	get maxLength() {
+		return this.#compilation.maxLength;
+	}
+
 	/**
 	 * Whether this naxp accepts a string.
 	 *
@@ -291,6 +296,22 @@ export class Naxp {
 		}
 
 		return text;
+	}
+
+	/**
+	 * The string an encoded value stands for, as ASCII bytes.
+	 *
+	 * @param {bigint | number} value The encoded value, from 1 to {@link maxEncodedValue}.
+	 * @returns {Uint8Array} The bytes, which spell the string in canonical form.
+	 * @throws {RangeError} This naxp does not produce that encoded value.
+	 */
+	decodeToBytes(value) {
+		const text = this.decode(value);
+		const bytes = new Uint8Array(text.length);
+
+		for (let i = 0; i < text.length; ++i) { bytes[i] = text.charCodeAt(i); }
+
+		return bytes;
 	}
 
 	/**

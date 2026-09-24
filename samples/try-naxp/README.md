@@ -33,10 +33,10 @@ samples/try-naxp/obj/Debug/net8.0/generated/Naxp.Generator/LogMu.Generator.NaxpG
 NuGet caches a package by its id and version, so a second `dotnet pack` at the same version changes nothing here and you will keep building the old generator. Either delete the extracted copy:
 
 ```bash
-Remove-Item -Recurse -Force "$env:USERPROFILE\.nuget\packages\naxp\0.11.0"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.nuget\packages\naxp\0.12.0"
 ```
 
-or pack a new version with `-p:Version=0.11.1` and change the `PackageReference` to match.
+or pack a new version with `-p:Version=0.12.1` and change the `PackageReference` to match.
 
 Visual Studio holds analyzer assemblies open while a solution is loaded, so a rebuilt generator may need the project unloaded and reloaded, or VS restarted, before its output changes.
 
@@ -52,4 +52,4 @@ Break something and build. A naxp that does not parse, a type without `partial`,
 
 ## Not in the solution
 
-This project is deliberately outside `src/cs/Naxp.slnx`. Building the solution would otherwise need a packed `naxp.0.11.0.nupkg` to exist, which a fresh clone has not got.
+This project is deliberately outside `src/cs/Naxp.slnx`. Building the solution would otherwise need a packed `naxp.0.12.0.nupkg` to exist, which a fresh clone has not got.

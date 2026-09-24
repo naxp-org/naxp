@@ -15,6 +15,12 @@ const SPAN_OF_CHAR = 'global::System.Span<char>';
 const SPAN_OF_BYTE = 'global::System.Span<byte>';
 const ARGUMENT_OUT_OF_RANGE_EXCEPTION = 'global::System.ArgumentOutOfRangeException';
 
+/** The test for a target framework that has `NotNullWhen`, and so a language with `string?`. */
+const NULLABLE_CONDITION = '#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER';
+
+/** The attribute that tells a caller an out parameter is set wherever the method returns true. */
+const NOT_NULL_WHEN_TRUE = '[global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)]';
+
 /** How each value type is spelled in C#, and what suffix its literals take. */
 const VALUE_TYPES = Object.freeze({
 	Int8: { keyword: 'sbyte', suffix: '' },
@@ -30,7 +36,7 @@ const VALUE_TYPES = Object.freeze({
 /**
  * Emits a compiled naxp as a C# fragment.
  *
- * The fragment is a set of static members, two consts, the public methods and their private
+ * The fragment is a set of static members, three consts, the public methods and their private
  * steppers, answering the same questions as `Naxp` for its one naxp, without calling back into any
  * naxp library. Self-containment is a requirement rather than a taste: the code lands in the
  * caller's assembly, where nothing internal to a library is visible, and the source generator that
@@ -46,6 +52,13 @@ const VALUE_TYPES = Object.freeze({
  *
  * A switch is split into methods of at most {@link Emitter.chunkSize} states, dispatched by state
  * number; that constant carries the per-method limits behind the split.
+ *
+ * The fragment compiles as C# 7.3, which is what a .NET Framework project gets by default. The
+ * members that can give back null are therefore written twice under `#if`: annotated, with
+ * `NotNullWhen`, where the target framework has that attribute and so the language has nullable
+ * reference types, and plain elsewhere. C# has no symbol for its own version, so the framework is
+ * the test; a project on a modern framework that pins the language below C# 8 is the one case it
+ * gets wrong.
  */
 export class CSharpEmitter extends Emitter {
 	/** The shared instance, which is stateless and serves every call. */
@@ -208,13 +221,18 @@ class Fragment {
 		// The generated names, each the prefix plus the bare member name.
 		const prefix = context.prefix;
 
+		this.patternName = prefix + 'Pattern';
 		this.maxEncodedValueName = prefix + 'MaxEncodedValue';
 		this.maxLengthName = prefix + 'MaxLength';
 		this.acceptsName = prefix + 'Accepts';
 		this.encodeName = prefix + 'Encode';
+		this.tryEncodeName = prefix + 'TryEncode';
 		this.decodeName = prefix + 'Decode';
 		this.decodeToBytesName = prefix + 'DecodeToBytes';
 		this.tryDecodeName = prefix + 'TryDecode';
+		this.getCanonicalFormName = prefix + 'GetCanonicalForm';
+		this.tryGetCanonicalFormName = prefix + 'TryGetCanonicalForm';
+		this.canonicaliseName = prefix + 'Canonicalise';
 		this.rankName = prefix + 'Rank';
 		this.decodeCoreName = prefix + 'DecodeCore';
 		this.acceptStepName = prefix + 'AcceptStep';
@@ -243,16 +261,47 @@ class Fragment {
 	get canonicalises() { return this.transducerStates !== null; }
 
 	emit() {
+		// Annotations only, so that nothing in the fragment's own bodies can warn.
+		this.writer.line(NULLABLE_CONDITION);
+		this.writer.line('#nullable enable annotations');
+		this.writer.line('#endif');
+		this.writer.line();
 		this.emitConstants();
 		this.emitAccepts(false);
 		this.emitAccepts(true);
 		this.emitEncode(false);
 		this.emitEncode(true);
+		this.emitTryEncode(false);
+		this.emitTryEncode(true);
 		this.emitDecodePublics();
+		this.emitCanonicalPublics(false);
+		this.emitCanonicalPublics(true);
 		this.emitSteppers();
+		this.writer.line();
+		this.writer.line(NULLABLE_CONDITION);
+		this.writer.line('#nullable restore');
+		this.writer.line('#endif');
+	}
+
+	/**
+	 * Writes a signature annotated for nullable reference types where the framework allows it, and
+	 * plain where it does not.
+	 *
+	 * @param {string} annotated The signature with its annotations.
+	 * @param {string} plain The signature C# 7.3 accepts.
+	 */
+	emitSignature(annotated, plain) {
+		this.writer.line(NULLABLE_CONDITION);
+		this.writer.line(annotated);
+		this.writer.line('#else');
+		this.writer.line(plain);
+		this.writer.line('#endif');
 	}
 
 	emitConstants() {
+		this.writer.line('/// <summary>The naxp this code was generated from.</summary>');
+		this.writer.line(`public const string ${this.patternName} = ${stringLiteral(this.context.compilation.pattern)};`);
+		this.writer.line();
 		this.writer.line('/// <summary>The largest encoded value this naxp produces, which is also how many it has.</summary>');
 		this.writer.line(`public const ${this.valueKeyword} ${this.maxEncodedValueName} = ${this.maxEncodedValueValue};`);
 		this.writer.line();
@@ -326,43 +375,37 @@ class Fragment {
 				: `return ${this.isAcceptingName}(state) ? (${this.valueKeyword})(total + 1UL) : (${this.valueKeyword})0;`);
 		} else {
 			this.writer.line(`${SPAN_OF_CHAR} canonical = stackalloc char[${this.maxLengthName}];`);
-
-			if (this.needsRegister) {
-				// The characters read, oldest first, so a reference of depth d is the one at
-				// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
-				this.writer.line(`${SPAN_OF_CHAR} ${HELD_NAME} = stackalloc char[${this.registerDepth}];`);
-			}
-
-			this.writer.line('int length = 0;');
-			this.writer.line('int state = 0;');
-			this.writer.line();
-			this.writer.line(bytes ? 'foreach (byte b in text)' : 'foreach (char c in text)');
-			this.writer.openBlock();
-
-			if (this.needsRegister) {
-				const top = this.registerDepth - 1;
-
-				if (this.registerDepth > 1) {
-					this.writer.line(`for (int h = 0; h < ${top}; ++h) { ${HELD_NAME}[h] = ${HELD_NAME}[h + 1]; }`);
-				}
-
-				this.writer.line(bytes ? `${HELD_NAME}[${top}] = (char)b;` : `${HELD_NAME}[${top}] = c;`);
-			}
-
-			this.writer.line(bytes
-				? `state = ${this.canonicalStepName}(state, (char)b, ${this.stepArguments()});`
-				: `state = ${this.canonicalStepName}(state, c, ${this.stepArguments()});`);
-			this.writer.line();
-			this.writer.line(`if (state < 0) { return ${this.valueZero}; }`);
-			this.writer.closeBlock();
-			this.writer.line();
-			this.writer.line(`length = ${this.finishCanonicalName}(state, ${this.finishArguments()});`);
+			this.writer.line(`int length = ${this.canonicaliseName}(text, canonical);`);
 			this.writer.line();
 			this.writer.line(this.valueIsWidest
 				? `return length < 0 ? 0UL : ${this.rankName}(canonical.Slice(0, length));`
 				: `return length < 0 ? (${this.valueKeyword})0 : (${this.valueKeyword})${this.rankName}(canonical.Slice(0, length));`);
 		}
 
+		this.writer.closeBlock();
+		this.writer.line();
+	}
+
+	/** @param {boolean} bytes Whether this is the byte overload. */
+	emitTryEncode(bytes) {
+		if (bytes) {
+			this.writer.line('/// <summary>Tries to encode ASCII text.</summary>');
+			this.writer.line('/// <param name="text">The ASCII text to encode.</param>');
+			this.writer.line('/// <param name="encoded">The encoded value, or zero where the text is invalid.</param>');
+			this.writer.line('/// <returns>Whether the naxp accepts the text.</returns>');
+			this.writer.line(`public static bool ${this.tryEncodeName}(${READ_ONLY_SPAN_OF_BYTE} text, out ${this.valueKeyword} encoded)`);
+		} else {
+			this.writer.line('/// <summary>Tries to encode a string.</summary>');
+			this.writer.line('/// <param name="text">The string to encode.</param>');
+			this.writer.line('/// <param name="encoded">The encoded value, or zero where the string is invalid.</param>');
+			this.writer.line('/// <returns>Whether the naxp accepts the string.</returns>');
+			this.writer.line(`public static bool ${this.tryEncodeName}(${READ_ONLY_SPAN_OF_CHAR} text, out ${this.valueKeyword} encoded)`);
+		}
+
+		this.writer.openBlock();
+		this.writer.line(`encoded = ${this.encodeName}(text);`);
+		this.writer.line();
+		this.writer.line(`return encoded != ${this.valueZero};`);
 		this.writer.closeBlock();
 		this.writer.line();
 	}
@@ -406,6 +449,27 @@ class Fragment {
 		this.writer.line('for (int i = 0; i < length; ++i) { result[i] = (byte)buffer[i]; }');
 		this.writer.line();
 		this.writer.line('return result;');
+		this.writer.closeBlock();
+		this.writer.line();
+
+		this.writer.line('/// <summary>Tries to find the string a value stands for.</summary>');
+		this.writer.line('/// <param name="value">The encoded value.</param>');
+		this.writer.line('/// <param name="text">The string, which is in canonical form, or null where the value is not one this naxp produces.</param>');
+		this.writer.line('/// <returns>Whether the value is one this naxp produces.</returns>');
+		this.emitSignature(
+			`public static bool ${this.tryDecodeName}(${this.valueKeyword} value, ${NOT_NULL_WHEN_TRUE} out string? text)`,
+			`public static bool ${this.tryDecodeName}(${this.valueKeyword} value, out string text)`);
+		this.writer.openBlock();
+		this.writer.line(`if (value < ${this.valueOne} || value > ${this.maxEncodedValueName})`);
+		this.writer.openBlock();
+		this.writer.line('text = null;');
+		this.writer.line('return false;');
+		this.writer.closeBlock();
+		this.writer.line();
+		this.writer.line(`${SPAN_OF_CHAR} destination = stackalloc char[${this.maxLengthName}];`);
+		this.writer.line();
+		this.writer.line(`text = destination.Slice(0, ${this.decodeCoreName}(${this.decodeCoreArgument}, destination)).ToString();`);
+		this.writer.line('return true;');
 		this.writer.closeBlock();
 		this.writer.line();
 
@@ -473,7 +537,137 @@ class Fragment {
 		this.writer.line();
 	}
 
+	/** @param {boolean} bytes Whether these are the byte overloads. */
+	emitCanonicalPublics(bytes) {
+		const textType = bytes ? READ_ONLY_SPAN_OF_BYTE : READ_ONLY_SPAN_OF_CHAR;
+		const what = bytes ? 'ASCII text' : 'a string';
+		const theWhat = bytes ? 'the text' : 'the string';
+		const textDoc = bytes ? '/// <param name="text">The ASCII text.</param>' : '/// <param name="text">The string.</param>';
+
+		this.writer.line(`/// <summary>The canonical form of ${what}.</summary>`);
+		this.writer.line(textDoc);
+		this.writer.line(`/// <returns>The canonical form, or null where ${theWhat} is invalid.</returns>`);
+		this.emitSignature(
+			`public static string? ${this.getCanonicalFormName}(${textType} text)`,
+			`public static string ${this.getCanonicalFormName}(${textType} text)`);
+		this.writer.openBlock();
+		this.writer.line(`${SPAN_OF_CHAR} canonical = stackalloc char[${this.maxLengthName}];`);
+		this.writer.line(`int length = ${this.canonicaliseName}(text, canonical);`);
+		this.writer.line();
+		this.writer.line('return length < 0 ? null : canonical.Slice(0, length).ToString();');
+		this.writer.closeBlock();
+		this.writer.line();
+
+		this.writer.line(`/// <summary>Tries to find the canonical form of ${what}.</summary>`);
+		this.writer.line(textDoc);
+		this.writer.line(`/// <param name="canonicalForm">The canonical form, or null where ${theWhat} is invalid.</param>`);
+		this.writer.line(`/// <returns>Whether the naxp accepts ${theWhat}.</returns>`);
+		this.emitSignature(
+			`public static bool ${this.tryGetCanonicalFormName}(${textType} text, ${NOT_NULL_WHEN_TRUE} out string? canonicalForm)`,
+			`public static bool ${this.tryGetCanonicalFormName}(${textType} text, out string canonicalForm)`);
+		this.writer.openBlock();
+		this.writer.line(`canonicalForm = ${this.getCanonicalFormName}(text);`);
+		this.writer.line();
+		this.writer.line('return canonicalForm != null;');
+		this.writer.closeBlock();
+		this.writer.line();
+
+		const written = bytes ? 'bytesWritten' : 'charsWritten';
+
+		this.writer.line(`/// <summary>Tries to write the canonical form of ${what}.</summary>`);
+		this.writer.line(textDoc);
+		this.writer.line(bytes
+			? '/// <param name="destination">Where the canonical form is written, as ASCII bytes.</param>'
+			: '/// <param name="destination">Where the canonical form is written.</param>');
+		this.writer.line(bytes
+			? `/// <param name="${written}">How many bytes were written, or zero where none were.</param>`
+			: `/// <param name="${written}">How many characters were written, or zero where none were.</param>`);
+		this.writer.line(`/// <returns>False where ${theWhat} is invalid, or the destination is too short.</returns>`);
+		this.writer.line(`public static bool ${this.tryGetCanonicalFormName}(${textType} text, ${bytes ? SPAN_OF_BYTE : SPAN_OF_CHAR} destination, out int ${written})`);
+		this.writer.openBlock();
+		this.writer.line(`${SPAN_OF_CHAR} canonical = stackalloc char[${this.maxLengthName}];`);
+		this.writer.line(`int length = ${this.canonicaliseName}(text, canonical);`);
+		this.writer.line();
+		this.writer.line('if (length < 0 || length > destination.Length)');
+		this.writer.openBlock();
+		this.writer.line(`${written} = 0;`);
+		this.writer.line('return false;');
+		this.writer.closeBlock();
+		this.writer.line();
+		this.writer.line(bytes
+			? 'for (int i = 0; i < length; ++i) { destination[i] = (byte)canonical[i]; }'
+			: 'canonical.Slice(0, length).CopyTo(destination);');
+		this.writer.line();
+		this.writer.line(`${written} = length;`);
+		this.writer.line('return true;');
+		this.writer.closeBlock();
+		this.writer.line();
+	}
+
+	/** @param {boolean} bytes Whether this is the byte overload. */
+	emitCanonicalise(bytes) {
+		const textType = bytes ? READ_ONLY_SPAN_OF_BYTE : READ_ONLY_SPAN_OF_CHAR;
+
+		this.writer.line(bytes
+			? `/// <summary>Writes the canonical form of ASCII text into a buffer of <see cref="${this.maxLengthName}"/> characters, and returns its length, or -1 where the text is invalid.</summary>`
+			: `/// <summary>Writes the canonical form of a string into a buffer of <see cref="${this.maxLengthName}"/> characters, and returns its length, or -1 where the string is invalid.</summary>`);
+		this.writer.line(`static int ${this.canonicaliseName}(${textType} text, ${SPAN_OF_CHAR} canonical)`);
+		this.writer.openBlock();
+
+		if (!this.canonicalises) {
+			// Where nothing is unified an accepted string is its own canonical form, and being
+			// accepted it fits the buffer.
+			this.writer.line(`if (!${this.acceptsName}(text)) { return -1; }`);
+			this.writer.line();
+			this.writer.line(bytes
+				? 'for (int i = 0; i < text.Length; ++i) { canonical[i] = (char)text[i]; }'
+				: 'text.CopyTo(canonical);');
+			this.writer.line();
+			this.writer.line('return text.Length;');
+			this.writer.closeBlock();
+			this.writer.line();
+
+			return;
+		}
+
+		if (this.needsRegister) {
+			// The characters read, oldest first, so a reference of depth d is the one at
+			// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+			this.writer.line(`${SPAN_OF_CHAR} ${HELD_NAME} = stackalloc char[${this.registerDepth}];`);
+		}
+
+		this.writer.line('int length = 0;');
+		this.writer.line('int state = 0;');
+		this.writer.line();
+		this.writer.line(bytes ? 'foreach (byte b in text)' : 'foreach (char c in text)');
+		this.writer.openBlock();
+
+		if (this.needsRegister) {
+			const top = this.registerDepth - 1;
+
+			if (this.registerDepth > 1) {
+				this.writer.line(`for (int h = 0; h < ${top}; ++h) { ${HELD_NAME}[h] = ${HELD_NAME}[h + 1]; }`);
+			}
+
+			this.writer.line(bytes ? `${HELD_NAME}[${top}] = (char)b;` : `${HELD_NAME}[${top}] = c;`);
+		}
+
+		this.writer.line(bytes
+			? `state = ${this.canonicalStepName}(state, (char)b, ${this.stepArguments()});`
+			: `state = ${this.canonicalStepName}(state, c, ${this.stepArguments()});`);
+		this.writer.line();
+		this.writer.line('if (state < 0) { return -1; }');
+		this.writer.closeBlock();
+		this.writer.line();
+		this.writer.line(`return ${this.finishCanonicalName}(state, ${this.finishArguments()});`);
+		this.writer.closeBlock();
+		this.writer.line();
+	}
+
 	emitSteppers() {
+		this.emitCanonicalise(false);
+		this.emitCanonicalise(true);
+
 		if (this.canonicalises) {
 			this.writer.line('/// <summary>The rank of a canonical string within the canonical language, or zero where it is not in it.</summary>');
 			this.writer.line(`static ulong ${this.rankName}(${READ_ONLY_SPAN_OF_CHAR} canonical)`);
@@ -814,6 +1008,48 @@ class Fragment {
 		this.writer.closeBlock();
 		this.writer.closeBlock();
 	}
+}
+
+/**
+ * A string as a C# literal: verbatim where every character is printable, which keeps a pattern's
+ * backslashes as they were written, and escaped where the pattern holds whitespace other than the
+ * space.
+ *
+ * @param {string} text The string, which is ASCII.
+ * @returns {string} The literal.
+ */
+function stringLiteral(text) {
+	let printable = true;
+
+	for (let i = 0; i < text.length; ++i) {
+		const code = text.charCodeAt(i);
+
+		if (code < 0x20 || code > 0x7e) { printable = false; }
+	}
+
+	if (printable) { return '@"' + text.replace(/"/g, '""') + '"'; }
+
+	let literal = '"';
+
+	for (let i = 0; i < text.length; ++i) {
+		const code = text.charCodeAt(i);
+
+		if (code === 0x22 || code === 0x5c) {
+			literal += '\\' + text[i];
+		} else if (code === 0x09) {
+			literal += '\\t';
+		} else if (code === 0x0a) {
+			literal += '\\n';
+		} else if (code === 0x0d) {
+			literal += '\\r';
+		} else if (code < 0x20 || code > 0x7e) {
+			literal += '\\u' + code.toString(16).toUpperCase().padStart(4, '0');
+		} else {
+			literal += text[i];
+		}
+	}
+
+	return literal + '"';
 }
 
 /**

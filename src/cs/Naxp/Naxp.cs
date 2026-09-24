@@ -159,6 +159,15 @@ public sealed class Naxp
 	public ulong MaxEncodedValue => this.compilation.MaxEncodedValue;
 
 	/// <summary>
+	/// The length of the longest string this naxp can decode a value to.
+	/// </summary>
+	/// <remarks>
+	/// Every canonical form is a string a value decodes to, so a buffer this long takes anything
+	/// the <c>TryDecode</c> and <c>TryGetCanonicalForm</c> overloads that write into one produce.
+	/// </remarks>
+	public int MaxLength => this.compilation.MaxLength;
+
+	/// <summary>
 	/// The budget <see cref="Compare(Naxp, Naxp)"/> and
 	/// <see cref="TryCompare(Naxp, Naxp, out NaxpComparison)"/> use, which is 200 000 product
 	/// states.
@@ -284,16 +293,28 @@ public sealed class Naxp
 	/// <paramref name="value"/> is not one this naxp produces.
 	/// </exception>
 	public string Decode(ulong value)
-		=> this.TryDecode(value, out string? text)
-			? text
-			: throw new ArgumentOutOfRangeException(
-				nameof(value),
-				value,
-				string.Format(
-					CultureInfo.InvariantCulture,
-					"This naxp encodes the values 1 to {0}.",
-					this.MaxEncodedValue))
-			;
+		=> this.TryDecode(value, out string? text) ? text : throw this.OutOfRange(value);
+
+	/// <summary>
+	/// The string a value stands for, which is in canonical form, as ASCII bytes.
+	/// </summary>
+	/// <param name="value">The encoded value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <returns>The bytes.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	/// <paramref name="value"/> is not one this naxp produces.
+	/// </exception>
+	public byte[] DecodeToBytes(ulong value)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.compilation.Decode(value, buffer);
+
+		if (length < 0) { throw this.OutOfRange(value); }
+
+		var bytes = new byte[length];
+		Narrow(buffer.Slice(0, length), bytes);
+
+		return bytes;
+	}
 
 	/// <summary>
 	/// Tries to find the string a value stands for.
@@ -303,6 +324,62 @@ public sealed class Naxp
 	/// <returns>Whether the value is one this naxp produces.</returns>
 	public bool TryDecode(ulong value, [NotNullWhen(true)] out string? text)
 		=> this.compilation.TryDecode(value, out text);
+
+	/// <summary>
+	/// Tries to write the string a value stands for.
+	/// </summary>
+	/// <param name="value">The encoded value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <param name="destination">
+	/// Where the string is written. <see cref="MaxLength"/> characters always suffice.
+	/// </param>
+	/// <param name="charsWritten">How many characters were written, or zero where none were.</param>
+	/// <returns>
+	/// Whether the value is one this naxp produces and the string fits the destination.
+	/// </returns>
+	public bool TryDecode(ulong value, Span<char> destination, out int charsWritten)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.compilation.Decode(value, buffer);
+
+		if (length < 0 || length > destination.Length)
+		{
+			charsWritten = 0;
+			return false;
+		}
+
+		buffer.Slice(0, length).CopyTo(destination);
+		charsWritten = length;
+
+		return true;
+	}
+
+	/// <summary>
+	/// Tries to write the string a value stands for, as ASCII bytes.
+	/// </summary>
+	/// <param name="value">The encoded value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <param name="destination">
+	/// Where the bytes are written. <see cref="MaxLength"/> bytes always suffice.
+	/// </param>
+	/// <param name="bytesWritten">How many bytes were written, or zero where none were.</param>
+	/// <returns>
+	/// Whether the value is one this naxp produces and the string fits the destination.
+	/// </returns>
+	public bool TryDecode(ulong value, Span<byte> destination, out int bytesWritten)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.compilation.Decode(value, buffer);
+
+		if (length < 0 || length > destination.Length)
+		{
+			bytesWritten = 0;
+			return false;
+		}
+
+		Narrow(buffer.Slice(0, length), destination);
+		bytesWritten = length;
+
+		return true;
+	}
 	#endregion
 	#region Public canonical form
 	/// <summary>
@@ -330,6 +407,93 @@ public sealed class Naxp
 	/// <returns>Whether the naxp accepts the string.</returns>
 	public bool TryGetCanonicalForm(ReadOnlySpan<char> text, [NotNullWhen(true)] out string? canonicalForm)
 		=> this.compilation.TryGetCanonicalForm(text, out canonicalForm);
+
+	/// <summary>
+	/// The canonical form of ASCII text.
+	/// </summary>
+	/// <remarks>
+	/// A byte outside ASCII makes the text invalid, since no naxp can name a character above U+007E.
+	/// </remarks>
+	/// <param name="text">The ASCII text.</param>
+	/// <returns>
+	/// The canonical form, or <see langword="null"/> if the text is invalid.
+	/// </returns>
+	public string? GetCanonicalForm(ReadOnlySpan<byte> text)
+		=> this.TryGetCanonicalForm(text, out string? canonicalForm) ? canonicalForm : null;
+
+	/// <summary>
+	/// Tries to find the canonical form of ASCII text.
+	/// </summary>
+	/// <param name="text">The ASCII text.</param>
+	/// <param name="canonicalForm">
+	/// The canonical form, if this returns <see langword="true"/>.
+	/// </param>
+	/// <returns>Whether the naxp accepts the text.</returns>
+	public bool TryGetCanonicalForm(ReadOnlySpan<byte> text, [NotNullWhen(true)] out string? canonicalForm)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.Canonicalise(text, buffer);
+
+		canonicalForm = length < 0 ? null : buffer.Slice(0, length).ToString();
+
+		return canonicalForm is not null;
+	}
+
+	/// <summary>
+	/// Tries to write the canonical form of a string.
+	/// </summary>
+	/// <param name="text">The string.</param>
+	/// <param name="destination">
+	/// Where the canonical form is written. <see cref="MaxLength"/> characters always suffice.
+	/// </param>
+	/// <param name="charsWritten">How many characters were written, or zero where none were.</param>
+	/// <returns>
+	/// Whether the naxp accepts the string and its canonical form fits the destination.
+	/// </returns>
+	public bool TryGetCanonicalForm(ReadOnlySpan<char> text, Span<char> destination, out int charsWritten)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.compilation.Canonicalise(text, buffer);
+
+		if (length < 0 || length > destination.Length)
+		{
+			charsWritten = 0;
+			return false;
+		}
+
+		buffer.Slice(0, length).CopyTo(destination);
+		charsWritten = length;
+
+		return true;
+	}
+
+	/// <summary>
+	/// Tries to write the canonical form of ASCII text, as ASCII bytes.
+	/// </summary>
+	/// <param name="text">The ASCII text.</param>
+	/// <param name="destination">
+	/// Where the canonical form is written. <see cref="MaxLength"/> bytes always suffice.
+	/// </param>
+	/// <param name="bytesWritten">How many bytes were written, or zero where none were.</param>
+	/// <returns>
+	/// Whether the naxp accepts the text and its canonical form fits the destination.
+	/// </returns>
+	public bool TryGetCanonicalForm(ReadOnlySpan<byte> text, Span<byte> destination, out int bytesWritten)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.Canonicalise(text, buffer);
+
+		if (length < 0 || length > destination.Length)
+		{
+			bytesWritten = 0;
+			return false;
+		}
+
+		Narrow(buffer.Slice(0, length), destination);
+		bytesWritten = length;
+
+		return true;
+	}
 	#endregion
 	#region Public code generation
 	/// <summary>
@@ -548,5 +712,38 @@ public sealed class Naxp
 	{
 		for (int i = 0; i < pattern.Length; ++i) { destination[i] = (char)pattern[i]; }
 	}
+
+	/// <summary>
+	/// Copies characters into ASCII bytes. Everything a naxp writes is ASCII, so nothing is lost.
+	/// </summary>
+	static void Narrow(ReadOnlySpan<char> text, Span<byte> destination)
+	{
+		for (int i = 0; i < text.Length; ++i) { destination[i] = (byte)text[i]; }
+	}
+
+	/// <summary>
+	/// Writes the canonical form of ASCII text into a buffer of <see cref="MaxLength"/>
+	/// characters, and returns its length, or -1 where the text is invalid.
+	/// </summary>
+	int Canonicalise(ReadOnlySpan<byte> text, Span<char> destination)
+	{
+		// No naxp accepts anything longer, so this also bounds the widened copy.
+		if (text.Length > NaxpLimits.MaxStringLength) { return -1; }
+
+		Span<char> chars = text.Length <= MaxStackAllocLength ? stackalloc char[text.Length] : new char[text.Length];
+		Widen(text, chars);
+
+		return this.compilation.Canonicalise(chars, destination);
+	}
+
+	/// <summary>The exception <see cref="Decode"/> and <see cref="DecodeToBytes"/> throw for a value out of range.</summary>
+	ArgumentOutOfRangeException OutOfRange(ulong value)
+		=> new ArgumentOutOfRangeException(
+			nameof(value),
+			value,
+			string.Format(
+				CultureInfo.InvariantCulture,
+				"This naxp encodes the values 1 to {0}.",
+				this.MaxEncodedValue));
 	#endregion
 }

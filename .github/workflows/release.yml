@@ -1,6 +1,6 @@
 name: Release the amalgamation
 
-# Runs when a version tag is pushed, such as v0.11.0, in the public repository: the tag is
+# Runs when a version tag is pushed, such as v0.12.0, in the public repository: the tag is
 # made and pushed in naxp after copy-to-public.ps1 has brought the release across. The
 # release it creates is a draft, so the notes can be read and the assets checked before
 # anything is public; publishing it is one click on GitHub, and that is what makes
@@ -11,10 +11,13 @@ name: Release the amalgamation
 # library. The tag must name the version CMakeLists.txt states, or the run fails before it
 # builds anything.
 #
-# The notes are the release's own section of implementation-changelog.md where there is one, so what a
-# release says it contains is written by hand and reviewed like anything else. The workflow
-# adds what it can state for itself: what the attached files are, and which specification
-# the implementations were tested against.
+# The notes are the release's own section of library-changelog.md, headed `## [X.Y.Z]`, as C
+# and C++ see it: text marked for another library alone is left out, which
+# .github/scripts/changelog-section.awk does. So what a release says it contains is written
+# by hand and reviewed like anything else. The section must exist and its markers must be well
+# formed, or the run fails before it builds anything. The workflow adds what it can state for
+# itself: what the attached files are, and which specification the libraries were tested
+# against.
 
 on:
   push:
@@ -43,8 +46,19 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
+      # Early, so that a missing section or a malformed marker fails the run before the build.
+      - name: Read this release's section of the changelog
+        run: |
+          awk -v version="$VERSION" -v library=C -f .github/scripts/changelog-section.awk \
+            library-changelog.md > "$RUNNER_TEMP/changes.md"
+          if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/changes.md")" ]; then
+            echo "The section headed ## [$VERSION] in library-changelog.md has nothing for C and C++." >&2
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/changes.md"
+
       # The specification is versioned separately from the packages, so it is read from the
-      # documents rather than derived from the tag: naxp 0.11.0 the package implements naxp
+      # documents rather than derived from the tag: naxp 0.12.0 the package implements naxp
       # 0.10 the language. Test data is published per minor version, so the data file is the
       # newest specification's major and minor.
       - name: Find the specification the release implements
@@ -77,28 +91,11 @@ jobs:
 
       - name: Write the release notes
         run: |
-          # This release's section of the changelog: the lines under its heading, up to the
-          # next one. Absent, the notes are the standing paragraphs alone, which are true of
-          # every release and say nothing about what changed.
-          changes=""
-          if [ -f implementation-changelog.md ]; then
-            changes="$(awk -v heading="## $VERSION" '
-              index($0, heading) == 1 { found = 1; next }
-              found && /^## / { exit }
-              found { print }
-            ' implementation-changelog.md)"
-          fi
-
           {
-            if [ -n "$(echo "$changes" | tr -d '[:space:]')" ]; then
-              echo "$changes"
-              # The section ends at the next heading, so it has no trailing blank line of
-              # its own and the heading below would otherwise run straight on.
-              echo
-            else
-              echo "naxp $VERSION."
-              echo
-            fi
+            cat "$RUNNER_TEMP/changes.md"
+            # The section is printed without a trailing blank line, and the heading below
+            # would otherwise run straight on.
+            echo
 
             cat <<'EOF'
           ## The files attached here
@@ -113,15 +110,15 @@ jobs:
 
             cat <<EOF
           The same library builds from source with CMake under \`src/cpp\`. The other
-          implementations are in the repository rather than attached here, and are installed
-          from their own registries:
+          libraries are in the repository rather than attached here, and are installed from
+          their own registries:
 
           - C# and .NET, \`src/cs\`, published to NuGet as \`naxp\`.
           - JavaScript, \`src/js\`, published to npm as \`@naxp/naxp\`.
 
-          Every implementation passes the conformance data in
+          Every library passes the conformance data in
           \`conformance/naxp-v$DATA_VERSION.json\`, generated from the specification rather
-          than from any implementation.
+          than from any library.
 
           It was tested against **naxp $SPEC_VERSION**, the specification as it stands. A
           package's own version and the specification's are separate, and each follows

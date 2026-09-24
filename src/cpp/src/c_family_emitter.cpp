@@ -51,6 +51,7 @@ namespace logmu::detail
 		this->emit_header(fragment);
 		fragment.emit_prototypes();
 		this->emit_publics(fragment);
+		this->emit_canonicalise(fragment);
 		fragment.emit_steppers();
 	}
 
@@ -144,6 +145,55 @@ namespace logmu::detail
 		}
 	}
 
+	std::string c_family_emitter::string_literal(const std::string& text)
+	{
+		std::string literal = "\"";
+
+		for (std::size_t i = 0; i < text.size(); ++i)
+		{
+			const char c = text[i];
+
+			if (c == '"' || c == '\\')
+			{
+				literal += '\\';
+				literal += c;
+			}
+			else if (c == '?' && i > 0 && text[i - 1] == '?')
+			{
+				literal += "\\?";
+			}
+			else if (c == '\t')
+			{
+				literal += "\\t";
+			}
+			else if (c == '\n')
+			{
+				literal += "\\n";
+			}
+			else if (c == '\r')
+			{
+				literal += "\\r";
+			}
+			else if (c < ' ' || c > '~')
+			{
+				// Three octal digits, because a hexadecimal escape runs on into any hexadecimal
+				// digit that follows it.
+				const auto code = static_cast<unsigned char>(c);
+
+				literal += '\\';
+				literal += static_cast<char>('0' + ((code >> 6) & 7));
+				literal += static_cast<char>('0' + ((code >> 3) & 7));
+				literal += static_cast<char>('0' + (code & 7));
+			}
+			else
+			{
+				literal += c;
+			}
+		}
+
+		return literal + "\"";
+	}
+
 	bool c_family_emitter::is_identifier(const std::string& expression) noexcept
 	{
 		for (const char c : expression)
@@ -190,11 +240,14 @@ namespace logmu::detail
 		this->decode_core_argument = this->value_is_widest ? "value" : emitter.cast(emitter.uint64(), "value");
 
 		const std::string& prefix = context.prefix;
+		this->pattern_name = snake(prefix, "Pattern");
 		this->max_encoded_value_name = snake(prefix, "MaxEncodedValue");
 		this->max_length_name = snake(prefix, "MaxLength");
 		this->accepts_name = snake(prefix, "Accepts");
 		this->encode_name = snake(prefix, "Encode");
 		this->decode_name = snake(prefix, "Decode");
+		this->canonical_form_name = snake(prefix, "CanonicalForm");
+		this->canonicalise_name = snake(prefix, "Canonicalise");
 		this->rank_name = snake(prefix, "Rank");
 		this->decode_core_name = snake(prefix, "DecodeCore");
 		this->accept_step_name = snake(prefix, "AcceptStep");
@@ -207,6 +260,11 @@ namespace logmu::detail
 	}
 
 	// The steppers' signatures
+
+	std::string c_family_emitter::fragment::canonicalise_parameters() const
+	{
+		return this->emitter.text_parameters() + ", " + this->emitter.pointer("char", "canonical");
+	}
 
 	std::string c_family_emitter::fragment::rank_parameters() const
 	{
@@ -258,6 +316,7 @@ namespace logmu::detail
 		const std::string linkage = this->emitter.step_linkage();
 
 		this->emitter.comment(out, "The steppers, which are defined below the public functions.");
+		out.line(linkage + " int " + this->canonicalise_name + "(" + this->canonicalise_parameters() + ");");
 
 		if (this->canonicalises())
 		{
@@ -303,6 +362,48 @@ namespace logmu::detail
 		{
 			out.line(this->emitter.step_linkage() + " int " + name + decimal(chunk) + "(" + parameters + ");");
 		}
+	}
+
+	// Canonicalising, which the two languages write around these
+
+	void c_family_emitter::fragment::open_canonicalise()
+	{
+		code_writer& out = this->writer();
+
+		this->emitter.comment(out, "Writes the canonical form of text into a buffer of " + this->max_length_name + " characters, and returns its length, or -1 where the text is invalid.");
+		out.line(this->emitter.step_linkage() + " int " + this->canonicalise_name + "(" + this->canonicalise_parameters() + ")");
+		out.open_block();
+	}
+
+	void c_family_emitter::fragment::declare_register(const std::string& zeroed)
+	{
+		if (!this->needs_register())
+		{
+			return;
+		}
+
+		// The characters read, oldest first, so a reference of depth d is the one at
+		// register_depth - 1 - d. Shifting a buffer this small beats indexing a ring, and it starts
+		// zeroed so that an early shift reads nothing undefined.
+		this->writer().line("char " + held_name + "[" + decimal(this->register_depth()) + "] = " + zeroed + ";");
+	}
+
+	void c_family_emitter::fragment::keep_character(const std::string& character)
+	{
+		if (!this->needs_register())
+		{
+			return;
+		}
+
+		code_writer& out = this->writer();
+		const std::string top = decimal(this->register_depth() - 1);
+
+		if (this->register_depth() > 1)
+		{
+			out.line("for (int h = 0; h < " + top + "; ++h) { " + held_name + "[h] = " + held_name + "[h + 1]; }");
+		}
+
+		out.line(held_name + "[" + top + "] = " + character + ";");
 	}
 
 	// The steppers

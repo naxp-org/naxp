@@ -29,28 +29,31 @@ namespace logmu::detail
 
 	namespace
 	{
-		/// Appends an output, resolving each reference to the character it stands for.
-		void append_output(std::string& builder, std::string_view output, std::string_view text, std::size_t at)
+		/// Writes an output after the first `length` characters of a buffer, resolving each
+		/// reference to the character it stands for, and returns the new length.
+		int write_output(char* destination, int length, std::string_view output, std::string_view text, std::size_t at)
 		{
 			for (std::size_t i = 0; i < output.size(); ++i)
 			{
 				if (output[i] == copy_marker)
 				{
-					builder.push_back(text[at - static_cast<std::size_t>(output[i + 1] - tx_reference::depth_base)]);
+					destination[length++] = text[at - static_cast<std::size_t>(output[i + 1] - tx_reference::depth_base)];
 					++i;
 				}
 				else
 				{
-					builder.push_back(output[i]);
+					destination[length++] = output[i];
 				}
 			}
+
+			return length;
 		}
 	}
 
-	bool tx_machine::try_canonicalise(std::string_view text, std::string& canonical) const
+	int tx_machine::canonicalise(std::string_view text, char* destination) const
 	{
-		std::string builder;
 		const tx_state* current = this->start;
+		int length = 0;
 
 		for (std::size_t i = 0; i < text.size(); ++i)
 		{
@@ -64,14 +67,14 @@ namespace logmu::detail
 					continue;
 				}
 
-				append_output(builder, arc.output, text, i);
+				length = write_output(destination, length, arc.output, text, i);
 				next = arc.next;
 				break;
 			}
 
 			if (next == nullptr)
 			{
-				return false;
+				return -1;
 			}
 
 			current = next;
@@ -79,15 +82,12 @@ namespace logmu::detail
 
 		if (!current->end_output.has_value())
 		{
-			return false;
+			return -1;
 		}
 
 		// The end output reaches back from the last character read, as a transition's does
 		// from the character that took it.
-		append_output(builder, *current->end_output, text, text.size() - 1);
-		canonical = std::move(builder);
-
-		return true;
+		return write_output(destination, length, *current->end_output, text, text.size() - 1);
 	}
 
 	// tx_reference

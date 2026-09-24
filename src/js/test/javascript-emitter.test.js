@@ -43,15 +43,17 @@ function emit(naxp, prefix = '', valueType = NaxpValueType.UInt64, initialIndent
  * directly and a failure names the case.
  *
  * @param {string} naxp The pattern.
- * @returns {{maxEncodedValue: number | bigint, maxLength: number,
- *   accepts: (text: string) => boolean, acceptsBytes: (bytes: Uint8Array) => boolean,
- *   encode: (text: string) => number | bigint, encodeBytes: (bytes: Uint8Array) => number | bigint,
+ * @returns {{pattern: string, maxEncodedValue: number | bigint, maxLength: number,
+ *   accepts: (text: string | Uint8Array) => boolean,
+ *   encode: (text: string | Uint8Array) => number | bigint,
  *   decode: (value: number | bigint) => string,
- *   decodeToBytes: (value: number | bigint) => Uint8Array}} The generated members.
+ *   decodeToBytes: (value: number | bigint) => Uint8Array,
+ *   tryDecode: (value: number | bigint) => string | null,
+ *   getCanonicalForm: (text: string | Uint8Array) => string | null}} The generated members.
  */
 function build(naxp) {
 	const source = emit(naxp);
-	const members = 'maxEncodedValue, maxLength, accepts, acceptsBytes, encode, encodeBytes, decode, decodeToBytes';
+	const members = 'pattern, maxEncodedValue, maxLength, accepts, encode, decode, decodeToBytes, tryDecode, getCanonicalForm';
 
 	return new Function(`${source}\nreturn { ${members} };`)();
 }
@@ -79,14 +81,23 @@ function fromBytes(bytes) {
 test('the prefix is camel cased onto every name', () => {
 	const source = emit('\\A\\9', 'Postcode');
 
+	assert.match(source, /const postcodePattern = '/);
 	assert.match(source, /const postcodeMaxEncodedValue = 260;/);
 	assert.match(source, /const postcodeMaxLength = 2;/);
 	assert.match(source, /function postcodeAccepts\(text\) \{/);
-	assert.match(source, /function postcodeAcceptsBytes\(bytes\) \{/);
 	assert.match(source, /function postcodeEncode\(text\) \{/);
-	assert.match(source, /function postcodeEncodeBytes\(bytes\) \{/);
 	assert.match(source, /function postcodeDecode\(value\) \{/);
 	assert.match(source, /function postcodeDecodeToBytes\(value\) \{/);
+	assert.match(source, /function postcodeTryDecode\(value\) \{/);
+	assert.match(source, /function postcodeGetCanonicalForm\(text\) \{/);
+});
+
+test('the pattern is a literal that gives back the naxp', () => {
+	// A quote, a backslash, a tab and a newline, which are what a pattern can hold that needs
+	// escaping.
+	for (const naxp of ['\\A\\9', "A'B", 'A\tB\nC', '\\\\']) {
+		assert.equal(build(naxp).pattern, naxp);
+	}
 });
 
 test('a blank prefix gives the bare names', () => {
@@ -96,11 +107,11 @@ test('a blank prefix gives the bare names', () => {
 	assert.match(source, /const maxEncodedValue = 260;/);
 });
 
-test('one stepper serves the string and the byte entry points', () => {
+test('one function serves strings and bytes', () => {
 	const source = emit('\\A\\9');
 
-	assert.ok(source.includes('acceptStep(state, text.charCodeAt(i));'));
-	assert.ok(source.includes('acceptStep(state, bytes[i]);'));
+	assert.ok(source.includes("const bytes = typeof text !== 'string';"));
+	assert.ok(source.includes('const c = bytes ? text[i] : text.charCodeAt(i);'));
 	assert.ok(source.includes('c >= 0x41 && c <= 0x5A'));
 });
 
@@ -191,8 +202,8 @@ test('every conformance naxp emits', () => {
 		const source = emit(item.naxp);
 
 		assert.ok(source.includes('function encode(text) {'), `${item.naxp} has no encode`);
-		assert.ok(source.includes('function encodeBytes(bytes) {'), `${item.naxp} has no encodeBytes`);
 		assert.ok(source.includes('function decode(value) {'), `${item.naxp} has no decode`);
+		assert.ok(source.includes('function getCanonicalForm(text) {'), `${item.naxp} has no getCanonicalForm`);
 		assert.ok(!source.includes(COPY_MARKER), `${item.naxp} leaked a copy marker`);
 	}
 });
@@ -205,6 +216,7 @@ test('the generated code answers the conformance data', () => {
 
 		// Values are compared as text, so that a fragment using BigInt and one using numbers are
 		// asked the same question.
+		assert.equal(generated.pattern, item.naxp, `${item.naxp}: pattern is '${generated.pattern}'`);
 		assert.equal(
 			String(generated.maxEncodedValue),
 			item.maxEncodedValue,
@@ -217,13 +229,17 @@ test('the generated code answers the conformance data', () => {
 
 			assert.equal(String(encoded), value.out,
 				`${item.naxp}: encode('${value.in}') is ${encoded}, the test data says ${value.out}`);
-			assert.equal(String(generated.encodeBytes(toBytes(value.in))), value.out,
-				`${item.naxp}: encodeBytes('${value.in}') disagrees with encode`);
+			assert.equal(String(generated.encode(toBytes(value.in))), value.out,
+				`${item.naxp}: encode of the bytes of '${value.in}' disagrees with encode`);
 			assert.equal(generated.accepts(value.in), accepted,
 				`${item.naxp}: accepts('${value.in}') is ${generated.accepts(value.in)}, the test data says ${accepted}`);
-			assert.equal(generated.acceptsBytes(toBytes(value.in)), accepted,
-				`${item.naxp}: acceptsBytes('${value.in}') disagrees with accepts`);
-			checks += 4;
+			assert.equal(generated.accepts(toBytes(value.in)), accepted,
+				`${item.naxp}: accepts of the bytes of '${value.in}' disagrees with accepts`);
+			assert.equal(generated.getCanonicalForm(value.in), accepted ? value.canon : null,
+				`${item.naxp}: getCanonicalForm('${value.in}') is '${generated.getCanonicalForm(value.in)}', the test data says '${value.canon}'`);
+			assert.equal(generated.getCanonicalForm(toBytes(value.in)), accepted ? value.canon : null,
+				`${item.naxp}: getCanonicalForm of the bytes of '${value.in}' disagrees with getCanonicalForm`);
+			checks += 6;
 
 			if (!accepted) { continue; }
 
@@ -233,9 +249,11 @@ test('the generated code answers the conformance data', () => {
 				`${item.naxp}: decode(${encoded}) is '${decoded}', the test data says '${value.canon}'`);
 			assert.equal(fromBytes(generated.decodeToBytes(encoded)), value.canon,
 				`${item.naxp}: decodeToBytes(${encoded}) disagrees with decode`);
+			assert.equal(generated.tryDecode(encoded), value.canon,
+				`${item.naxp}: tryDecode(${encoded}) disagrees with decode`);
 			assert.equal(String(generated.encode(decoded)), value.out,
 				`${item.naxp}: '${decoded}' does not encode back to ${value.out}`);
-			checks += 3;
+			checks += 4;
 		}
 
 		for (const invalid of item.invalid) {
@@ -243,11 +261,19 @@ test('the generated code answers the conformance data', () => {
 				`${item.naxp}: accepts('${invalid}'), which the test data says it must not`);
 			assert.equal(String(generated.encode(invalid)), '0',
 				`${item.naxp}: encode('${invalid}') is ${generated.encode(invalid)} rather than zero`);
-			checks += 2;
+			assert.equal(generated.getCanonicalForm(invalid), null,
+				`${item.naxp}: getCanonicalForm('${invalid}') is not null`);
+			checks += 3;
 		}
 
-		assert.throws(() => generated.decode(0), RangeError, `${item.naxp}: decode(0) did not throw a RangeError`);
-		++checks;
+		// Zero and one past the end, in the fragment's own number type.
+		const one = typeof generated.maxEncodedValue === 'bigint' ? 1n : 1;
+
+		assert.throws(() => generated.decode(one - one), RangeError, `${item.naxp}: decode(0) did not throw a RangeError`);
+		assert.equal(generated.tryDecode(one - one), null, `${item.naxp}: tryDecode(0) is not null`);
+		assert.equal(generated.tryDecode(generated.maxEncodedValue + one), null,
+			`${item.naxp}: tryDecode past the end is not null`);
+		checks += 3;
 	}
 
 	// Without this a run over no cases would pass silently.

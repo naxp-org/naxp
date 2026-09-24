@@ -118,6 +118,13 @@ namespace logmu::detail
 		/// @returns Whether the value is one this naxp can produce.
 		bool try_decode(std::uint64_t value, std::string& text) const;
 
+		/// Writes the string a value stands for, which is a canonical form, into a buffer.
+		///
+		/// @param value The value, from 1 to `max_encoded_value()`.
+		/// @param destination Where the string goes, which holds `max_length()` characters.
+		/// @returns The length of the string, or -1 where the value is out of range.
+		int decode(std::uint64_t value, char* destination) const;
+
 		/// The canonical form of a string, which is the string with the match of each unified
 		/// element replaced by that element's rendering.
 		///
@@ -126,6 +133,14 @@ namespace logmu::detail
 		///     invalid.
 		/// @returns Whether the naxp accepts the string.
 		bool try_get_canonical_form(std::string_view text, std::string& canonical) const;
+
+		/// Writes the canonical form of a string into a buffer.
+		///
+		/// @param text The string.
+		/// @param destination Where the canonical form goes, which holds `max_length()`
+		///     characters.
+		/// @returns The length of the canonical form, or -1 where the string is invalid.
+		int canonicalise(std::string_view text, char* destination) const;
 
 	private:
 		std::string pattern_text;

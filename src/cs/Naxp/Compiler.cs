@@ -24,6 +24,7 @@ sealed class Compilation
 		this.Canonical = canonical;
 		this.CanonicalIsIdentity = canonicalIsIdentity;
 		this.CanonicalMachine = canonicalMachine;
+		this.MaxLength = LongestPath(canonical);
 	}
 
 	public string Pattern { get; }
@@ -41,6 +42,9 @@ sealed class Compilation
 
 	/// <summary>The count of strings the naxp accepts, which is the size of <i>L</i>.</summary>
 	public ulong AcceptedCount => this.Accepted.StringCount;
+
+	/// <summary>The length of the longest string in <i>C</i>, which bounds every buffer a decode needs.</summary>
+	public int MaxLength { get; }
 
 	/// <summary>
 	/// Whether &#961; is the identity, so that every accepted string is its own canonical form.
@@ -88,12 +92,14 @@ sealed class Compilation
 	/// <param name="text">The string to encode.</param>
 	/// <returns>The value, from 1 to <see cref="MaxEncodedValue"/>, or zero.</returns>
 	public ulong Encode(ReadOnlySpan<char> text)
-		=> this.CanonicalIsIdentity
-			? Codec.Encode(this.Canonical, text)
-			: this.TryGetCanonicalForm(text, out string? canonical)
-				? Codec.Encode(this.Canonical, canonical!)
-				: 0UL
-			;
+	{
+		if (this.CanonicalIsIdentity) { return Codec.Encode(this.Canonical, text); }
+
+		Span<char> canonical = stackalloc char[this.MaxLength];
+		int length = this.CanonicalMachine!.Canonicalise(text, canonical);
+
+		return length < 0 ? 0UL : Codec.Encode(this.Canonical, canonical.Slice(0, length));
+	}
 
 	/// <summary>
 	/// The string a value stands for, which is a canonical form.
@@ -101,7 +107,23 @@ sealed class Compilation
 	/// <param name="value">The value, from 1 to <see cref="MaxEncodedValue"/>.</param>
 	/// <param name="text">The string, or <see langword="null"/> if the value is out of range.</param>
 	/// <returns>Whether the value is one this naxp can produce.</returns>
-	public bool TryDecode(ulong value, out string? text) => Codec.TryDecode(this.Canonical, value, out text);
+	public bool TryDecode(ulong value, out string? text)
+	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.Decode(value, buffer);
+
+		text = length < 0 ? null : buffer.Slice(0, length).ToString();
+
+		return text is not null;
+	}
+
+	/// <summary>
+	/// Writes the string a value stands for, which is a canonical form, into a buffer.
+	/// </summary>
+	/// <param name="value">The value, from 1 to <see cref="MaxEncodedValue"/>.</param>
+	/// <param name="destination">Where the string goes, which holds <see cref="MaxLength"/> characters.</param>
+	/// <returns>The length of the string, or -1 if the value is out of range.</returns>
+	public int Decode(ulong value, Span<char> destination) => Codec.Decode(this.Canonical, value, destination);
 
 	/// <summary>
 	/// The canonical form of a string, which is the string with the match of each unified
@@ -114,20 +136,69 @@ sealed class Compilation
 	/// <returns>Whether the naxp accepts the string.</returns>
 	public bool TryGetCanonicalForm(ReadOnlySpan<char> text, out string? canonical)
 	{
+		Span<char> buffer = stackalloc char[this.MaxLength];
+		int length = this.Canonicalise(text, buffer);
+
+		canonical = length < 0 ? null : buffer.Slice(0, length).ToString();
+
+		return canonical is not null;
+	}
+
+	/// <summary>
+	/// Writes the canonical form of a string into a buffer.
+	/// </summary>
+	/// <param name="text">The string.</param>
+	/// <param name="destination">Where the canonical form goes, which holds <see cref="MaxLength"/> characters.</param>
+	/// <returns>The length of the canonical form, or -1 if the string is invalid.</returns>
+	public int Canonicalise(ReadOnlySpan<char> text, Span<char> destination)
+	{
 		// Where ρ is the identity an accepted string is its own canonical form, so the answer
-		// is the machine's, and walking the tree for it would only rebuild what was passed in.
+		// is the machine's, and being in the canonical language it fits the buffer.
 		if (this.CanonicalIsIdentity)
 		{
-			canonical = this.Accepts(text) ? text.ToString() : null;
+			if (!this.Accepts(text)) { return -1; }
 
-			return canonical is not null;
+			text.CopyTo(destination);
+
+			return text.Length;
 		}
 
 		// Both walk the same relation and agree everywhere, which the tests check exhaustively.
 		// The machine is linear in the length of the input where the tree walk is not, and it is
 		// the form the emitters need, so it is the one the runtime uses. Canonicaliser stays as
 		// the reference the machine is tested against.
-		return this.CanonicalMachine!.TryCanonicalise(text, out canonical);
+		return this.CanonicalMachine!.Canonicalise(text, destination);
+	}
+
+	/// <summary>
+	/// The length of the longest string a machine generates.
+	/// </summary>
+	/// <remarks>
+	/// The states are listed in creation order and every transition points at an earlier state,
+	/// because the builder interns each state's successors before the state itself, so a single
+	/// pass has every target's length ready when it is read.
+	/// </remarks>
+	static int LongestPath(StateMap map)
+	{
+		var lengths = new int[map.States.Count];
+
+		for (int id = 0; id < map.States.Count; ++id)
+		{
+			int longest = 0;
+
+			foreach (Transition transition in map.States[id].Transitions)
+			{
+				if (transition.Set.IsEmpty) { continue; }
+
+				int viaTransition = lengths[transition.Next.Id] + 1;
+
+				if (viaTransition > longest) { longest = viaTransition; }
+			}
+
+			lengths[id] = longest;
+		}
+
+		return lengths[map.Start.Id];
 	}
 }
 

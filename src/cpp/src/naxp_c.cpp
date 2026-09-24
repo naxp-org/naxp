@@ -40,31 +40,27 @@ struct naxp_fault
 
 namespace
 {
-	/// Writes text into a caller's buffer on the C contract: nothing at all where it does not
-	/// fit, the length where it does.
-	bool write_out(std::string_view text, char* destination, size_t capacity, size_t* length) noexcept
+	/// Hands a length back on the C contract, where the caller may pass NULL for it.
+	bool report_length(bool succeeded, size_t length, size_t* out) noexcept
 	{
-		if (text.size() > capacity)
+		if (out != nullptr)
 		{
-			if (length != nullptr)
-			{
-				*length = 0;
-			}
-
-			return false;
+			*out = succeeded ? length : 0;
 		}
 
-		if (!text.empty())
+		return succeeded;
+	}
+
+	/// Terminates what a buffer-writing call wrote, which was given one byte less than the
+	/// caller has room for so that the terminator always fits.
+	bool write_terminator(bool succeeded, char* destination, size_t length) noexcept
+	{
+		if (succeeded)
 		{
-			std::memcpy(destination, text.data(), text.size());
+			destination[length] = '\0';
 		}
 
-		if (length != nullptr)
-		{
-			*length = text.size();
-		}
-
-		return true;
+		return succeeded;
 	}
 }
 
@@ -130,17 +126,10 @@ extern "C"
 		delete fault;
 	}
 
-	const char *naxp_pattern(const naxp *expression, size_t *length)
+	const char *naxp_pattern(const naxp *expression)
 	{
-		const std::string_view pattern = expression->value.pattern();
-
-		if (length != nullptr)
-		{
-			*length = pattern.size();
-		}
-
 		// The view is over the compilation's own std::string, which is NUL-terminated.
-		return pattern.data();
+		return expression->value.pattern().data();
 	}
 
 	uint64_t naxp_max_encoded_value(const naxp *expression)
@@ -170,33 +159,44 @@ extern "C"
 		}
 	}
 
+	bool naxp_accepts_cstr(const naxp *expression, const char *text)
+	{
+		return naxp_accepts(expression, text, std::strlen(text));
+	}
+
+	uint64_t naxp_encode_cstr(const naxp *expression, const char *text)
+	{
+		return naxp_encode(expression, text, std::strlen(text));
+	}
+
 	bool naxp_decode(const naxp *expression, uint64_t encoded_value, char *destination, size_t capacity, size_t *length)
 	{
+		size_t written = 0;
+
 		try
 		{
-			std::string text;
+			const bool decoded = expression->value.try_decode(encoded_value, destination, capacity, written);
 
-			if (!expression->value.try_decode(encoded_value, text))
-			{
-				if (length != nullptr)
-				{
-					*length = 0;
-				}
-
-				return false;
-			}
-
-			return write_out(text, destination, capacity, length);
+			return report_length(decoded, written, length);
 		}
 		catch (...)
 		{
-			if (length != nullptr)
-			{
-				*length = 0;
-			}
+			return report_length(false, 0, length);
+		}
+	}
 
+	bool naxp_decode_cstr(const naxp *expression, uint64_t encoded_value, char *destination, size_t capacity)
+	{
+		size_t length = 0;
+
+		if (capacity == 0)
+		{
 			return false;
 		}
+
+		const bool decoded = naxp_decode(expression, encoded_value, destination, capacity - 1, &length);
+
+		return write_terminator(decoded, destination, length);
 	}
 
 	bool naxp_compare(const naxp *a, const naxp *b, naxp_comparison *comparison)
@@ -297,30 +297,31 @@ extern "C"
 
 	bool naxp_canonical_form(const naxp *expression, const char *text, size_t text_length, char *destination, size_t capacity, size_t *length)
 	{
+		size_t written = 0;
+
 		try
 		{
-			const std::optional<std::string> canonical = expression->value.canonical_form(std::string_view(text, text_length));
+			const bool found = expression->value.try_canonical_form(std::string_view(text, text_length), destination, capacity, written);
 
-			if (!canonical.has_value())
-			{
-				if (length != nullptr)
-				{
-					*length = 0;
-				}
-
-				return false;
-			}
-
-			return write_out(*canonical, destination, capacity, length);
+			return report_length(found, written, length);
 		}
 		catch (...)
 		{
-			if (length != nullptr)
-			{
-				*length = 0;
-			}
+			return report_length(false, 0, length);
+		}
+	}
 
+	bool naxp_canonical_form_cstr(const naxp *expression, const char *text, char *destination, size_t capacity)
+	{
+		size_t length = 0;
+
+		if (capacity == 0)
+		{
 			return false;
 		}
+
+		const bool found = naxp_canonical_form(expression, text, std::strlen(text), destination, capacity - 1, &length);
+
+		return write_terminator(found, destination, length);
 	}
 }

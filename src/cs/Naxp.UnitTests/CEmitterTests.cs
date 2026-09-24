@@ -40,7 +40,15 @@ public class CEmitterTests
 		Assert.Contains("static inline uint64_t postcode_encode_cstr(const char *text)", source, StringComparison.Ordinal);
 		Assert.Contains("static inline bool postcode_decode(uint64_t value, char *destination, size_t capacity, size_t *length)", source, StringComparison.Ordinal);
 		Assert.Contains("static inline bool postcode_decode_cstr(uint64_t value, char *destination, size_t capacity)", source, StringComparison.Ordinal);
+		Assert.Contains("static inline const char *postcode_pattern(void)", source, StringComparison.Ordinal);
+		Assert.Contains("static inline bool postcode_canonical_form(const char *text, size_t text_length, char *destination, size_t capacity, size_t *length)", source, StringComparison.Ordinal);
+		Assert.Contains("static inline bool postcode_canonical_form_cstr(const char *text, char *destination, size_t capacity)", source, StringComparison.Ordinal);
 	}
+
+	/// <summary>A question mark after another is escaped, so that no trigraph can form.</summary>
+	[Fact]
+	public void Emit_EscapesTheSecondOfTwoQuestionMarks()
+		=> Assert.Contains(@"return ""A\\?\?"";", Emit(@"A\??"), StringComparison.Ordinal);
 
 	/// <summary>A run of capitals is one word until the letter that starts the next word.</summary>
 	[Theory]
@@ -135,7 +143,8 @@ public class CEmitterTests
 		string source = Emit(@"(B|b)!B");
 
 		Assert.Contains("canonical_step(state, (unsigned char)text[i], canonical, &length);", source, StringComparison.Ordinal);
-		Assert.Contains("length = finish_canonical(state, canonical, length);", source, StringComparison.Ordinal);
+		Assert.Contains("return finish_canonical(state, canonical, length);", source, StringComparison.Ordinal);
+		Assert.Contains("int length = canonicalise(text, text_length, canonical);", source, StringComparison.Ordinal);
 		Assert.Contains("rank(canonical, length)", source, StringComparison.Ordinal);
 		Assert.DoesNotContain(Tx.CopyMarker.ToString(), source, StringComparison.Ordinal);
 	}
@@ -226,7 +235,7 @@ public class CEmitterTests
 			ConformanceCase item = TestData.Cases[i];
 			string snake = Snake(i);
 
-			builder.Append($"\t{{ {NativeHarness.CString(item.Naxp)}, {item.MaxEncodedValue.ToString(CultureInfo.InvariantCulture)}ULL, {snake}_max_encoded_value, {snake}_accepts, {snake}_accepts_cstr, {snake}_encode, {snake}_encode_cstr, {snake}_decode, {snake}_decode_cstr, {snake}_values }},\n");
+			builder.Append($"\t{{ {NativeHarness.CString(item.Naxp)}, {NativeHarness.Length(item.Naxp)}, {item.MaxEncodedValue.ToString(CultureInfo.InvariantCulture)}ULL, {snake}_max_encoded_value, {snake}_pattern, {snake}_accepts, {snake}_accepts_cstr, {snake}_encode, {snake}_encode_cstr, {snake}_decode, {snake}_decode_cstr, {snake}_canonical_form, {snake}_canonical_form_cstr, {snake}_values }},\n");
 		}
 
 		builder.Append("};\n\n");
@@ -253,14 +262,18 @@ public class CEmitterTests
 		typedef struct
 		{
 			const char *naxp;
+			size_t naxp_length;
 			uint64_t max_encoded_value;
 			uint64_t fragment_max_encoded_value;
+			const char *(*pattern)(void);
 			bool (*accepts)(const char *, size_t);
 			bool (*accepts_cstr)(const char *);
 			uint64_t (*encode)(const char *, size_t);
 			uint64_t (*encode_cstr)(const char *);
 			bool (*decode)(uint64_t, char *, size_t, size_t *);
 			bool (*decode_cstr)(uint64_t, char *, size_t);
+			bool (*canonical_form)(const char *, size_t, char *, size_t, size_t *);
+			bool (*canonical_form_cstr)(const char *, char *, size_t);
 			const value_row *values;
 		} naxp_case;
 
@@ -290,7 +303,10 @@ public class CEmitterTests
 			{
 				const naxp_case *c = &cases[i];
 
+				const char *pattern = c->pattern();
+
 				check(c->fragment_max_encoded_value == c->max_encoded_value, c->naxp, "max_encoded_value", "");
+				check(strlen(pattern) == c->naxp_length && memcmp(pattern, c->naxp, c->naxp_length) == 0, c->naxp, "pattern", "");
 
 				for (const value_row *row = c->values; row->in != NULL; ++row)
 				{
@@ -309,7 +325,26 @@ public class CEmitterTests
 						check(c->accepts_cstr(row->in) == valid, c->naxp, "accepts_cstr", row->in);
 					}
 
+					check(c->canonical_form(row->in, row->in_length, out, sizeof out, &length) == valid
+						&& (valid ? length == row->canon_length && memcmp(out, row->canon, length) == 0 : length == 0),
+						c->naxp, "canonical_form", row->in);
+
+					if (plain)
+					{
+						check(c->canonical_form_cstr(row->in, out, sizeof out) == valid
+							&& (!valid || (strlen(out) == row->canon_length && memcmp(out, row->canon, row->canon_length) == 0)),
+							c->naxp, "canonical_form_cstr", row->in);
+					}
+
 					if (!valid) { continue; }
+
+					/* Too short by one, then exactly long enough. */
+					if (row->canon_length > 0)
+					{
+						check(!c->canonical_form(row->in, row->in_length, out, row->canon_length - 1, &length) && length == 0, c->naxp, "canonical_form short", row->in);
+					}
+
+					check(c->canonical_form(row->in, row->in_length, out, row->canon_length, NULL), c->naxp, "canonical_form exact", row->in);
 
 					check(c->decode(encoded, out, sizeof out, &length) && length == row->canon_length && memcmp(out, row->canon, length) == 0,
 						c->naxp, "decode", row->in);

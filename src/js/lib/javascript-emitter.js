@@ -11,18 +11,22 @@ const MAX_SAFE_INTEGER = 9007199254740991n;
 /** The name the generated code keeps the code points it has read under. */
 const HELD_NAME = 'held';
 
+/** The name of the flag saying that a public function was given bytes rather than a string. */
+const BYTES_NAME = 'bytes';
+
 /**
  * The JavaScript emitter: one naxp as a fragment of declarations, in the shape a module or a
  * script tag can hold.
  *
- * The fragment is a set of const and function declarations, two consts, the public functions and
+ * The fragment is a set of const and function declarations, three consts, the public functions and
  * their private steppers, every name prefixed with the caller's prefix and camel cased, which is
  * what JavaScript readers expect. Nothing is exported: the module wrapper, the export list and any
  * header comment are the caller's job.
  *
  * Characters are handled as ASCII code points rather than one-character strings, so the steppers
- * compare numbers and the byte entry points feed their bytes straight in. That is why one stepper
- * serves both the string and the `Uint8Array` forms, where the C# emitter needs a cast.
+ * compare numbers and bytes feed straight in. That is why each public function takes a string or a
+ * `Uint8Array` alike, as the library's `Naxp` does, where the C# emitter needs an overload and a
+ * cast.
  *
  * JavaScript has one number type, exact to 2^53 - 1, so the emitter reads the naxp's largest
  * encoded value and picks: ordinary numbers where every value and every intermediate rank fits,
@@ -122,14 +126,16 @@ class Fragment {
 		// The generated names, each the prefix plus the bare member name, camel cased.
 		const prefix = context.prefix;
 
+		this.patternName = camel(prefix, 'Pattern');
 		this.maxEncodedValueName = camel(prefix, 'MaxEncodedValue');
 		this.maxLengthName = camel(prefix, 'MaxLength');
 		this.acceptsName = camel(prefix, 'Accepts');
-		this.acceptsBytesName = camel(prefix, 'AcceptsBytes');
 		this.encodeName = camel(prefix, 'Encode');
-		this.encodeBytesName = camel(prefix, 'EncodeBytes');
 		this.decodeName = camel(prefix, 'Decode');
 		this.decodeToBytesName = camel(prefix, 'DecodeToBytes');
+		this.tryDecodeName = camel(prefix, 'TryDecode');
+		this.getCanonicalFormName = camel(prefix, 'GetCanonicalForm');
+		this.canonicaliseName = camel(prefix, 'Canonicalise');
 		this.rankName = camel(prefix, 'Rank');
 		this.decodeCoreName = camel(prefix, 'DecodeCore');
 		this.acceptStepName = camel(prefix, 'AcceptStep');
@@ -159,15 +165,17 @@ class Fragment {
 
 	emit() {
 		this.emitConstants();
-		this.emitAccepts(false);
-		this.emitAccepts(true);
-		this.emitEncode(false);
-		this.emitEncode(true);
+		this.emitAccepts();
+		this.emitEncode();
 		this.emitDecodePublics();
+		this.emitGetCanonicalForm();
 		this.emitSteppers();
 	}
 
 	emitConstants() {
+		this.writer.line('/** The naxp this code was generated from. */');
+		this.writer.line(`const ${this.patternName} = ${stringLiteral(this.context.compilation.pattern)};`);
+		this.writer.line();
 		this.writer.line('/** The largest encoded value this naxp produces, which is also how many it has. */');
 		this.writer.line(`const ${this.maxEncodedValueName} = ${this.value(this.context.compilation.maxEncodedValue)};`);
 		this.writer.line();
@@ -176,19 +184,17 @@ class Fragment {
 		this.writer.line();
 	}
 
-	/** @param {boolean} bytes Whether this is the `Uint8Array` entry point. */
-	emitAccepts(bytes) {
-		this.writer.line(bytes
-			? '/** Whether this naxp accepts the ASCII text in a Uint8Array. A byte outside ASCII is never accepted.'
-			: '/** Whether this naxp accepts a string.');
-		this.writer.line(bytes ? ' * @param {Uint8Array} bytes' : ' * @param {string} text');
+	emitAccepts() {
+		this.writer.line('/** Whether this naxp accepts a string, or the ASCII text in a Uint8Array. A byte outside ASCII is never accepted.');
+		this.writer.line(' * @param {string | Uint8Array} text');
 		this.writer.line(' * @returns {boolean}');
 		this.writer.line(' */');
-		this.writer.line(`function ${bytes ? this.acceptsBytesName : this.acceptsName}(${bytes ? 'bytes' : 'text'}) {`);
+		this.writer.line(`function ${this.acceptsName}(text) {`);
 		this.writer.indentBy();
+		this.writer.line(`const ${BYTES_NAME} = typeof text !== 'string';`);
 		this.writer.line('let state = 0;');
 		this.writer.line();
-		this.emitReadLoop(bytes, code => `state = ${this.acceptStepName}(state, ${code});`, 'return false;');
+		this.emitReadLoop(`state = ${this.acceptStepName}(state, c);`, 'return false;');
 		this.writer.line();
 		this.writer.line(`return ${this.isAcceptingName}(state);`);
 		this.writer.outdent();
@@ -196,42 +202,24 @@ class Fragment {
 		this.writer.line();
 	}
 
-	/** @param {boolean} bytes Whether this is the `Uint8Array` entry point. */
-	emitEncode(bytes) {
-		this.writer.line(bytes
-			? '/** The encoded value of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where the text is invalid.'
-			: '/** The encoded value of a string, from 1 to the largest encoded value, or zero where the string is invalid.');
-		this.writer.line(bytes ? ' * @param {Uint8Array} bytes' : ' * @param {string} text');
+	emitEncode() {
+		this.writer.line('/** The encoded value of a string, or of the ASCII text in a Uint8Array, from 1 to the largest encoded value, or zero where it is invalid.');
+		this.writer.line(' * @param {string | Uint8Array} text');
 		this.writer.line(` * @returns {${this.numberType}}`);
 		this.writer.line(' */');
-		this.writer.line(`function ${bytes ? this.encodeBytesName : this.encodeName}(${bytes ? 'bytes' : 'text'}) {`);
+		this.writer.line(`function ${this.encodeName}(text) {`);
 		this.writer.indentBy();
 
 		if (this.canonicalises) {
-			this.writer.line('const canonical = [];');
-			this.writer.line('let state = 0;');
+			this.writer.line(`const canonical = ${this.canonicaliseName}(text);`);
 			this.writer.line();
-
-			if (this.needsRegister) {
-				// The code points read, oldest first, so a reference of depth d is the one at
-				// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
-				this.writer.line(`const ${HELD_NAME} = new Array(${this.registerDepth}).fill(0);`);
-				this.writer.line();
-			}
-
-			this.emitReadLoop(
-				bytes,
-				code => `state = ${this.canonicalStepName}(state, ${code}, ${this.stepArguments()});`,
-				`return ${this.zero};`,
-				this.needsRegister ? code => `${HELD_NAME}.shift(); ${HELD_NAME}.push(${code});` : null);
-			this.writer.line();
-			this.writer.line(
-				`return ${this.finishCanonicalName}(state, ${this.finishArguments()}) ? ${this.rankName}(canonical) : ${this.zero};`);
+			this.writer.line(`return canonical === null ? ${this.zero} : ${this.rankName}(canonical);`);
 		} else {
+			this.writer.line(`const ${BYTES_NAME} = typeof text !== 'string';`);
 			this.writer.line(`const acc = { total: ${this.zero} };`);
 			this.writer.line('let state = 0;');
 			this.writer.line();
-			this.emitReadLoop(bytes, code => `state = ${this.encodeStepName}(state, ${code}, acc);`, `return ${this.zero};`);
+			this.emitReadLoop(`state = ${this.encodeStepName}(state, c, acc);`, `return ${this.zero};`);
 			this.writer.line();
 			this.writer.line(`return ${this.isAcceptingName}(state) ? acc.total + ${this.one} : ${this.zero};`);
 		}
@@ -242,24 +230,24 @@ class Fragment {
 	}
 
 	/**
-	 * The loop both entry points read their input with. A byte is already the code point, and
-	 * anything above ASCII fits no transition, so one stepper serves both forms.
+	 * The loop every entry point reads its input with. A byte is already the code point, and
+	 * anything above ASCII fits no transition, so one stepper serves strings and bytes alike; the
+	 * function has already set the flag saying which it holds.
 	 *
-	 * @param {boolean} bytes Whether this is the `Uint8Array` entry point.
-	 * @param {(code: string) => string} step The stepping statement, over the code point expression.
+	 * @param {string} step The stepping statement, over the code point `c`.
 	 * @param {string} onFault What a failed step does.
-	 * @param {((code: string) => string) | null} before A statement ahead of the step, or null.
+	 * @param {string | null} before A statement between reading the code point and stepping, or
+	 * null.
 	 */
-	emitReadLoop(bytes, step, onFault, before = null) {
-		const source = bytes ? 'bytes' : 'text';
-		const code = bytes ? 'bytes[i]' : 'text.charCodeAt(i)';
-
-		this.writer.line(`for (let i = 0; i < ${source}.length; i++) {`);
+	emitReadLoop(step, onFault, before = null) {
+		this.writer.line('for (let i = 0; i < text.length; i++) {');
 		this.writer.indentBy();
+		this.writer.line(`const c = ${BYTES_NAME} ? text[i] : text.charCodeAt(i);`);
+		this.writer.line();
 
-		if (before !== null) { this.writer.line(before(code)); }
+		if (before !== null) { this.writer.line(before); }
 
-		this.writer.line(step(code));
+		this.writer.line(step);
 		this.writer.line();
 		this.writer.line(`if (state < 0) { ${onFault} }`);
 		this.writer.outdent();
@@ -294,6 +282,44 @@ class Fragment {
 		this.writer.outdent();
 		this.writer.line('}');
 		this.writer.line();
+
+		this.writer.line('/** The string a value stands for, which is in canonical form, or null where the value is not one this naxp produces.');
+		this.writer.line(` * @param {${this.numberType}} value`);
+		this.writer.line(' * @returns {string | null}');
+		this.writer.line(' */');
+		this.writer.line(`function ${this.tryDecodeName}(value) {`);
+		this.writer.indentBy();
+		this.writer.line(`if (value < ${this.one} || value > ${this.maxEncodedValueName}) { return null; }`);
+		this.writer.line();
+		this.writer.line(`return String.fromCharCode.apply(null, ${this.decodeCoreName}(value));`);
+		this.writer.outdent();
+		this.writer.line('}');
+		this.writer.line();
+	}
+
+	emitGetCanonicalForm() {
+		this.writer.line('/** The canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid.');
+		this.writer.line(' * @param {string | Uint8Array} text');
+		this.writer.line(' * @returns {string | null}');
+		this.writer.line(' */');
+		this.writer.line(`function ${this.getCanonicalFormName}(text) {`);
+		this.writer.indentBy();
+
+		if (this.canonicalises) {
+			this.writer.line(`const canonical = ${this.canonicaliseName}(text);`);
+			this.writer.line();
+			this.writer.line('return canonical === null ? null : String.fromCharCode.apply(null, canonical);');
+		} else {
+			// Where nothing is unified an accepted string is its own canonical form, so only bytes
+			// need anything done to them.
+			this.writer.line(`if (!${this.acceptsName}(text)) { return null; }`);
+			this.writer.line();
+			this.writer.line("return typeof text === 'string' ? text : String.fromCharCode.apply(null, text);");
+		}
+
+		this.writer.outdent();
+		this.writer.line('}');
+		this.writer.line();
 	}
 
 	/** @param {string} message The message the range error carries. */
@@ -308,6 +334,31 @@ class Fragment {
 
 	emitSteppers() {
 		if (this.canonicalises) {
+			this.writer.line('/** The code points of the canonical form of a string, or of the ASCII text in a Uint8Array, or null where it is invalid. */');
+			this.writer.line(`function ${this.canonicaliseName}(text) {`);
+			this.writer.indentBy();
+			this.writer.line(`const ${BYTES_NAME} = typeof text !== 'string';`);
+			this.writer.line('const canonical = [];');
+			this.writer.line('let state = 0;');
+			this.writer.line();
+
+			if (this.needsRegister) {
+				// The code points read, oldest first, so a reference of depth d is the one at
+				// registerDepth - 1 - d. Shifting a buffer this small beats indexing a ring.
+				this.writer.line(`const ${HELD_NAME} = new Array(${this.registerDepth}).fill(0);`);
+				this.writer.line();
+			}
+
+			this.emitReadLoop(
+				`state = ${this.canonicalStepName}(state, c, ${this.stepArguments()});`,
+				'return null;',
+				this.needsRegister ? `${HELD_NAME}.shift(); ${HELD_NAME}.push(c);` : null);
+			this.writer.line();
+			this.writer.line(`return ${this.finishCanonicalName}(state, ${this.finishArguments()}) ? canonical : null;`);
+			this.writer.outdent();
+			this.writer.line('}');
+			this.writer.line();
+
 			this.writer.line('/** The rank of a canonical string, as code points, within the canonical language, or zero where it is not in it. */');
 			this.writer.line(`function ${this.rankName}(codes) {`);
 			this.writer.indentBy();
@@ -742,6 +793,37 @@ class Fragment {
  */
 function codeLiteral(code) {
 	return '0x' + code.toString(16).toUpperCase().padStart(2, '0');
+}
+
+/**
+ * A string as a single-quoted JavaScript literal. A pattern may hold whitespace other than the
+ * space, which is escaped along with the quote and the backslash.
+ *
+ * @param {string} text The string, which is ASCII.
+ * @returns {string} The literal.
+ */
+function stringLiteral(text) {
+	let literal = "'";
+
+	for (let i = 0; i < text.length; ++i) {
+		const code = text.charCodeAt(i);
+
+		if (code === 0x27 || code === 0x5c) {
+			literal += '\\' + text[i];
+		} else if (code === 0x09) {
+			literal += '\\t';
+		} else if (code === 0x0a) {
+			literal += '\\n';
+		} else if (code === 0x0d) {
+			literal += '\\r';
+		} else if (code < 0x20 || code > 0x7e) {
+			literal += '\\x' + code.toString(16).toUpperCase().padStart(2, '0');
+		} else {
+			literal += text[i];
+		}
+	}
+
+	return literal + "'";
 }
 
 /**

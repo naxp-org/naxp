@@ -244,12 +244,43 @@ namespace logmu
 		/// @returns Whether the value is one this naxp produces.
 		bool try_decode(std::uint64_t encoded_value, std::string& text) const;
 
+		/// Tries to write the text an encoded value stands for, which is in canonical form,
+		/// with no terminator.
+		///
+		/// @param encoded_value The encoded value.
+		/// @param destination Where the text is written. `max_length()` characters always
+		///     suffice.
+		/// @param capacity How many characters there is room for.
+		/// @param length How many characters were written, or zero where none were.
+		/// @returns False where the value is not one this naxp produces, or the destination is
+		///     too short, in which case nothing is written.
+		bool try_decode(std::uint64_t encoded_value, char* destination, std::size_t capacity, std::size_t& length) const;
+
 		/// The canonical form of text, which is the text `decode` gives back for its encoded
 		/// value.
 		///
 		/// @param text The text.
 		/// @returns The canonical form, or nothing where the text is invalid for this naxp.
 		std::optional<std::string> canonical_form(std::string_view text) const;
+
+		/// Tries to find the canonical form of text.
+		///
+		/// @param text The text.
+		/// @param canonical_form Where the canonical form goes. Untouched where the text is
+		///     invalid for this naxp.
+		/// @returns Whether this naxp accepts the text.
+		bool try_canonical_form(std::string_view text, std::string& canonical_form) const;
+
+		/// Tries to write the canonical form of text, with no terminator.
+		///
+		/// @param text The text.
+		/// @param destination Where the canonical form is written. `max_length()` characters
+		///     always suffice.
+		/// @param capacity How many characters there is room for.
+		/// @param length How many characters were written, or zero where none were.
+		/// @returns False where the text is invalid for this naxp, or the destination is too
+		///     short, in which case nothing is written.
+		bool try_canonical_form(std::string_view text, char* destination, std::size_t capacity, std::size_t& length) const;
 
 		/// Emits this naxp as source in the specified language.
 		///

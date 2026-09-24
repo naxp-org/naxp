@@ -8,7 +8,7 @@ With one simple expression you can standardise conversion of alphanumeric codes 
 dotnet add package naxp
 ```
 
-The **naxp** package targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too. It includes a source generator that compiles a **naxp** at build time, as C# does for regexes.
+The **naxp** package includes a source generator that compiles a **naxp** into your own type at build time, as C# does for regexes, and a library for a **naxp** not known until the program runs. It targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too.
 
 ## Why use a naxp rather than roll your own encoding?
 
@@ -32,47 +32,35 @@ Some points to note:
 
 - We've used the shortcuts `\A` for any uppercase letter, `\9` for any digit and `\X` for any uppercase letter or digit. We could have written `[A-Z]`, `[0-9]` and `[A-Z0-9]` instead.
 - `?`, `|` and `[...]` mean the same as in regexes, i.e. one or none, `a` or `b`, and character range respectively.
-- **naxp**s ignore whitespace -- use `\s` to mean an actual space.
+- **naxp**s ignore whitespace &ndash; use `\s` to mean an actual space.
 - `!!` after the space makes it optional *without changing the encoding*, which ensures that `EC4M8AD` and `EC4M 8AD` are mapped to the same encoded value. (Using `?`, which might be your first instinct if you are used to regexes, would instead map each of these to *different* encoded values.) A **naxp** written with a `!` operator maps multiple texts to a single encoded value, but defines one of those texts as *canonical*.
 - `GIR 0AA` is a single anomalous but real postcode, so the **naxp** specifies it explicitly.
 
-This is what it looks like in code:
+## The naxp source generator
+
+If a **naxp** is known at compile time then **use the source generator**.
+
+Add the `[Naxp]` attribute to a `partial` class and the source generator will add the **naxp** functionality with no need to reference the `naxp` package at run time.
 
 ```csharp
 using LogMu;
 
-var postcode = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
-
-postcode.MaxEncodedValue;                    // 1755842401
-postcode.Encode("EC4M 8AD");                 // 278794572
-postcode.Encode("EC4M8AD");                  // 278794572 (same as above)
-postcode.Decode(278794572);                  // "EC4M 8AD" (canonical form)
-postcode.GetCanonicalForm("EC4M 8AD");       // "EC4M 8AD" (canonical form)
-postcode.GetCanonicalForm("EC4M8AD");        // "EC4M 8AD" (canonical form)
-postcode.Accepts("invalid");                 // false
-postcode.Encode("invalid");                  // 0
-```
-
-The naxp is written as a verbatim string (`@"..."`) so that its backslashes stand for themselves.
-
-## The source generator
-
-Put `[Naxp]` on a `partial` type and the generator writes the recogniser and the codec into it at build time. The generated code answers on its own, with no reference to this package at run time, so a **naxp** you know when you compile costs nothing to parse and nothing to hold.
-
-```csharp
-using LogMu;
-
-[Naxp(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA", typeof(int), Prefix = "Postcode")]
-internal static partial class Codes
+[Naxp(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA", typeof(int))]
+static partial class Postcode
 {
 }
 
-Codes.PostcodeMaxEncodedValue;       // 1755842401
-Codes.PostcodeMaxLength;             // 8
-Codes.PostcodeEncode("EC4M 8AD");    // 278794572
-Codes.PostcodeEncode("EC4M8AD");     // 278794572 (same as above)
-Codes.PostcodeDecode(278794572);     // "EC4M 8AD" (canonical form)
-Codes.PostcodeAccepts("invalid");    // false
+Postcode.MaxEncodedValue;               // 1755842401
+Postcode.MaxLength;                     // 8
+Postcode.Encode("EC4M 8AD");            // 278794572
+Postcode.Encode("EC4M8AD");             // 278794572 (same as above)
+Postcode.Decode(278794572);             // "EC4M 8AD" (canonical form)
+Postcode.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
+Postcode.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
+Postcode.Accepts("invalid");            // false
+Postcode.Encode("invalid");             // 0
+
+// Performant Try... and span-writing overloads are also generated -- see the API below.
 ```
 
 | Argument | Is |
@@ -81,18 +69,39 @@ Codes.PostcodeAccepts("invalid");    // false
 | The value type | Required, as a `typeof`. Any C# integer type will do, and the encoded values must fit it. It is stated rather than inferred so that a **naxp** which outgrows its type is a build error rather than a silent change of type. |
 | `Prefix` | Optional. It starts every generated name, so several **naxp**s can share one type. Left out, the names are bare: `Encode`, `Decode` and the rest. |
 
-Each **naxp** generates `MaxEncodedValue`, `MaxLength`, `Accepts`, `Encode`, `Decode`, `DecodeToBytes` and `TryDecode`, each under its prefix, and each working on `ReadOnlySpan<char>` or `ReadOnlySpan<byte>`. `[Naxp]` may appear several times on one type.
+Each **naxp** generates static versions of the members of the library's `Naxp` object listed [below](#naxp-object-members), other than `Emit` and `ToString`, with `Pattern`, `MaxEncodedValue` and `MaxLength` as constants.
 
-A fault is a build error naming the character at fault:
+If you want to use the same class for more than one **naxp** then use `[Naxp]` multiple times but with different `Prefix` arguments to distinguish the systems.
 
+The generated code needs C# 7.3 or later, and carries nullable annotations where the target framework supports them. The source generator needs the .NET 8 SDK or Visual Studio 2022 17.8 or later.
+
+Error codes begin with 'NAXP' and are documented at [naxp.org/codes/](https://naxp.org/codes/).
+
+## Using a naxp at run time
+
+If a **naxp** is not known until run time (e.g. because it's read from configuration or chosen by a user) then use the library, which provides the same functionality but dynamically.
+
+```csharp
+using LogMu;
+
+var postcode = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+
+postcode.MaxEncodedValue;               // 1755842401
+postcode.MaxLength;                     // 8
+postcode.Encode("EC4M 8AD");            // 278794572
+postcode.Encode("EC4M8AD");             // 278794572 (same as above)
+postcode.Decode(278794572);             // "EC4M 8AD" (canonical form)
+postcode.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
+postcode.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
+postcode.Accepts("invalid");            // false
+postcode.Encode("invalid");             // 0
 ```
-Program.cs(11,16): error NAXP1002: The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'.
-Program.cs(16,50): error NAXP0008: This naxp encodes 1755842401 values, which does not fit byte. Pass typeof(int) or wider as the value type, or narrow the naxp.
-```
-
-A fault in the **naxp** is reported under the language's own code for the rule it breaks, NAXP1001 upwards, so a build can suppress one rule without suppressing the rest. NAXP0001 upwards are the attribute and its surroundings, which the generator judges for itself.
 
 ## The API
+
+This section sets out the library API.
+
+The source-generated members are the same, as static members of your class, except that the encoded value type will be the integer type requested as opposed to the `ulong` type used by the library. See the example above under [naxp source generator](#the-naxp-source-generator).
 
 ### Factory methods
 
@@ -101,18 +110,15 @@ A fault in the **naxp** is reported under the language's own code for the rule i
 | `Naxp.Parse(pattern)` | A `Naxp` object or throws `FormatException`. |
 | `Naxp.TryParse(pattern, out naxp, out errorMessage)` | `true` if the pattern is a **naxp**, and throws nothing. |
 
-The `pattern` argument of `Naxp.Parse` and `Naxp.TryParse` is a `ReadOnlySpan<char>`, which a `string` satisfies.
+The `pattern` argument of `Naxp.Parse` and `Naxp.TryParse` is a `ReadOnlySpan<char>`.
 
-A longer overload of `TryParse` provides diagnostics if the parse fails:
+A longer overload of `TryParse` provides additional diagnostics if required:
 
 ```csharp
 bool succeeded = Naxp.TryParse(
-    "A{2-5}",
-    out Naxp? naxp,
+    "A{2-5}", out Naxp? naxp,
     out string? errorMessage,
-    out int errorOffset,
-    out int errorLength,
-    out string? errorCode);
+    out int errorOffset, out int errorLength, out string? errorCode);
 
 succeeded;      // false
 naxp;           // null
@@ -137,26 +143,30 @@ If the error relates to the whole **naxp** then the whole text range is specifie
 |:---|:---|
 | `Pattern` | The text pattern defining the **naxp**. |
 | `MaxEncodedValue` | The largest encoded value, which is also the number of valid encoded values (`ulong`). |
+| `MaxLength` | The length of the longest text `Decode` can return, which bounds every canonical form. |
 | `Accepts(text)` | Whether the text is valid for the **naxp**. |
 | `Encode(text)` | The encoded value for the text, from `1` to `MaxEncodedValue`, or `0` if the text is invalid. |
 | `TryEncode(text, out encoded)` | The same, as `false` and `0` rather than as a value you have to test. |
 | `TryDecode(value, out text)` | The *canonical* text for an encoded value, or `false` if the encoded value is out of range. |
 | `Decode(value)` | Same as `TryDecode(value, out text)` except that it throws `ArgumentOutOfRangeException` if the encoded value is out of range, i.e. `0` or greater than `MaxEncodedValue`. |
+| `DecodeToBytes(value)` | Same as `Decode(value)` except that the text comes back as a `byte[]` of ASCII. |
+| `TryDecode(value, destination, out written)` | Writes the *canonical* text for an encoded value into a `Span<char>` or `Span<byte>`, returning `false` if the encoded value is out of range or `destination` is too short. A `destination` of `MaxLength` always suffices. |
 | `GetCanonicalForm(text)` | The canonical version of the text, or `null` if the text is invalid. |
 | `TryGetCanonicalForm(text, out canonicalForm)` | The same, as a `bool`. |
+| `TryGetCanonicalForm(text, destination, out written)` | Writes the canonical version of the text into a `Span<char>` or `Span<byte>` of the same kind as `text`, returning `false` if the text is invalid or `destination` is too short. |
 | `Emit(language, prefix, valueType)` | Source code for this **naxp** in `OutputLanguage.CSharp`, `JavaScript`, `C` or `Cpp`, answering the same questions as the members above. It runs on its own, with no reference to this package. See [code generation](https://naxp.org/code-gen/). |
 | `ToString()` | The same as `Pattern`. |
 
-`Encode` always returns a `ulong` in order to avoid overflow (given that a **naxp** can hold up to `2^64 - 1` encoded values). The source generator is where a narrower type comes from, since there the **naxp** is known when you compile.
+`Encode` always returns a `ulong` in order to avoid overflow (given that a **naxp** can hold up to `2^64 - 1` encoded values).
 
-The `text` argument of `Accepts`, `Encode`, `TryEncode`, `GetCanonicalForm` and `TryGetCanonicalForm` can be a `ReadOnlySpan<char>` or a `ReadOnlySpan<byte>` of ASCII.
+The `destination` argument of `TryDecode` and `TryGetCanonicalForm` is a text buffer of `Span<char>` or `Span<byte>`, with `written` being set to the number of characters written.
 
 ### Comparing two naxps
 
 > **Note**
 > 
 > This functionality is provided primarily to enable the website **naxp** migration functionality.
-> It is included here for completeness -- it is unlikely that you will require it in normal use.
+> It is included here for completeness &ndash; it is unlikely that you will require it in normal use.
 
 | Function | Returns |
 |:---|:---|
@@ -175,7 +185,7 @@ Determining the relationship between two **naxp**s can be combinatorially expens
 
 ## Status
 
-Alpha. This package implements **naxp 0.10**, the first published specification. The package version and the specification version each follow semantic versioning, and move independently of one another. The public surface
+**Alpha**. This package implements **naxp 0.10**, the first published specification. The package version and the specification version each follow semantic versioning, and move independently of one another. The public surface
 above is stable enough to build on, but the language is still on 0.x and nothing is promised until
 version 1.
 

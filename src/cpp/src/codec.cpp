@@ -47,17 +47,17 @@ namespace logmu::detail::codec
 		return current->accepts_end_of_text() ? total + 1 : 0;
 	}
 
-	bool try_decode(const state_map& map, std::uint64_t value, std::string& text)
+	int decode(const state_map& map, std::uint64_t value, char* destination)
 	{
 		// Zero is reserved for invalid text, so it decodes to nothing.
 		if (value == 0 || value > map.string_count())
 		{
-			return false;
+			return -1;
 		}
 
-		std::string builder;
 		const state* current = map.start;
 		std::uint64_t remaining = value;
+		int length = 0;
 
 		while (!current->is_terminal())
 		{
@@ -69,9 +69,7 @@ namespace logmu::detail::codec
 				{
 					if (remaining == 1)
 					{
-						text = std::move(builder);
-
-						return true;
+						return length;
 					}
 
 					remaining -= 1;
@@ -83,7 +81,7 @@ namespace logmu::detail::codec
 
 				if (remaining <= block)
 				{
-					builder.push_back(arc.set.character_at(static_cast<int>((remaining - 1) / per_character)));
+					destination[length++] = arc.set.character_at(static_cast<int>((remaining - 1) / per_character));
 					remaining = ((remaining - 1) % per_character) + 1;
 					next = arc.next;
 					break;
@@ -96,14 +94,12 @@ namespace logmu::detail::codec
 			// it within the count of the state it moves to, so this cannot be reached.
 			if (next == nullptr)
 			{
-				return false;
+				return -1;
 			}
 
 			current = next;
 		}
 
-		text = std::move(builder);
-
-		return true;
+		return length;
 	}
 }

@@ -14,7 +14,7 @@ namespace logmu::detail
 {
 	/// Emits a compiled naxp as a C fragment, in C99.
 	///
-	/// The fragment is two constants, six public functions and their steppers, every name in
+	/// The fragment is two constants, nine public functions and their steppers, every name in
 	/// snake_case under the caller's prefix. It needs `stdbool.h`, `stddef.h`, `stdint.h` and
 	/// `string.h`, which the caller includes, and its first line says so. Everything has internal
 	/// linkage, the public functions `static inline`, the steppers `static`, so the fragment can
@@ -39,6 +39,8 @@ namespace logmu::detail
 		/// C never adopted a digit separator.
 		std::optional<std::string> digit_separator() const override;
 
+		std::string text_parameters() const override;
+
 		std::string pointer(const std::string& type, const std::string& name) const override;
 		std::string by_reference(const std::string& type, const std::string& name) const override;
 		std::string dereference(const std::string& name) const override;
@@ -49,13 +51,16 @@ namespace logmu::detail
 
 		void emit_header(fragment& fragment) const override;
 		void emit_publics(fragment& fragment) const override;
+		void emit_canonicalise(fragment& fragment) const override;
 
 	private:
 		c_emitter() = default;
 
+		void emit_pattern(fragment& fragment) const;
 		void emit_accepts(fragment& fragment) const;
 		void emit_encode(fragment& fragment) const;
 		void emit_decode(fragment& fragment) const;
+		void emit_canonical_form(fragment& fragment) const;
 	};
 }
 
