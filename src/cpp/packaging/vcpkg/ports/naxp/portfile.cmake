@@ -4,7 +4,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO naxp-org/naxp
     REF "v${VERSION}"
-    SHA512 7b1d087a59c5ab9068b74a34823f9f5ab97bbe636607c5d9544088e3f3a33ac35f3a1b4bfb93b5967c73a41d70ba3a1b57f50feb67f9bfbdddaf3b184a7aea4e
+    SHA512 d965de82b4bdfe625f67573031bd6a537f327b8acdbbecea121bfeafa99d051fd9f54bd85ed0844a26ed1fb36509739fa2098f9616a04dc291c893bb8ffd66ed
     HEAD_REF main
 )
 
