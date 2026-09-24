@@ -1,6 +1,6 @@
 name: Release the amalgamation
 
-# Runs when a version tag is pushed, such as v0.10.0, in the public repository: the tag is
+# Runs when a version tag is pushed, such as v0.11.0, in the public repository: the tag is
 # made and pushed in naxp after copy-to-public.ps1 has brought the release across. The
 # release it creates is a draft, so the notes can be read and the assets checked before
 # anything is public; publishing it is one click on GitHub, and that is what makes
@@ -10,6 +10,11 @@ name: Release the amalgamation
 # tests included, so no release ever attaches a single file that was not proved to be the
 # library. The tag must name the version CMakeLists.txt states, or the run fails before it
 # builds anything.
+#
+# The notes are the release's own section of implementation-changelog.md where there is one, so what a
+# release says it contains is written by hand and reviewed like anything else. The workflow
+# adds what it can state for itself: what the attached files are, and which specification
+# the implementations were tested against.
 
 on:
   push:
@@ -38,6 +43,25 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
+      # The specification is versioned separately from the packages, so it is read from the
+      # documents rather than derived from the tag: naxp 0.11.0 the package implements naxp
+      # 0.10 the language. Test data is published per minor version, so the data file is the
+      # newest specification's major and minor.
+      - name: Find the specification the release implements
+        run: |
+          spec="$(ls spec/naxp-v*.md 2>/dev/null | sed 's#.*/naxp-v##; s#\.md$##' | sort -V | tail -1)"
+          if [ -z "$spec" ]; then
+            echo "No specification found under spec/." >&2
+            exit 1
+          fi
+          data="$(echo "$spec" | cut -d. -f1,2)"
+          if [ ! -f "conformance/naxp-v$data.json" ]; then
+            echo "The newest specification is $spec but conformance/naxp-v$data.json is missing." >&2
+            exit 1
+          fi
+          echo "SPEC_VERSION=$spec" >> "$GITHUB_ENV"
+          echo "DATA_VERSION=$data" >> "$GITHUB_ENV"
+
       - name: Build and test the library
         run: |
           cmake -S src/cpp -B build -DCMAKE_BUILD_TYPE=Release
@@ -53,17 +77,60 @@ jobs:
 
       - name: Write the release notes
         run: |
-          cat > release/notes.md <<EOF
-          naxp $VERSION for C and C++, as one file.
+          # This release's section of the changelog: the lines under its heading, up to the
+          # next one. Absent, the notes are the standing paragraphs alone, which are true of
+          # every release and say nothing about what changed.
+          changes=""
+          if [ -f implementation-changelog.md ]; then
+            changes="$(awk -v heading="## $VERSION" '
+              index($0, heading) == 1 { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+            ' implementation-changelog.md)"
+          fi
 
-          \`naxp.cpp\` is the whole library. Compile it as C++17; it needs no include path. Your
-          own code includes \`naxp.hpp\` from C++ or \`naxp.h\` from C. \`SHA256SUMS\` holds the
-          digest of each file.
+          {
+            if [ -n "$(echo "$changes" | tr -d '[:space:]')" ]; then
+              echo "$changes"
+              # The section ends at the next heading, so it has no trailing blank line of
+              # its own and the heading below would otherwise run straight on.
+              echo
+            else
+              echo "naxp $VERSION."
+              echo
+            fi
 
-          The same library builds from source with CMake under \`src/cpp\`, and the JavaScript
-          and C# implementations are under \`src/js\` and \`src/cs\`. Every implementation passes
-          the conformance data for specification version $(echo "$VERSION" | sed 's/\.[0-9]*$//').
+            cat <<'EOF'
+          ## The files attached here
+
+          These are the C and C++ library as one file. `naxp.cpp` is the whole library:
+          compile it as C++17, with no include path. Your own code includes `naxp.hpp` from
+          C++ or `naxp.h` from C. `SHA256SUMS` holds the digest of each file.
+
+          ## Everything else in this release
+
           EOF
+
+            cat <<EOF
+          The same library builds from source with CMake under \`src/cpp\`. The other
+          implementations are in the repository rather than attached here, and are installed
+          from their own registries:
+
+          - C# and .NET, \`src/cs\`, published to NuGet as \`naxp\`.
+          - JavaScript, \`src/js\`, published to npm as \`@naxp/naxp\`.
+
+          Every implementation passes the conformance data in
+          \`conformance/naxp-v$DATA_VERSION.json\`, generated from the specification rather
+          than from any implementation.
+
+          It was tested against **naxp $SPEC_VERSION**, the specification as it stands. A
+          package's own version and the specification's are separate, and each follows
+          semantic versioning: see [the specification](https://naxp.org/spec/) for what each
+          component governs.
+          EOF
+          } > release/notes.md
+
+          cat release/notes.md
 
       - name: Create the draft release
         env:
