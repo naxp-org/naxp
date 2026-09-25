@@ -1,12 +1,11 @@
 /* naxp.org
    ------------------------------------------------------------------
-   Lisnoti is self-hosted. Its @font-face rules are in
-   /fonts/Lisnoti-woff2/lisnoti.css, which every page links ahead of this
-   file. That folder is Lisnoti's own release copied unchanged, one WOFF2
-   file per subset, so a page fetches only the subsets its text uses. To
-   take a new release, copy its Lisnoti-woff2 folder over this one.
-   Lisnoti sets prose only for now; code keeps a monospace stack until
-   Lisnoti Code exists.
+   Lisnoti and Lisnoti Code are self-hosted. Their @font-face rules are in
+   /fonts/Lisnoti-woff2/lisnoti.css and /fonts/LisnotiCode-woff2/lisnoti-code.css,
+   which every page links ahead of this file. Each folder is its font's own
+   release copied unchanged, one WOFF2 file per subset, so a page fetches only
+   the subsets its text uses. To take a new release, copy its folder over the
+   old one.
 
    Colours come from the design notes, which are not in this repository.
    Every resting state there is measured against WCAG AA; do not adjust a
@@ -111,11 +110,16 @@
   --color-code-keyword: #0B47C2;
   --color-code-literal: #A93000;
 
-  /* Lisnoti for everything that is not code; code takes a monospace so
-     that generated listings line up and match the reader's editor. */
+  /* Lisnoti for prose, Lisnoti Code for code.
+
+     Every rule that sets --font-code also sets font-feature-settings to
+     "liga" 0, "calt" 1: calt gives the narrow single space and the short hyphen
+     between letters, and liga would draw != and => as ligatures, which a naxp
+     or a listing should not show. It has to be font-feature-settings rather
+     than font-variant-ligatures, because body sets "liga" 1 for the prose and
+     an inherited font-feature-settings beats any font-variant-ligatures. */
   --font-sans: "Lisnoti", system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* Lisnoti Code will lead here once it exists. */
-  --font-code: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-code: "Lisnoti Code", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --measure: 34rem;
   --page: 72rem;
@@ -854,21 +858,9 @@ p:has(> a[id]:empty:only-child:target) + *,
   position: relative;
 }
 
-/* Set tighter than the listings in the prose. Those are a handful of lines
-   being read; this is hundreds being scanned, where the leading that helps a
-   quoted fragment only spreads the thing over more screen.
-
-   The hairline stroke is what makes it read heavier without making it bold.
-   The code faces are static, regular and bold, with nothing between:
-   font-weight 500 renders the regular unchanged and 550 jumps to the full
-   bold. A stroke of a seventh of a pixel in the glyph's own colour
-   thickens the strokes and nothing else. Browsers that ignore the property show
-   the page exactly as it was. */
 .codebox pre {
   background: var(--color-bg-generated);
   font-size: var(--text-label);
-  line-height: 1.25;
-  -webkit-text-stroke: 0.01em currentColor;
   /* Tabs render at eight columns by default, and a stepper's cases sit four
      levels deep: at eight, the guts of every one of them start a hundred pixels
      in. This does not stop the box scrolling sideways, since the widest line is
@@ -1007,7 +999,6 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 .examples .num {
   text-align: right;
-  font-feature-settings: "zero" 1, "tnum" 1;
   color: var(--color-ink-muted);
 }
 
@@ -1145,7 +1136,6 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 .datatable .num {
   text-align: right;
-  font-feature-settings: "zero" 1, "tnum" 1;
   color: var(--color-ink-muted);
 }
 
@@ -1427,10 +1417,10 @@ h1.bandtitle {
 
    The chip is set at 0.95em rather than the 0.9em it began at, a size chosen
    while Lisnoti set both the prose and the code; it may want revisiting against
-   the monospace face now that code has one of its own. */
+   Lisnoti Code now that code has a face of its own. */
 code {
   font-family: var(--font-code);
-  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 1;
   background: var(--color-bg-code);
   border: 1px solid var(--color-edge-code);
   color: var(--color-ink-strong);
@@ -1454,14 +1444,14 @@ code.naxp {
 
 pre {
   font-family: var(--font-code);
-  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 1;
   background: var(--color-bg-code);
   border: 1px solid var(--color-edge-code);
   padding: 0.55rem 0.75rem;
   border-radius: 0.35rem;
   overflow-x: auto;
   margin: 0;
-  line-height: 1.45;
+  line-height: normal;
   font-size: var(--text-data);
 }
 
@@ -1724,9 +1714,9 @@ pre code {
   width: 100%;
   font: inherit;
   font-family: var(--font-code);
-  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 1;
   font-size: var(--text-body);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--color-ink);
   background: var(--color-bg-code);
   border: 1px solid var(--color-rule-strong);
@@ -1760,10 +1750,6 @@ textarea.input {
    the box's corner rather than the row's. */
 .field--value .field__stack {
   max-width: 18rem;
-}
-
-.field--value .input {
-  font-feature-settings: "zero" 1, "tnum" 1;
 }
 
 /* ---------- example chips ---------- */
@@ -2019,6 +2005,7 @@ textarea.input {
 /* The fault's code, in front of the words that explain it. */
 .status__code {
   font-family: var(--font-code);
+  font-feature-settings: "liga" 0, "calt" 1;
   font-weight: 700;
   color: var(--color-heading);
 }
@@ -2185,8 +2172,9 @@ a.status__code:hover {
   margin: 0;
   padding: 0.5rem 0.7rem;
   font-family: var(--font-code);
-  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 1;
   font-size: var(--text-sub);
+  line-height: normal;
   font-weight: 700;
   background: var(--color-bg-code);
   border: 1px solid var(--color-rule);
@@ -2227,7 +2215,7 @@ a.status__code:hover {
   text-align: right;
   white-space: nowrap;
   font-family: var(--font-code);
-  font-feature-settings: "zero" 1, "tnum" 1;
+  font-feature-settings: "liga" 0, "calt" 1;
   font-weight: 400;
 }
 
@@ -2235,7 +2223,7 @@ a.status__code:hover {
    is exactly the case this page is for. */
 .results__literal {
   font-family: var(--font-code);
-  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 1;
   font-weight: 400;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

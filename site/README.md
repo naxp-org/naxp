@@ -98,17 +98,19 @@ once for `[data-theme="dark"]`. They must stay identical.
 
 ## Fonts
 
-**Lisnoti** is self-hosted in `src/fonts/Lisnoti-woff2/`, which is the release's
-own `Lisnoti-woff2` folder copied unchanged, with its licence beside it. Every
-page links its `lisnoti.css` ahead of `naxp.css`, and a page fetches only the
-subsets its text uses. Every page also preloads `Lisnoti-Regular-latin.woff2`,
-which all of them need, so a new release must keep that file name or each page's
-preload link must follow it. To take a new release, copy its `Lisnoti-woff2`
-folder over this one.
+**Lisnoti** sets prose and **Lisnoti Code** sets code. They are self-hosted in
+`src/fonts/Lisnoti-woff2/` and `src/fonts/LisnotiCode-woff2/`, each its release's
+own woff2 folder copied unchanged, with its licence beside it. Every page links
+`lisnoti.css` and `lisnoti-code.css` ahead of `naxp.css`, and a page fetches only
+the subsets its text uses. Every page also preloads `Lisnoti-Regular-latin.woff2`
+and `LisnotiCode-Regular-latin.woff2`, so a new release must keep those file
+names or each page's preload links must follow them. To take a new release, copy
+its woff2 folder over the old one.
 
-Lisnoti sets prose only for now. Code uses a monospace stack until Lisnoti Code
-is available, and is meant to move to it then, so generated code must use
-hanging indents and must never align to an opening delimiter.
+Code has `calt` on, for Lisnoti Code's narrow single space and short hyphen, and
+`liga` off; `naxp.css` explains why that takes `font-feature-settings`. Lisnoti
+Code is proportional, so generated code must use hanging indents and must never
+align to an opening delimiter.
 
 ## Deployment
 
