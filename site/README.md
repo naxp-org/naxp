@@ -108,7 +108,8 @@ names or each page's preload links must follow them. To take a new release, copy
 its woff2 folder over the old one.
 
 Code has `calt` on, for Lisnoti Code's narrow single space and short hyphen, and
-`liga` off; `naxp.css` explains why that takes `font-feature-settings`. Lisnoti
+`liga` off; `naxp.css` explains why that takes `font-feature-settings`, and why
+WebKit (Safari and every iPhone browser) has `calt` off as well. Lisnoti
 Code is proportional, so generated code must use hanging indents and must never
 align to an opening delimiter.
 

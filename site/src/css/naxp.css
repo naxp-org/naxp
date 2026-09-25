@@ -113,13 +113,15 @@
   /* Lisnoti for prose, Lisnoti Code for code.
 
      Every rule that sets --font-code also sets font-feature-settings to
-     "liga" 0, "calt" 1: calt gives the narrow single space and the short hyphen
+     --code-features: calt gives the narrow single space and the short hyphen
      between letters, and liga would draw != and => as ligatures, which a naxp
      or a listing should not show. It has to be font-feature-settings rather
      than font-variant-ligatures, because body sets "liga" 1 for the prose and
-     an inherited font-feature-settings beats any font-variant-ligatures. */
+     an inherited font-feature-settings beats any font-variant-ligatures.
+     WebKit turns calt off again: see the @supports rule after this block. */
   --font-sans: "Lisnoti", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-code: "Lisnoti Code", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --code-features: "liga" 0, "calt" 1;
 
   --measure: 34rem;
   --page: 72rem;
@@ -153,6 +155,24 @@
   --title-space: 0.9rem;
 
   color-scheme: light dark;
+}
+
+/* No calt in WebKit, which is every browser on an iPhone as well as Safari.
+   Lisnoti Code's space is 500 wide and calt narrows a lone one, but WebKit
+   draws every space at the default glyph's width whatever shaping gave it, and
+   in layout it sometimes measures the shaped width instead. So the narrow space
+   never appeared, and each one cost 240 units of layout: text after a space was
+   drawn to the right of where layout put it, and ran into the next span of
+   another colour. With calt off, WebKit gets the wide space and the full-length
+   hyphen, and layout and drawing agree.
+
+   hanging-punctuation is the test because only WebKit supports it. If another
+   engine takes it up, that engine loses calt too, which looks plainer but
+   breaks nothing. */
+@supports (hanging-punctuation: first) {
+  :root {
+    --code-features: "liga" 0, "calt" 0;
+  }
 }
 
 /* Three states, not two. With nothing chosen the page follows the system; the
@@ -1420,7 +1440,7 @@ h1.bandtitle {
    Lisnoti Code now that code has a face of its own. */
 code {
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   background: var(--color-bg-code);
   border: 1px solid var(--color-edge-code);
   color: var(--color-ink-strong);
@@ -1444,7 +1464,7 @@ code.naxp {
 
 pre {
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   background: var(--color-bg-code);
   border: 1px solid var(--color-edge-code);
   padding: 0.55rem 0.75rem;
@@ -1714,7 +1734,7 @@ pre code {
   width: 100%;
   font: inherit;
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   font-size: var(--text-body);
   line-height: normal;
   color: var(--color-ink);
@@ -2005,7 +2025,7 @@ textarea.input {
 /* The fault's code, in front of the words that explain it. */
 .status__code {
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   font-weight: 700;
   color: var(--color-heading);
 }
@@ -2172,7 +2192,7 @@ a.status__code:hover {
   margin: 0;
   padding: 0.5rem 0.7rem;
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   font-size: var(--text-sub);
   line-height: normal;
   font-weight: 700;
@@ -2215,7 +2235,7 @@ a.status__code:hover {
   text-align: right;
   white-space: nowrap;
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   font-weight: 400;
 }
 
@@ -2223,7 +2243,7 @@ a.status__code:hover {
    is exactly the case this page is for. */
 .results__literal {
   font-family: var(--font-code);
-  font-feature-settings: "liga" 0, "calt" 1;
+  font-feature-settings: var(--code-features);
   font-weight: 400;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
