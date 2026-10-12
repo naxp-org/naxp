@@ -105,13 +105,16 @@ own woff2 folder copied unchanged, with its licence beside it. Every page links
 the subsets its text uses. Every page also preloads `Lisnoti-Regular-latin.woff2`
 and `LisnotiCode-Regular-latin.woff2`, so a new release must keep those file
 names or each page's preload links must follow them. To take a new release, copy
-its woff2 folder over the old one.
+`font-Lisnoti/Lisnoti-woff2/` or `font-LisnotiCode/LisnotiCode-woff2/` from the
+Lisnoti repository over the old folder; the licence is at that repository's root
+and is not in either folder.
 
-Code has `calt` on, for Lisnoti Code's narrow single space and short hyphen, and
-`liga` off; `naxp.css` explains why that takes `font-feature-settings`, and why
-WebKit (Safari and every iPhone browser) has `calt` off as well. Lisnoti
-Code is proportional, so generated code must use hanging indents and must never
-align to an opening delimiter.
+Code has `liga` off; `naxp.css` explains why that takes `font-feature-settings`.
+`calt`, for Lisnoti Code's narrow single space and short hyphen, is left to the
+font: `lisnoti-code.css` switches it off in WebKit (Safari and every iPhone
+browser), so `naxp.css` must never set `"calt" 1`. Lisnoti Code is proportional,
+so generated code must use hanging indents and must never align to an opening
+delimiter.
 
 ## Deployment
 
