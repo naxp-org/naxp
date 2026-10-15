@@ -234,6 +234,7 @@ sealed class CSharpEmitter : Emitter
 			this.EmitDecodePublics();
 			this.EmitCanonicalPublics(bytes: false);
 			this.EmitCanonicalPublics(bytes: true);
+			this.EmitStringPublics();
 			this.EmitSteppers();
 			this.Writer.Line();
 			this.Writer.Line(nullableCondition);
@@ -574,6 +575,72 @@ sealed class CSharpEmitter : Emitter
 			this.Writer.Line();
 			this.Writer.Line($"{written} = length;");
 			this.Writer.Line("return true;");
+			this.Writer.CloseBlock();
+			this.Writer.Line();
+		}
+
+		/// <summary>
+		/// Writes the overloads that take a string, as the library has, for a caller that cannot
+		/// pass a string as a span: C# before version 14 on .NET Framework, Visual Basic, F# and
+		/// PowerShell. Each refuses null rather than reading it as empty, which some naxps accept,
+		/// and hands the string to its span overload.
+		/// </summary>
+		void EmitStringPublics()
+		{
+			const string textDoc = "/// <param name=\"text\">The string.</param>";
+			const string nullDoc = "/// <exception cref=\"global::System.ArgumentNullException\">The string is null.</exception>";
+			const string span = "global::System.MemoryExtensions.AsSpan(text)";
+
+			this.Writer.Line("/// <summary>Whether this naxp accepts the specified string.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line("/// <returns>Whether the naxp accepts it.</returns>");
+			this.Writer.Line(nullDoc);
+			this.Writer.Line($"public static bool {this.acceptsName}(string text)");
+			this.EmitStringBody($"return {this.acceptsName}({span});");
+
+			this.Writer.Line("/// <summary>The encoded value of a string.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line($"/// <returns>The encoded value, from 1 to <see cref=\"{this.maxEncodedValueName}\"/>, or zero where the string is invalid.</returns>");
+			this.Writer.Line(nullDoc);
+			this.Writer.Line($"public static {this.valueKeyword} {this.encodeName}(string text)");
+			this.EmitStringBody($"return {this.encodeName}({span});");
+
+			this.Writer.Line("/// <summary>Tries to encode a string.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line("/// <param name=\"encoded\">The encoded value, or zero where the string is invalid.</param>");
+			this.Writer.Line("/// <returns>Whether the naxp accepts the string.</returns>");
+			this.Writer.Line(nullDoc);
+			this.Writer.Line($"public static bool {this.tryEncodeName}(string text, out {this.valueKeyword} encoded)");
+			this.EmitStringBody($"return {this.tryEncodeName}({span}, out encoded);");
+
+			this.Writer.Line("/// <summary>The canonical form of a string.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line("/// <returns>The canonical form, or null where the string is invalid.</returns>");
+			this.Writer.Line(nullDoc);
+			this.EmitSignature(
+				$"public static string? {this.getCanonicalFormName}(string text)",
+				$"public static string {this.getCanonicalFormName}(string text)");
+			this.EmitStringBody($"return {this.getCanonicalFormName}({span});");
+
+			this.Writer.Line("/// <summary>Tries to find the canonical form of a string.</summary>");
+			this.Writer.Line(textDoc);
+			this.Writer.Line("/// <param name=\"canonicalForm\">The canonical form, or null where the string is invalid.</param>");
+			this.Writer.Line("/// <returns>Whether the naxp accepts the string.</returns>");
+			this.Writer.Line(nullDoc);
+			this.EmitSignature(
+				$"public static bool {this.tryGetCanonicalFormName}(string text, {notNullWhenTrue} out string? canonicalForm)",
+				$"public static bool {this.tryGetCanonicalFormName}(string text, out string canonicalForm)");
+			this.EmitStringBody($"return {this.tryGetCanonicalFormName}({span}, out canonicalForm);");
+		}
+
+		/// <summary>The body of a string overload: refuse null, then hand over to the span overload.</summary>
+		/// <param name="handOver">The statement that calls the span overload.</param>
+		void EmitStringBody(string handOver)
+		{
+			this.Writer.OpenBlock();
+			this.Writer.Line("if (text == null) { throw new global::System.ArgumentNullException(nameof(text)); }");
+			this.Writer.Line();
+			this.Writer.Line(handOver);
 			this.Writer.CloseBlock();
 			this.Writer.Line();
 		}

@@ -265,9 +265,9 @@ sealed class JavaScriptEmitter : Emitter
 		/// the function has already set the flag saying which it holds.
 		/// </summary>
 		/// <param name="step">The stepping statement, over the code point <c>c</c>.</param>
-		/// <param name="onFault">What a failed step does.</param>
+		/// <param name="onError">What a failed step does.</param>
 		/// <param name="before">A statement between reading the code point and stepping, or null.</param>
-		void EmitReadLoop(string step, string onFault, string? before = null)
+		void EmitReadLoop(string step, string onError, string? before = null)
 		{
 			this.Writer.Line("for (let i = 0; i < text.length; i++) {");
 			this.Writer.Indent();
@@ -278,7 +278,7 @@ sealed class JavaScriptEmitter : Emitter
 
 			this.Writer.Line(step);
 			this.Writer.Line();
-			this.Writer.Line($"if (state < 0) {{ {onFault} }}");
+			this.Writer.Line($"if (state < 0) {{ {onError} }}");
 			this.Writer.Outdent();
 			this.Writer.Line("}");
 		}

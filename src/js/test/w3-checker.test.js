@@ -15,7 +15,7 @@ import { ruleOf } from './naxp-message-rules.js';
  *
  * @param {string} naxp The pattern.
  * @param {number} [maxStates] The budget.
- * @returns {import('../lib/naxp-error.js').NaxpError | null} The fault, or null.
+ * @returns {import('../lib/naxp-error.js').NaxpError | null} The error, or null.
  */
 function w3(naxp, maxStates) {
 	const { ast, error } = tryParse(naxp);
@@ -33,7 +33,7 @@ function w3(naxp, maxStates) {
  * @returns {string} The witness.
  */
 function witnessOf(message) {
-	const match = /but '([^']*)' has more than one canonical form/.exec(message);
+	const match = /but '([^']*)' results in multiple canonical forms/.exec(message);
 
 	assert.ok(match !== null, `no witness in: ${message}`);
 

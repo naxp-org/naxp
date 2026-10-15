@@ -5,7 +5,7 @@
 
 #include "ascii_char_set.hpp"
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "folding.hpp"
 #include "naxp_message.hpp"
 #include "padding.hpp"
@@ -131,12 +131,12 @@ namespace logmu::detail
 		/// shown.
 		///
 		/// Where the byte starts a well-formed UTF-8 sequence the code point is named and the
-		/// whole sequence is the span, so that the fault says `U+00A3` for a pound sign rather
+		/// whole sequence is the span, so that the error says `U+00A3` for a pound sign rather
 		/// than naming its first byte. Otherwise the byte is named as itself.
 		///
 		/// @param text The pattern.
 		/// @param at The offending byte.
-		/// @param length How many bytes the fault spans, which is the sequence length or one.
+		/// @param length How many bytes the error spans, which is the sequence length or one.
 		std::string code_point_as_text(std::string_view text, std::size_t at, std::size_t& length)
 		{
 			const auto byte = [text](std::size_t i) { return static_cast<unsigned char>(text[i]); };
@@ -208,13 +208,13 @@ namespace logmu::detail
 			{
 			}
 
-			bool try_parse_naxp(ast_ptr& tree, std::optional<fault>& fault_found)
+			bool try_parse_naxp(ast_ptr& tree, std::optional<naxp_error>& error_found)
 			{
 				tree = nullptr;
 
 				if (!this->try_check_pattern_characters())
 				{
-					fault_found = std::move(this->error);
+					error_found = std::move(this->error);
 
 					return false;
 				}
@@ -225,7 +225,7 @@ namespace logmu::detail
 
 				if (expression == nullptr)
 				{
-					fault_found = std::move(this->error);
+					error_found = std::move(this->error);
 
 					return false;
 				}
@@ -237,15 +237,15 @@ namespace logmu::detail
 					// A ')' that closes a group is consumed by try_parse_base, so one still
 					// standing here closes nothing. Calling it a reserved character and offering
 					// the escape is true and is almost never what was meant.
-					fault_found = this->peek() == ')'
-						? fault(naxp_message::group_not_opened, this->pos, 1)
+					error_found = this->peek() == ')'
+						? naxp_error(naxp_message::group_not_opened, this->pos, 1)
 						: this->unexpected_character();
 
 					return false;
 				}
 
 				tree = std::move(expression);
-				fault_found.reset();
+				error_found.reset();
 
 				return true;
 			}
@@ -428,7 +428,7 @@ namespace logmu::detail
 
 				if (has_quantifier && (this->peek() == '?' || this->peek() == '{'))
 				{
-					this->error = fault(naxp_message::quantifier_repeated, this->pos, 1);
+					this->error = naxp_error(naxp_message::quantifier_repeated, this->pos, 1);
 
 					return nullptr;
 				}
@@ -535,7 +535,7 @@ namespace logmu::detail
 
 					if (this->peek() != ')')
 					{
-						this->error = fault(naxp_message::group_not_closed, start, 1);
+						this->error = naxp_error(naxp_message::group_not_closed, start, 1);
 
 						return nullptr;
 					}
@@ -594,7 +594,7 @@ namespace logmu::detail
 
 					if (subject_is_optional)
 					{
-						this->error = fault(
+						this->error = naxp_error(
 							next == '!' ? naxp_message::reproduced_after_optional : naxp_message::dropped_after_optional,
 							bang_offset,
 							2);
@@ -626,7 +626,7 @@ namespace logmu::detail
 
 					if (after_whitespace == '!' || after_whitespace == '?')
 					{
-						this->error = fault(
+						this->error = naxp_error(
 							after_whitespace == '!' ? naxp_message::reproduced_split : naxp_message::dropped_split,
 							whitespace_offset,
 							lookahead - whitespace_offset);
@@ -646,7 +646,7 @@ namespace logmu::detail
 
 					if (this->try_peek_fold(letter))
 					{
-						this->error = fault(naxp_message::fold_begins_rendering, this->pos, 2);
+						this->error = naxp_error(naxp_message::fold_begins_rendering, this->pos, 2);
 
 						return nullptr;
 					}
@@ -654,7 +654,7 @@ namespace logmu::detail
 
 				if (!is_start_of_element(this->peek()))
 				{
-					this->error = fault(naxp_message::rendering_missing, bang_offset, 1);
+					this->error = naxp_error(naxp_message::rendering_missing, bang_offset, 1);
 
 					return nullptr;
 				}
@@ -689,7 +689,7 @@ namespace logmu::detail
 
 				if (this->peek() == '-')
 				{
-					this->error = fault(naxp_message::interval_hyphen, this->pos, 1);
+					this->error = naxp_error(naxp_message::interval_hyphen, this->pos, 1);
 
 					return nullptr;
 				}
@@ -701,7 +701,7 @@ namespace logmu::detail
 
 					if (!is_digit(this->peek()))
 					{
-						this->error = fault(naxp_message::interval_unbounded, this->pos, 1);
+						this->error = naxp_error(naxp_message::interval_unbounded, this->pos, 1);
 
 						return nullptr;
 					}
@@ -716,7 +716,7 @@ namespace logmu::detail
 
 				if (this->peek() != '}')
 				{
-					this->error = fault(naxp_message::interval_not_closed, brace_offset, 1);
+					this->error = naxp_error(naxp_message::interval_not_closed, brace_offset, 1);
 
 					return nullptr;
 				}
@@ -725,14 +725,14 @@ namespace logmu::detail
 
 				if (min_count > max_count)
 				{
-					this->error = fault(naxp_message::interval_counts_out_of_order, brace_offset, this->pos - brace_offset);
+					this->error = naxp_error(naxp_message::interval_counts_out_of_order, brace_offset, this->pos - brace_offset);
 
 					return nullptr;
 				}
 
 				if (max_count == 0)
 				{
-					this->error = fault(naxp_message::interval_count_zero, brace_offset, this->pos - brace_offset);
+					this->error = naxp_error(naxp_message::interval_count_zero, brace_offset, this->pos - brace_offset);
 
 					return nullptr;
 				}
@@ -747,7 +747,7 @@ namespace logmu::detail
 
 				if (!is_digit(this->peek()))
 				{
-					this->error = fault(naxp_message::interval_count_not_digits, this->pos, 1);
+					this->error = naxp_error(naxp_message::interval_count_not_digits, this->pos, 1);
 
 					return false;
 				}
@@ -772,7 +772,7 @@ namespace logmu::detail
 
 				if (digit_count > max_interval_count_digits)
 				{
-					this->error = fault(naxp_message::interval_count_too_long, start, this->pos - start);
+					this->error = naxp_error(naxp_message::interval_count_too_long, start, this->pos - start);
 
 					return false;
 				}
@@ -798,7 +798,7 @@ namespace logmu::detail
 				/// One entry per digit, nul where that digit carries no mark.
 				std::array<char, max_bound_digits> marks{};
 
-				/// Where each digit sits in the pattern, so a fault on one can name it rather
+				/// Where each digit sits in the pattern, so an error on one can name it rather
 				/// than the whole range. A digit and its mark are one token, so these are not
 				/// evenly spaced.
 				std::array<std::size_t, max_bound_digits> digit_offsets{};
@@ -814,8 +814,8 @@ namespace logmu::detail
 				if (this->peek() != '[')
 				{
 					this->error = is_whitespace(this->peek())
-						? fault(naxp_message::hash_split_from_bracket, this->pos, 1)
-						: fault(naxp_message::hash_without_bracket, start, 1);
+						? naxp_error(naxp_message::hash_split_from_bracket, this->pos, 1)
+						: naxp_error(naxp_message::hash_without_bracket, start, 1);
 
 					return nullptr;
 				}
@@ -836,7 +836,7 @@ namespace logmu::detail
 
 				if (this->peek() != '-')
 				{
-					this->error = fault(naxp_message::decimal_range_bounds_separator, this->pos, 1);
+					this->error = naxp_error(naxp_message::decimal_range_bounds_separator, this->pos, 1);
 
 					return nullptr;
 				}
@@ -855,7 +855,7 @@ namespace logmu::detail
 
 				if (this->peek() != ']')
 				{
-					this->error = fault(naxp_message::decimal_range_not_closed, start, 1);
+					this->error = naxp_error(naxp_message::decimal_range_not_closed, start, 1);
 
 					return nullptr;
 				}
@@ -864,21 +864,21 @@ namespace logmu::detail
 
 				if (low.digit_count > high.digit_count)
 				{
-					this->error = fault(naxp_message::lower_bound_wider_than_upper, start, this->pos - start);
+					this->error = naxp_error(naxp_message::lower_bound_wider_than_upper, start, this->pos - start);
 
 					return nullptr;
 				}
 
 				if (high.digit_count > low.digit_count && high.has_leading_zero)
 				{
-					this->error = fault(naxp_message::upper_bound_leading_zeros, start, this->pos - start);
+					this->error = naxp_error(naxp_message::upper_bound_leading_zeros, start, this->pos - start);
 
 					return nullptr;
 				}
 
 				if (low.value > high.value)
 				{
-					this->error = fault(naxp_message::lower_bound_exceeds_upper, start, this->pos - start);
+					this->error = naxp_error(naxp_message::lower_bound_exceeds_upper, start, this->pos - start);
 
 					return nullptr;
 				}
@@ -893,7 +893,7 @@ namespace logmu::detail
 					// the whole range would leave 'this zero' pointing at nothing.
 					if (at >= 0)
 					{
-						this->error = fault(
+						this->error = naxp_error(
 							naxp_message::decimal_range_mark_not_padding,
 							low.digit_offsets[static_cast<std::size_t>(at)],
 							2);
@@ -945,7 +945,7 @@ namespace logmu::detail
 
 				if (!is_digit(this->peek()))
 				{
-					this->error = fault(naxp_message::decimal_range_bound_not_digits, this->pos, 1);
+					this->error = naxp_error(naxp_message::decimal_range_bound_not_digits, this->pos, 1);
 
 					return false;
 				}
@@ -973,14 +973,14 @@ namespace logmu::detail
 
 					if (!allow_marks)
 					{
-						this->error = fault(naxp_message::decimal_range_mark_on_upper_bound, this->pos, 1);
+						this->error = naxp_error(naxp_message::decimal_range_mark_on_upper_bound, this->pos, 1);
 
 						return false;
 					}
 
 					if (digit != '0')
 					{
-						this->error = fault(naxp_message::decimal_range_mark_on_non_zero, this->pos, 1);
+						this->error = naxp_error(naxp_message::decimal_range_mark_on_non_zero, this->pos, 1);
 
 						return false;
 					}
@@ -1006,7 +1006,7 @@ namespace logmu::detail
 
 				if (result.digit_count > max_bound_digits)
 				{
-					this->error = fault(naxp_message::decimal_range_bound_too_long, start, this->pos - start);
+					this->error = naxp_error(naxp_message::decimal_range_bound_too_long, start, this->pos - start);
 
 					return false;
 				}
@@ -1039,7 +1039,7 @@ namespace logmu::detail
 
 					if (this->peek() == end_of_text)
 					{
-						this->error = fault(naxp_message::character_set_not_closed, start, 1);
+						this->error = naxp_error(naxp_message::character_set_not_closed, start, 1);
 
 						return false;
 					}
@@ -1073,6 +1073,15 @@ namespace logmu::detail
 					this->advance();
 					this->skip_whitespace();
 
+					// A set that ends after a range's hyphen is one that is not closed, as it
+					// is everywhere else in a set.
+					if (this->peek() == end_of_text)
+					{
+						this->error = naxp_error(naxp_message::character_set_not_closed, start, 1);
+
+						return false;
+					}
+
 					ascii_char_set upper_set;
 					char upper_char = end_of_text;
 					bool upper_is_block_escape = false;
@@ -1084,14 +1093,14 @@ namespace logmu::detail
 
 					if (upper_is_block_escape)
 					{
-						this->error = fault(naxp_message::range_upper_bound_is_block_escape, hyphen_offset, 1);
+						this->error = naxp_error(naxp_message::range_upper_bound_is_block_escape, hyphen_offset, 1);
 
 						return false;
 					}
 
 					if (upper_char < item_char)
 					{
-						this->error = fault(
+						this->error = naxp_error(
 							naxp_message::range_reversed,
 							pattern_for_char(upper_char) + "-" + pattern_for_char(item_char),
 							hyphen_offset,
@@ -1105,7 +1114,7 @@ namespace logmu::detail
 
 				if (item_count == 0)
 				{
-					this->error = fault(naxp_message::character_set_empty, start, this->pos - start);
+					this->error = naxp_error(naxp_message::character_set_empty, start, this->pos - start);
 
 					return false;
 				}
@@ -1139,14 +1148,14 @@ namespace logmu::detail
 
 					if (is_whitespace(escaped))
 					{
-						this->error = fault(naxp_message::backslash_before_whitespace, this->pos, 1);
+						this->error = naxp_error(naxp_message::backslash_before_whitespace, this->pos, 1);
 
 						return false;
 					}
 
 					if (escaped == end_of_text)
 					{
-						this->error = fault(naxp_message::backslash_without_escape, backslash_offset, 1);
+						this->error = naxp_error(naxp_message::backslash_without_escape, backslash_offset, 1);
 
 						return false;
 					}
@@ -1189,7 +1198,7 @@ namespace logmu::detail
 						case 'c':
 							// A fold before an element is taken in try_parse_element, so one
 							// reaching here is inside a character set, where it means nothing.
-							this->error = fault(naxp_message::fold_in_character_set, std::string(1, escaped), backslash_offset, 2);
+							this->error = naxp_error(naxp_message::fold_in_character_set, std::string(1, escaped), backslash_offset, 2);
 							return false;
 
 						default:
@@ -1239,7 +1248,7 @@ namespace logmu::detail
 					std::size_t length = 1;
 					std::string name = code_point_as_text(this->text, i, length);
 
-					this->error = fault(naxp_message::character_not_allowed, std::move(name), i, length);
+					this->error = naxp_error(naxp_message::character_not_allowed, std::move(name), i, length);
 
 					return false;
 				}
@@ -1286,7 +1295,7 @@ namespace logmu::detail
 
 					if (after_whitespace == '!' || after_whitespace == '?')
 					{
-						this->error = fault(naxp_message::decimal_range_mark_split, whitespace_offset, lookahead - whitespace_offset);
+						this->error = naxp_error(naxp_message::decimal_range_mark_split, whitespace_offset, lookahead - whitespace_offset);
 
 						return false;
 					}
@@ -1298,7 +1307,7 @@ namespace logmu::detail
 			/// Rules out whitespace that splits a run of digits, which whitespace between tokens
 			/// does not. Called immediately after the run has been read.
 			///
-			/// @param message Which fault to give, since the two callers word it differently.
+			/// @param message Which error to give, since the two callers word it differently.
 			bool try_check_digit_run_not_split(naxp_message message)
 			{
 				if (is_whitespace(this->peek()))
@@ -1313,7 +1322,7 @@ namespace logmu::detail
 
 					if (lookahead < this->text.size() && is_digit(this->text[lookahead]))
 					{
-						this->error = fault(message, whitespace_offset, lookahead - whitespace_offset);
+						this->error = naxp_error(message, whitespace_offset, lookahead - whitespace_offset);
 
 						return false;
 					}
@@ -1324,74 +1333,74 @@ namespace logmu::detail
 
 			// Diagnostics
 
-			/// The fault for a position at which an element was required and none begins.
-			fault no_element_here() const
+			/// The error for a position at which an element was required and none begins.
+			naxp_error no_element_here() const
 			{
 				const char c = this->peek();
 
 				if (c == end_of_text)
 				{
-					return fault(naxp_message::element_required, this->pos, 0);
+					return naxp_error(naxp_message::element_required, this->pos, 0);
 				}
 
 				if (c == '|' || c == ')')
 				{
-					return fault(naxp_message::alternative_empty, this->pos, 1);
+					return naxp_error(naxp_message::alternative_empty, this->pos, 1);
 				}
 
 				if (c == '!')
 				{
-					return fault(naxp_message::unified_without_element, this->pos, 1);
+					return naxp_error(naxp_message::unified_without_element, this->pos, 1);
 				}
 
 				return this->unexpected_character();
 			}
 
-			/// The fault for a character that cannot appear where it stands.
-			fault unexpected_character() const
+			/// The error for a character that cannot appear where it stands.
+			naxp_error unexpected_character() const
 			{
 				const char c = this->peek();
 
 				if (c == end_of_text)
 				{
-					return fault(naxp_message::naxp_incomplete, this->pos, 0);
+					return naxp_error(naxp_message::naxp_incomplete, this->pos, 0);
 				}
 
 				if (c == '*' || c == '+')
 				{
-					return fault(naxp_message::repetition_unbounded, std::string(1, c), this->pos, 1);
+					return naxp_error(naxp_message::repetition_unbounded, std::string(1, c), this->pos, 1);
 				}
 
 				if (c == '.')
 				{
-					return fault(naxp_message::any_character, this->pos, 1);
+					return naxp_error(naxp_message::any_character, this->pos, 1);
 				}
 
 				if (c == '^' || c == '$')
 				{
-					return fault(naxp_message::anchor, std::string(1, c), this->pos, 1);
+					return naxp_error(naxp_message::anchor, std::string(1, c), this->pos, 1);
 				}
 
 				return is_reserved_char(c)
-					? fault(naxp_message::reserved_character_here, std::string(1, c), this->pos, 1)
-					: fault(naxp_message::character_here, describe_char(c), this->pos, 1);
+					? naxp_error(naxp_message::reserved_character_here, std::string(1, c), this->pos, 1)
+					: naxp_error(naxp_message::character_here, describe_char(c), this->pos, 1);
 			}
 
-			/// The fault for a backslash followed by something that is not an escape.
+			/// The error for a backslash followed by something that is not an escape.
 			///
 			/// The span covers the backslash and what follows it, which is two characters.
-			static fault undefined_escape_error(char escaped, std::size_t backslash_offset)
+			static naxp_error undefined_escape_error(char escaped, std::size_t backslash_offset)
 			{
-				return fault(naxp_message::escape_undefined, std::string(1, escaped), backslash_offset, 2);
+				return naxp_error(naxp_message::escape_undefined, std::string(1, escaped), backslash_offset, 2);
 			}
 
 			std::string_view text;
 			std::size_t pos = 0;
-			std::optional<fault> error;
+			std::optional<naxp_error> error;
 		};
 	}
 
-	bool try_parse(std::string_view pattern, ast_ptr& tree, std::optional<fault>& error)
+	bool try_parse(std::string_view pattern, ast_ptr& tree, std::optional<naxp_error>& error)
 	{
 		return parser(pattern).try_parse_naxp(tree, error);
 	}

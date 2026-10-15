@@ -33,23 +33,23 @@ samples/try-naxp/obj/Debug/net8.0/generated/Naxp.Generator/LogMu.Generator.NaxpG
 NuGet caches a package by its id and version, so a second `dotnet pack` at the same version changes nothing here and you will keep building the old generator. Either delete the extracted copy:
 
 ```bash
-Remove-Item -Recurse -Force "$env:USERPROFILE\.nuget\packages\naxp\0.12.0"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.nuget\packages\naxp\0.13.0"
 ```
 
-or pack a new version with `-p:Version=0.12.1` and change the `PackageReference` to match.
+or pack a new version with `-p:Version=0.13.1` and change the `PackageReference` to match.
 
 Visual Studio holds analyzer assemblies open while a solution is loaded, so a rebuilt generator may need the project unloaded and reloaded, or VS restarted, before its output changes.
 
 ## Seeing the diagnostics
 
-Break something and build. A naxp that does not parse, a type without `partial`, a value type too narrow for the naxp: each is refused, pointing at the character at fault rather than at the attribute. A fault in the naxp carries the language's own code, NAXP1001 upwards; everything the generator judges for itself is NAXP0001 upwards.
+Break something and build. A naxp that does not parse, a type without `partial`, a value type too narrow for the naxp: each is reported, pointing at the character in error rather than at the attribute. An error in the naxp carries the language's own code, NAXP1001 upwards; everything the generator judges for itself is NAXP2001 upwards.
 
 ```csharp
 [Naxp(@"\A\9{2-5}", typeof(int))]      // NAXP1002, on the hyphen
-[Naxp(@"\A\9", typeof(string))]        // NAXP0007, on typeof(string)
-[Naxp(@"\A\9", typeof(byte))]          // NAXP0008, naming short as the narrowest that fits
+[Naxp(@"\A\9", typeof(string))]        // NAXP2007, on typeof(string)
+[Naxp(@"\A\9", typeof(byte))]          // NAXP2008, naming short as the narrowest that fits
 ```
 
 ## Not in the solution
 
-This project is deliberately outside `src/cs/Naxp.slnx`. Building the solution would otherwise need a packed `naxp.0.12.0.nupkg` to exist, which a fresh clone has not got.
+This project is deliberately outside `src/cs/Naxp.slnx`. Building the solution would otherwise need a packed `naxp.0.13.0.nupkg` to exist, which a fresh clone has not got.

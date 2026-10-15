@@ -5,7 +5,7 @@
 #define NAXP_PARSER_HPP
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 
 #include <optional>
 #include <string_view>
@@ -24,15 +24,15 @@ namespace logmu::detail
 	/// interval, a bare `x!`, the hex escape naxp does not have, and whitespace splitting a
 	/// token.
 	///
-	/// The pattern is bytes. A byte outside whitespace and U+0021 to U+007E is a fault, named by
+	/// The pattern is bytes. A byte outside whitespace and U+0021 to U+007E is an error, named by
 	/// the code point it starts where the bytes are well-formed UTF-8 and by the byte where they
 	/// are not; offsets and lengths are in bytes throughout.
 	///
 	/// @param pattern The pattern of the naxp.
 	/// @param tree The tree, or null if the pattern was invalid.
-	/// @param error The fault, or nothing if the pattern parsed.
+	/// @param error The error, or nothing if the pattern parsed.
 	/// @returns Whether the pattern parsed.
-	bool try_parse(std::string_view pattern, ast_ptr& tree, std::optional<fault>& error);
+	bool try_parse(std::string_view pattern, ast_ptr& tree, std::optional<naxp_error>& error);
 }
 
 #endif

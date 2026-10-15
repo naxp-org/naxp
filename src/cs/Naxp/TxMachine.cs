@@ -319,7 +319,7 @@ static class TxReference
 /// </summary>
 /// <remarks>
 /// <para>
-/// The single-valuedness faults here duplicate <see cref="W3Checker"/>, which decides the same
+/// The single-valuedness errors here duplicate <see cref="W3Checker"/>, which decides the same
 /// question over the same derivatives, so on an expression the checker has passed they are
 /// unreachable. They are kept as defence in depth, because the two walk different shapes - the
 /// checker walks pairs, this walks sets - and a machine built from an unchecked expression would

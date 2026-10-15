@@ -396,12 +396,12 @@ public sealed class NaxpGenerator : IIncrementalGenerator
 		{
 			if (!Compiler.TryCompile(spec.Naxp.AsSpan(), out NaxpCompilation? compilation, out NaxpError? error))
 			{
-				NaxpError fault = error!.Value;
+				NaxpError found = error!.Value;
 
-				context.ReportDiagnostic(Rules.NaxpFault(
-					fault.Code,
-					fault.Text,
-					spec.Text.At(fault.Offset, fault.Length)));
+				context.ReportDiagnostic(Rules.NaxpError(
+					found.Code,
+					found.Text,
+					spec.Text.At(found.Offset, found.Length)));
 
 				return false;
 			}

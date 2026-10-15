@@ -11,7 +11,7 @@
 #include "naxp/naxp.hpp"
 
 #include "compiler.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "rank_agreement.hpp"
 #include "relations.hpp"
 #include "value_agreement.hpp"
@@ -51,7 +51,7 @@ namespace
 	std::unique_ptr<compilation> compiled(std::string_view pattern)
 	{
 		std::unique_ptr<compilation> result;
-		std::optional<fault> error;
+		std::optional<logmu::detail::naxp_error> error;
 
 		if (!compiler::try_compile(pattern, result, error))
 		{

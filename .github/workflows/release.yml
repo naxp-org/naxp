@@ -1,6 +1,6 @@
 name: Release the amalgamation
 
-# Runs when a version tag is pushed, such as v0.12.0, in the public repository: the tag is
+# Runs when a version tag is pushed, such as v0.13.0, in the public repository: the tag is
 # made and pushed in naxp after copy-to-public.ps1 has brought the release across. The
 # release it creates is a draft, so the notes can be read and the assets checked before
 # anything is public; publishing it is one click on GitHub, and that is what makes
@@ -58,7 +58,7 @@ jobs:
           cat "$RUNNER_TEMP/changes.md"
 
       # The specification is versioned separately from the packages, so it is read from the
-      # documents rather than derived from the tag: naxp 0.12.0 the package implements naxp
+      # documents rather than derived from the tag: naxp 0.13.0 the package implements naxp
       # 0.10 the language. Test data is published per minor version, so the data file is the
       # newest specification's major and minor.
       - name: Find the specification the release implements

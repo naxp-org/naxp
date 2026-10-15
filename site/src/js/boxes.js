@@ -10,7 +10,7 @@
  * generated code box has. And each remembers what it holds for as long as the tab is open, so
  * that a reader who leaves a page to check something and comes back finds it as they left it.
  * The box sits inside a `field__stack`, which is what positions the button and, on the pattern
- * boxes, the layer that marks a fault.
+ * boxes, the layer that marks an error.
  */
 
 /** The copy icon, two sheets with one behind the other. */

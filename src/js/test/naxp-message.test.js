@@ -147,7 +147,7 @@ test('the C# says the same words', () => {
 });
 
 test('the code is the number alone, never the hint beside it', () => {
-	// A member is spelled NAXP1002_IntervalHyphen so that a line of the library says which fault
+	// A member is spelled NAXP1002_IntervalHyphen so that a line of the library says which error
 	// it is about at a glance. That half is a note to ourselves: it would read as a promise about
 	// wording nobody has made, so it stops at the boundary.
 	for (const name of ALL_NAXP_MESSAGES) {
@@ -171,7 +171,7 @@ test('no message quotes its own member name', () => {
 // #endregion
 // #region The whole-naxp convention
 
-test('a fault with a position is not mistaken for the whole naxp', () => {
+test('an error with a position is not mistaken for the whole naxp', () => {
 	assert.equal(new NaxpError(NaxpMessage.NAXP1046_TooManyValues).isWholeNaxp, true);
 	assert.equal(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, null, 0, 1).isWholeNaxp, false);
 	assert.equal(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, null, 3, 1).isWholeNaxp, false);

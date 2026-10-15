@@ -5,7 +5,7 @@
 
 #include "ascii_char_set.hpp"
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_message.hpp"
 #include "rx.hpp"
 #include "state_map.hpp"
@@ -136,19 +136,19 @@ namespace logmu::detail::w3_checker
 
 		/// The decision was abandoned because an intermediate result grew too large, which is a
 		/// different thing from running out of pair states and must not claim to be that.
-		fault abandoned()
+		naxp_error abandoned()
 		{
-			return fault(naxp_message::pair_output_abandoned);
+			return naxp_error(naxp_message::pair_output_abandoned);
 		}
 
-		fault too_large()
+		naxp_error too_large()
 		{
-			return fault(naxp_message::too_many_pair_states);
+			return naxp_error(naxp_message::too_many_pair_states);
 		}
 
-		fault violation(std::string witness)
+		naxp_error violation(std::string witness)
 		{
-			return fault(naxp_message::unification_not_single_valued_witness, std::move(witness));
+			return naxp_error(naxp_message::unification_not_single_valued_witness, std::move(witness));
 		}
 
 		/// Explores the pairs reachable on a common input, reporting the first that can accept
@@ -162,7 +162,7 @@ namespace logmu::detail::w3_checker
 			{
 			}
 
-			bool try_run(const tx* root, std::optional<fault>& error)
+			bool try_run(const tx* root, std::optional<naxp_error>& error)
 			{
 				const std::size_t start = this->add(pair_key(root, root, delay::none()), std::nullopt, '\0');
 				std::deque<std::size_t> queue{start};
@@ -207,7 +207,7 @@ namespace logmu::detail::w3_checker
 		private:
 			/// Takes one step of the input, narrowing the block to single characters where what
 			/// is emitted would otherwise stay undecided.
-			bool try_step(const pair_key& state, std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<fault>& error)
+			bool try_step(const pair_key& state, std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<naxp_error>& error)
 			{
 				const tx_derivative& left = this->factory.derivative(state.left, block);
 				const tx_derivative& right = this->factory.derivative(state.right, block);
@@ -426,7 +426,7 @@ namespace logmu::detail::w3_checker
 		};
 	}
 
-	bool try_check(const ast& tree, rx_factory& rxs, std::optional<fault>& error, int max_states)
+	bool try_check(const ast& tree, rx_factory& rxs, std::optional<naxp_error>& error, int max_states)
 	{
 		// Without a '!' the transduction is the identity, which is single valued for nothing.
 		if (!ast::contains_unified(tree))
@@ -442,7 +442,7 @@ namespace logmu::detail::w3_checker
 		return try_check(root, factory, error, max_states);
 	}
 
-	bool try_check(const tx* root, tx_factory& factory, std::optional<fault>& error, int max_states)
+	bool try_check(const tx* root, tx_factory& factory, std::optional<naxp_error>& error, int max_states)
 	{
 		return square(factory, max_states).try_run(root, error);
 	}

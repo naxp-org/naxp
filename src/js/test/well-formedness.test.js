@@ -12,7 +12,7 @@ import { ruleOf } from './naxp-message-rules.js';
  * Parses and checks, failing the test if the pattern does not parse.
  *
  * @param {string} text The pattern.
- * @returns {import('../lib/naxp-error.js').NaxpError | null} The fault, or null.
+ * @returns {import('../lib/naxp-error.js').NaxpError | null} The error, or null.
  */
 function checkNaxp(text) {
 	const { ast, error } = tryParse(text);
@@ -34,11 +34,11 @@ function passes(text) {
 }
 
 /**
- * Asserts that a naxp is invalid, and returns the fault.
+ * Asserts that a naxp is invalid, and returns the error.
  *
  * @param {string} text The pattern.
  * @param {string} rule The rule it should break.
- * @returns {import('../lib/naxp-error.js').NaxpError} The fault.
+ * @returns {import('../lib/naxp-error.js').NaxpError} The error.
  */
 function breaks(text, rule) {
 	const error = checkNaxp(text);
@@ -131,14 +131,14 @@ test('a rendering too long to build breaks W6', () => {
 	// budget can generate, so W6 rules it out.
 	const error = breaks('((A{99}){99})!!', 'W6');
 
-	assert.ok(error.text.includes('W6'), error.text);
+	assert.ok(error.text.includes('maximum permitted'), error.text);
 	assert.ok(error.text.includes('1999'), error.text);
 });
 
 // #endregion
 // #region Offsets
 
-test('a fault with no position reports the whole naxp', () => {
+test('an error with no position reports the whole naxp', () => {
 	// W1 and W2 are decided over the finished tree, which records where a node starts and not
 	// where it ends, so there is no span to give. Both numbers stay at zero, which the public
 	// surface reads as the whole naxp rather than as its first character.

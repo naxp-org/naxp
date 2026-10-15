@@ -80,10 +80,10 @@ test('nullable annotations sit behind the framework test, so the fragment still 
 	assert.ok(source.includes(
 		'public static bool TryDecode(ulong value, [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? text)'));
 
-	// Every annotation is inside a conditional, which the count of each proves: five signatures
-	// carry one, and each has its plain twin.
-	assert.equal(source.split('string?').length - 1, 5);
-	assert.equal(source.split('#else').length - 1, 5);
+	// Every annotation is inside a conditional, which the count of each proves: seven signatures
+	// carry one, two of them the string overloads, and each has its plain twin.
+	assert.equal(source.split('string?').length - 1, 7);
+	assert.equal(source.split('#else').length - 1, 7);
 });
 
 test('emitting the same naxp twice gives the same text', () => {

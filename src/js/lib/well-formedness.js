@@ -25,7 +25,7 @@ import { NaxpMessage } from './naxp-message.js';
  * business rather than this module's.
  *
  * @param {import('./ast.js').Ast} ast The tree, as returned by `tryParse`.
- * @returns {NaxpError | null} The fault, or null if the tree passes.
+ * @returns {NaxpError | null} The error, or null if the tree passes.
  */
 export function check(ast) {
 	if (ast === null || ast === undefined) { throw new TypeError('ast is required.'); }
@@ -39,7 +39,7 @@ export function check(ast) {
  * W2: `!` may not nest.
  *
  * @param {import('./ast.js').Ast} node The node to check from.
- * @returns {NaxpError | null} The fault, or null.
+ * @returns {NaxpError | null} The error, or null.
  */
 function checkW2(node) {
 	if (node instanceof AstUnified
@@ -60,7 +60,7 @@ function checkW2(node) {
  * W1: a rendering must be one of the strings it replaces.
  *
  * @param {import('./ast.js').Ast} node The node to check from.
- * @returns {NaxpError | null} The fault, or null.
+ * @returns {NaxpError | null} The error, or null.
  */
 function checkW1(node) {
 	if (node instanceof AstUnified) {
@@ -91,12 +91,12 @@ function checkW1(node) {
 }
 
 /**
- * The fault for an element this implementation declines to materialise.
+ * The error for an element this implementation declines to materialise.
  *
  * The whole naxp is reported rather than the element, because the tree records where a node
  * starts and not where it ends. Narrowing this wants an end offset on every parser production.
  *
- * @returns {NaxpError} The fault.
+ * @returns {NaxpError} The error.
  */
 function tooLongError() {
 	return new NaxpError(NaxpMessage.NAXP1047_ElementTooLong);

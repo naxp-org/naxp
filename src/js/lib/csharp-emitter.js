@@ -276,6 +276,7 @@ class Fragment {
 		this.emitDecodePublics();
 		this.emitCanonicalPublics(false);
 		this.emitCanonicalPublics(true);
+		this.emitStringPublics();
 		this.emitSteppers();
 		this.writer.line();
 		this.writer.line(NULLABLE_CONDITION);
@@ -600,6 +601,73 @@ class Fragment {
 		this.writer.line();
 		this.writer.line(`${written} = length;`);
 		this.writer.line('return true;');
+		this.writer.closeBlock();
+		this.writer.line();
+	}
+
+	/**
+	 * Writes the overloads that take a string, as the library has, for a caller that cannot pass a
+	 * string as a span: C# before version 14 on .NET Framework, Visual Basic, F# and PowerShell.
+	 * Each refuses null rather than reading it as empty, which some naxps accept, and hands the
+	 * string to its span overload.
+	 */
+	emitStringPublics() {
+		const textDoc = '/// <param name="text">The string.</param>';
+		const nullDoc = '/// <exception cref="global::System.ArgumentNullException">The string is null.</exception>';
+		const span = 'global::System.MemoryExtensions.AsSpan(text)';
+
+		this.writer.line('/// <summary>Whether this naxp accepts the specified string.</summary>');
+		this.writer.line(textDoc);
+		this.writer.line('/// <returns>Whether the naxp accepts it.</returns>');
+		this.writer.line(nullDoc);
+		this.writer.line(`public static bool ${this.acceptsName}(string text)`);
+		this.emitStringBody(`return ${this.acceptsName}(${span});`);
+
+		this.writer.line('/// <summary>The encoded value of a string.</summary>');
+		this.writer.line(textDoc);
+		this.writer.line(`/// <returns>The encoded value, from 1 to <see cref="${this.maxEncodedValueName}"/>, or zero where the string is invalid.</returns>`);
+		this.writer.line(nullDoc);
+		this.writer.line(`public static ${this.valueKeyword} ${this.encodeName}(string text)`);
+		this.emitStringBody(`return ${this.encodeName}(${span});`);
+
+		this.writer.line('/// <summary>Tries to encode a string.</summary>');
+		this.writer.line(textDoc);
+		this.writer.line('/// <param name="encoded">The encoded value, or zero where the string is invalid.</param>');
+		this.writer.line('/// <returns>Whether the naxp accepts the string.</returns>');
+		this.writer.line(nullDoc);
+		this.writer.line(`public static bool ${this.tryEncodeName}(string text, out ${this.valueKeyword} encoded)`);
+		this.emitStringBody(`return ${this.tryEncodeName}(${span}, out encoded);`);
+
+		this.writer.line('/// <summary>The canonical form of a string.</summary>');
+		this.writer.line(textDoc);
+		this.writer.line('/// <returns>The canonical form, or null where the string is invalid.</returns>');
+		this.writer.line(nullDoc);
+		this.emitSignature(
+			`public static string? ${this.getCanonicalFormName}(string text)`,
+			`public static string ${this.getCanonicalFormName}(string text)`);
+		this.emitStringBody(`return ${this.getCanonicalFormName}(${span});`);
+
+		this.writer.line('/// <summary>Tries to find the canonical form of a string.</summary>');
+		this.writer.line(textDoc);
+		this.writer.line('/// <param name="canonicalForm">The canonical form, or null where the string is invalid.</param>');
+		this.writer.line('/// <returns>Whether the naxp accepts the string.</returns>');
+		this.writer.line(nullDoc);
+		this.emitSignature(
+			`public static bool ${this.tryGetCanonicalFormName}(string text, ${NOT_NULL_WHEN_TRUE} out string? canonicalForm)`,
+			`public static bool ${this.tryGetCanonicalFormName}(string text, out string canonicalForm)`);
+		this.emitStringBody(`return ${this.tryGetCanonicalFormName}(${span}, out canonicalForm);`);
+	}
+
+	/**
+	 * The body of a string overload: refuse null, then hand over to the span overload.
+	 *
+	 * @param {string} handOver The statement that calls the span overload.
+	 */
+	emitStringBody(handOver) {
+		this.writer.openBlock();
+		this.writer.line('if (text == null) { throw new global::System.ArgumentNullException(nameof(text)); }');
+		this.writer.line();
+		this.writer.line(handOver);
 		this.writer.closeBlock();
 		this.writer.line();
 	}

@@ -9,13 +9,13 @@
 
 namespace logmu::detail
 {
-	/// Every fault this implementation can produce, one member per message.
+	/// Every error this implementation can produce, one member per message.
 	///
-	/// The member's words say which fault a line is about; its code, `NAXP1001` and so on, is
+	/// The member's words say which error a line is about; its code, `NAXP1001` and so on, is
 	/// what a caller sees, and `message_code` gives it. The C# spells both in one identifier,
 	/// which C++ cannot read back, so here the code lives in the table beside the prose.
 	///
-	/// Nothing inside the library handles message text. A fault names a member of this enum
+	/// Nothing inside the library handles message text. An error names a member of this enum
 	/// and, at most, supplies one string for it to interpolate; `format_message` is the only
 	/// place that knows what any of them say.
 	///
@@ -98,7 +98,7 @@ namespace logmu::detail
 		// W5: the size of the encoding
 		too_many_values,
 
-		// Not rules of the language: budgets this implementation imposes
+		// W6: machine budgets
 		element_too_long,
 		too_many_states,
 		too_many_canonical_states,

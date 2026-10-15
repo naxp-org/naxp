@@ -259,7 +259,7 @@ test('the register is what a run reads back, so the canonical forms are unchange
 	assert.equal(machine.tryCanonicalise('abad'), 'aaad');
 });
 
-test('a legal naxp can have no machine, and the fault says which limit was hit', () => {
+test('a legal naxp can have no machine, and the error says which limit was hit', () => {
 	// [ab]{16}c|([ab]!a){16}d passes every rule and compiles; the machine is the thing it cannot
 	// have. That is not a duplicate of any rule, so the message must not name one.
 	const { machine, error } = build('[ab]{6}c|([ab]!a){6}d', 8);

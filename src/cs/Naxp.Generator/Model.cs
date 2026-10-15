@@ -59,7 +59,7 @@ sealed record DiagnosticInfo(Rule Rule, LocationInfo? Location, EquatableArray<s
 /// <remarks>
 /// <see cref="Offsets"/> holds, for each character of the naxp, its offset from the start of the
 /// literal token, with one extra entry for the position just past the last character. A naxp
-/// written as an ordinary literal is escaped - <c>"\\A\\9"</c> for <c>\A\9</c> - so a fault at
+/// written as an ordinary literal is escaped - <c>"\\A\\9"</c> for <c>\A\9</c> - so an error at
 /// naxp offset 2 has to be moved to source offset 5 before it can be pointed at. Where the
 /// literal cannot be mapped, which is anything other than a single-line string literal, the array
 /// is empty and the whole literal is pointed at instead.
@@ -67,14 +67,14 @@ sealed record DiagnosticInfo(Rule Rule, LocationInfo? Location, EquatableArray<s
 sealed record NaxpText(LocationInfo Location, EquatableArray<int> Offsets)
 {
 	/// <summary>
-	/// The location to point a fault at, given the span it names within the naxp.
+	/// The location to point an error at, given the span it names within the naxp.
 	/// </summary>
 	/// <remarks>
-	/// A zero offset with a zero length is the library's way of saying the fault belongs to the
+	/// A zero offset with a zero length is the library's way of saying the error belongs to the
 	/// naxp as a whole, so the whole literal is pointed at rather than its first character.
 	/// </remarks>
-	/// <param name="offset">Where the fault starts within the naxp.</param>
-	/// <param name="length">How many of the naxp's characters are at fault.</param>
+	/// <param name="offset">Where the error starts within the naxp.</param>
+	/// <param name="length">How many of the naxp's characters are in error.</param>
 	public Location At(int offset, int length)
 	{
 		if (this.Offsets.Count == 0 || (offset == 0 && length == 0))

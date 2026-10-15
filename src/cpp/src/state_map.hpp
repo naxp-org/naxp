@@ -6,7 +6,7 @@
 
 #include "array_view.hpp"
 #include "ascii_char_set.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "rx.hpp"
 
@@ -125,10 +125,10 @@ namespace logmu::detail
 		/// @param start The expression, as produced by the converter.
 		/// @param factory The factory that made it, reused so derivatives stay interned.
 		/// @param map The machine, or null if it was invalid.
-		/// @param error The fault, or nothing.
+		/// @param error The error, or nothing.
 		/// @param max_states The budget, lowered by tests so the cap can be reached cheaply.
 		/// @returns Whether the machine was built.
-		bool try_build(const rx* start, rx_factory& factory, std::unique_ptr<state_map>& map, std::optional<fault>& error, int max_states = limits::max_states);
+		bool try_build(const rx* start, rx_factory& factory, std::unique_ptr<state_map>& map, std::optional<naxp_error>& error, int max_states = limits::max_states);
 
 		/// Splits the characters covered by `sets` into the coarsest blocks that each set is a
 		/// union of.

@@ -29,7 +29,7 @@ static class WellFormedness
 	/// Checks the rules that can be decided from the tree, which is W2 then W1.
 	/// </summary>
 	/// <param name="ast">The tree, as returned by <see cref="Parser.TryParse"/>.</param>
-	/// <param name="error">The fault, or <see langword="null"/> if the tree passes.</param>
+	/// <param name="error">The error, or <see langword="null"/> if the tree passes.</param>
 	/// <returns>Whether the tree passes.</returns>
 	public static bool TryCheck(Ast ast, out NaxpError? error)
 	{

@@ -60,7 +60,7 @@ ref struct Parser
 	/// </summary>
 	/// <param name="text">The pattern of the naxp.</param>
 	/// <param name="ast">The tree, or <see langword="null"/> if the pattern was invalid.</param>
-	/// <param name="error">The fault, or <see langword="null"/> if the pattern parsed.</param>
+	/// <param name="error">The error, or <see langword="null"/> if the pattern parsed.</param>
 	/// <returns>Whether the pattern parsed.</returns>
 	public static bool TryParse(ReadOnlySpan<char> text, out Ast? ast, out NaxpError? error)
 		=> new Parser(text).TryParseNaxp(out ast, out error);
@@ -251,7 +251,7 @@ ref struct Parser
 	/// </remarks>
 	/// <param name="hasFold">Whether a fold was written.</param>
 	/// <param name="toUpper">Whether upper case is canonical, which is <c>\C</c>.</param>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether the fold, if there was one, is well placed.</returns>
 	bool TryParseFold(out bool hasFold, out bool toUpper, out NaxpError? error)
 	{
@@ -359,7 +359,7 @@ ref struct Parser
 	/// <param name="start">The offset at which that element starts.</param>
 	/// <param name="subjectIsOptional">Whether the subject already carries a <c>?</c>.</param>
 	/// <param name="ast">The unified element.</param>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether the unified element parsed.</returns>
 	bool TryParseUnified(Ast subject, int start, bool subjectIsOptional, out Ast? ast, out NaxpError? error)
 	{
@@ -651,10 +651,10 @@ ref struct Parser
 	/// the bound carries no mark at all.
 	/// </param>
 	/// <param name="digitOffsets">
-	/// Where each digit sits in the pattern, so a fault on one can name it rather than the
+	/// Where each digit sits in the pattern, so an error on one can name it rather than the
 	/// whole range. A digit and its mark are one token, so these are not evenly spaced.
 	/// </param>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether the bound parsed.</returns>
 	bool TryParseBound(bool allowMarks, out ulong value, out int digitCount, out bool hasLeadingZero, out char[]? marks, out int[] digitOffsets, out NaxpError? error)
 	{
@@ -678,7 +678,7 @@ ref struct Parser
 		{
 			char digit = this.Peek();
 
-			// Where the digit sits, so that a fault on one can name it rather than the whole
+			// Where the digit sits, so that an error on one can name it rather than the whole
 			// range. A digit and its mark are one token, so these are not evenly spaced.
 			if (digitCount < MaxBoundDigits) { digitOffsets[digitCount] = this.pos; }
 
@@ -781,6 +781,14 @@ ref struct Parser
 			this.Advance();
 			this.SkipWhitespace();
 
+			// A set that ends after a range's hyphen is one that is not closed, as it is
+			// everywhere else in a set.
+			if (this.Peek() == EndOfText)
+			{
+				error = new NaxpError(NaxpMessage.NAXP1025_CharacterSetNotClosed, offset: start, length: 1);
+				return false;
+			}
+
 			if (!this.TryParseCharAtom(out AsciiCharSet upperSet, out char upperChar, out bool upperIsBlockEscape, out error))
 			{
 				return false;
@@ -821,7 +829,7 @@ ref struct Parser
 	/// is <see langword="false"/>. Only a literal character may bound a range.
 	/// </param>
 	/// <param name="isBlockEscape">Whether it was one of <c>\9</c>, <c>\A</c>, <c>\a</c> or <c>\X</c>.</param>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether an atom was read.</returns>
 	bool TryParseCharAtom(out AsciiCharSet set, out char literalChar, out bool isBlockEscape, out NaxpError? error)
 	{
@@ -956,7 +964,7 @@ ref struct Parser
 	/// Called where the digit run has ended, which is where a mark separated from its digit
 	/// leaves the parser: whitespace is not a digit, so the run stops in front of it.
 	/// </remarks>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether the mark, if there is one, stands against its digit.</returns>
 	bool TryCheckMarkNotSplit(out NaxpError? error)
 	{
@@ -983,8 +991,8 @@ ref struct Parser
 	/// Rules out whitespace that splits a run of digits, which whitespace between tokens does not.
 	/// Called immediately after the run has been read.
 	/// </summary>
-	/// <param name="message">Which fault to give, since the two callers word it differently.</param>
-	/// <param name="error">The fault, if any.</param>
+	/// <param name="message">Which error to give, since the two callers word it differently.</param>
+	/// <param name="error">The error, if any.</param>
 	/// <returns>Whether the run stands whole.</returns>
 	bool TryCheckDigitRunNotSplit(NaxpMessage message, out NaxpError? error)
 	{
@@ -1007,7 +1015,7 @@ ref struct Parser
 	#endregion
 	#region Diagnostics
 	/// <summary>
-	/// The fault for a position at which an element was required and none begins.
+	/// The error for a position at which an element was required and none begins.
 	/// </summary>
 	NaxpError NoElementHere()
 	{
@@ -1032,7 +1040,7 @@ ref struct Parser
 	}
 
 	/// <summary>
-	/// The fault for a character that cannot appear where it stands.
+	/// The error for a character that cannot appear where it stands.
 	/// </summary>
 	NaxpError UnexpectedCharacter()
 	{
@@ -1051,7 +1059,7 @@ ref struct Parser
 	}
 
 	/// <summary>
-	/// The fault for a backslash followed by something that is not an escape.
+	/// The error for a backslash followed by something that is not an escape.
 	/// </summary>
 	/// <remarks>
 	/// The span covers the backslash and what follows it, which is two characters.

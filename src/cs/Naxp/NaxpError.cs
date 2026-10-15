@@ -7,31 +7,31 @@ using System.Globalization;
 namespace LogMu;
 
 /// <summary>
-/// A fault: which message, where in the pattern, and what the message needs to say it.
+/// An error: which message, where in the pattern, and what the message needs to say it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The text is not held. A fault names a <see cref="NaxpMessage"/> and, where that message
+/// The text is not held. An error names a <see cref="NaxpMessage"/> and, where that message
 /// interpolates something, supplies one string; the words are looked up only when somebody asks
-/// for them. So nothing between the place a fault is found and the public surface handles prose.
+/// for them. So nothing between the place an error is found and the public surface handles prose.
 /// </para>
 /// <para>
 /// An <see cref="Offset"/> and a <see cref="Length"/> of zero together mean the whole naxp, which
-/// is what most faults want and none of them have to say. Only the parser knows a position, and
+/// is what most errors want and none of them have to say. Only the parser knows a position, and
 /// only the public surface knows how long the pattern is, so the substitution happens there. Every
-/// fault that does name a position uses a length of at least one, or it would read as this.
+/// error that does name a position uses a length of at least one, or it would read as this.
 /// </para>
 /// </remarks>
 readonly struct NaxpError
 {
-	/// <summary>Constructs a fault.</summary>
-	/// <param name="message">Which fault this is.</param>
+	/// <summary>Constructs an error.</summary>
+	/// <param name="message">Which error this is.</param>
 	/// <param name="argument">
 	/// What <paramref name="message"/> interpolates, or <see langword="null"/> where it takes
 	/// nothing.
 	/// </param>
-	/// <param name="offset">Where the fault starts, or zero for the naxp as a whole.</param>
-	/// <param name="length">How much is at fault, or zero for the naxp as a whole.</param>
+	/// <param name="offset">Where the error starts, or zero for the naxp as a whole.</param>
+	/// <param name="length">How much is in error, or zero for the naxp as a whole.</param>
 	public NaxpError(NaxpMessage message, string? argument = null, int offset = 0, int length = 0)
 	{
 		this.Message = message;
@@ -40,25 +40,25 @@ readonly struct NaxpError
 		this.Length = length;
 	}
 
-	/// <summary>Which fault this is.</summary>
+	/// <summary>Which error this is.</summary>
 	public NaxpMessage Message { get; }
 
 	/// <summary>What the message interpolates, or <see langword="null"/>.</summary>
 	public string? Argument { get; }
 
-	/// <summary>Where the fault starts. Zero with a zero <see cref="Length"/> means the whole naxp.</summary>
+	/// <summary>Where the error starts. Zero with a zero <see cref="Length"/> means the whole naxp.</summary>
 	public int Offset { get; }
 
-	/// <summary>How much is at fault. Zero with a zero <see cref="Offset"/> means the whole naxp.</summary>
+	/// <summary>How much is in error. Zero with a zero <see cref="Offset"/> means the whole naxp.</summary>
 	public int Length { get; }
 
-	/// <summary>Whether this fault belongs to the naxp as a whole rather than to a place in it.</summary>
+	/// <summary>Whether this error belongs to the naxp as a whole rather than to a place in it.</summary>
 	public bool IsWholeNaxp => this.Offset == 0 && this.Length == 0;
 
-	/// <summary>The stable identifier for this fault, such as <c>NAXP1002</c>.</summary>
+	/// <summary>The stable identifier for this error, such as <c>NAXP1002</c>.</summary>
 	/// <remarks>
 	/// The number alone. <see cref="NaxpMessage"/> spells each member <c>NAXP1002_IntervalHyphen</c>
-	/// so that somebody reading the library can see at a glance which fault a line is about, but
+	/// so that somebody reading the library can see at a glance which error a line is about, but
 	/// that half is a note to ourselves: it is not part of the identifier, it would read as a
 	/// promise about wording we have not made, and it must never reach a caller.
 	/// </remarks>

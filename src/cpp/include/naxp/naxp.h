@@ -6,7 +6,7 @@
 
    Everything here is a plain function over two opaque types, so that any language with a C
    foreign function interface can bind it. No exception crosses this boundary: a failure is a
-   null pointer or a false return, and a fault is handed back as an object to be read and
+   null pointer or a false return, and an error is handed back as an object to be read and
    then freed.
 
    Text is a pointer and a length, because a naxp may accept text holding any ASCII character,
@@ -28,42 +28,42 @@ extern "C" {
 /* A parsed naxp. Immutable once parsed, so one may be used from several threads at once. */
 typedef struct naxp naxp;
 
-/* A fault found in a pattern: what is wrong, where, and a stable code naming it. */
-typedef struct naxp_fault naxp_fault;
+/* An error found in a pattern: what is wrong, where, and a stable code naming it. */
+typedef struct naxp_error naxp_error;
 
 /*
    Parses a naxp.
 
    pattern, pattern_length: the pattern of the naxp.
-   fault: where to put the fault where the pattern is invalid, or NULL where the caller only
+   error: where to put the error where the pattern is invalid, or NULL where the caller only
        wants to know whether it parsed. Set to NULL where it did. The caller frees it with
-       naxp_fault_free.
+       naxp_error_free.
 
    Returns the naxp, which the caller frees with naxp_free, or NULL where the pattern is not a
-   well-formed naxp. NULL with *fault also NULL means memory ran out.
+   well-formed naxp. NULL with *error also NULL means memory ran out.
 */
-naxp *naxp_parse(const char *pattern, size_t pattern_length, naxp_fault **fault);
+naxp *naxp_parse(const char *pattern, size_t pattern_length, naxp_error **error);
 
 /* Frees a naxp. NULL is allowed and does nothing. */
 void naxp_free(naxp *expression);
 
-/* The stable identifier for a fault, such as "NAXP1002". Valid until the fault is freed. */
-const char *naxp_fault_code(const naxp_fault *fault);
+/* The stable identifier for an error, such as "NAXP1002". Valid until the error is freed. */
+const char *naxp_error_code(const naxp_error *error);
 
-/* What is wrong, and where practical what to write instead. Valid until the fault is freed. */
-const char *naxp_fault_message(const naxp_fault *fault);
+/* What is wrong, and where practical what to write instead. Valid until the error is freed. */
+const char *naxp_error_message(const naxp_error *error);
 
-/* Where the fault starts, in characters from the start of the pattern. */
-size_t naxp_fault_offset(const naxp_fault *fault);
+/* Where the error starts, in characters from the start of the pattern. */
+size_t naxp_error_offset(const naxp_error *error);
 
 /*
-   How much of the pattern is at fault, which is the whole of it where the fault belongs to
-   the naxp rather than to any one place in it.
+   How much of the pattern the error covers, which is the whole of it where the error belongs
+   to the naxp rather than to any one place in it.
 */
-size_t naxp_fault_length(const naxp_fault *fault);
+size_t naxp_error_length(const naxp_error *error);
 
-/* Frees a fault. NULL is allowed and does nothing. */
-void naxp_fault_free(naxp_fault *fault);
+/* Frees an error. NULL is allowed and does nothing. */
+void naxp_error_free(naxp_error *error);
 
 /*
    The pattern a naxp was parsed from, NUL-terminated. A pattern never holds a NUL, so strlen

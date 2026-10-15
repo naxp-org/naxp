@@ -11,7 +11,7 @@
 #include "naxp/naxp.hpp"
 
 #include "compiler.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "tree_walker.hpp"
 
 #include <cstdint>
@@ -59,7 +59,7 @@ namespace
 	std::unique_ptr<compilation> compile_or_note(const conformance_case& item, std::vector<std::string>& failures)
 	{
 		std::unique_ptr<compilation> compiled;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (!compiler::try_compile(item.naxp, compiled, error))
 		{
@@ -341,7 +341,7 @@ NAXP_TEST(conformance_invalid_naxps_are_invalid_for_the_stated_rule)
 		}
 
 		std::unique_ptr<compilation> compiled;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (compiler::try_compile(item.naxp, compiled, error))
 		{
@@ -357,7 +357,7 @@ NAXP_TEST(conformance_invalid_naxps_are_invalid_for_the_stated_rule)
 			continue;
 		}
 
-		// The fuzz data records the reference implementation's fault in full. A fault that
+		// The fuzz data records the reference implementation's error in full. An error that
 		// belongs to the naxp as a whole is given the whole pattern as its span, which is what
 		// both public surfaces do. Offsets and lengths are compared except for a character
 		// outside the repertoire, where the JavaScript counts UTF-16 units and this counts

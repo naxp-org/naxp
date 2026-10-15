@@ -1146,7 +1146,7 @@ p:has(> a[id]:empty:only-child:target) + *,
   color: var(--color-ink-muted);
 }
 
-/* A table whose cells are prose, as on the libraries page. It reads as part of
+/* A table whose cells are prose, as on the API page. It reads as part of
    the page rather than as data: body size, every column wraps, nothing scrolls,
    the last column is not muted, and rows align at the top because a cell may
    run to several paragraphs. Those paragraphs sit closer than page paragraphs
@@ -1690,7 +1690,7 @@ pre code {
 
    Two colours of their own, a green and a red, for the verdict. Neither carries
    the meaning alone: the word is written as well as coloured, so the state
-   survives a reader who cannot tell the two apart. The fault's code keeps the
+   survives a reader who cannot tell the two apart. The error's code keeps the
    deeper heading teal. */
 
 /* ---------- fields ---------- */
@@ -1841,6 +1841,196 @@ textarea.input {
   cursor: default;
 }
 
+/* ---------- the API page's language tabs ---------- */
+
+/* One panel per language, and only the chosen one shows. The choice is made
+   before the first paint by the inline script in the page's head, which sets
+   data-language on the root, so the selectors here rather than the module
+   decide what is seen and no other language flashes up first.
+
+   The tabs are drawn as tabs, joined to a box around everything they govern,
+   so that the choice of language reads as the frame of the section rather than
+   as one more control in it. The box and the chosen tab share a ground a shade
+   off the page's, and the chosen tab has no edge along its foot, which is what
+   opens it into the box.
+
+   Without the script nothing is chosen: the tabs, which would do nothing, are
+   not drawn, and every panel shows in the box under its own name instead. */
+.api-panels,
+.api-tab[aria-selected="true"] {
+  --api-ground: color-mix(in srgb, var(--color-bg-tint) 45%, var(--color-bg));
+}
+
+.api-tabs {
+  display: none;
+}
+
+/* The row sits one pixel into the box, so a tab's foot lies on the box's top
+   edge: drawn by the tabs not chosen and covered by the one that is. It does
+   not wrap, since a second row of tabs reads as two sets of tabs; on a narrow
+   screen it scrolls sideways instead.
+
+   It stays in view while the page scrolls, under the site header, until the
+   box ends: api.js measures the header and sets --api-tabs-top, which is zero
+   where the header does not stick. The page's own ground behind it hides what
+   scrolls underneath. */
+.js .api-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: -1px;
+  position: sticky;
+  top: var(--api-tabs-top, 0);
+  z-index: 5;
+  background: var(--color-bg);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* The box's top edge, drawn again along the foot of the row, so that the tabs
+   still stand on a line once the edge itself has scrolled away beneath them.
+   Behind the tabs, so the chosen one still covers it. */
+.js .api-tabs::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  border-bottom: 1px solid var(--color-rule-strong);
+  z-index: -1;
+}
+
+.api-tab {
+  font: inherit;
+  white-space: nowrap;
+  color: var(--color-link);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.35rem 0.35rem 0 0;
+  padding: 0.35rem 1rem;
+  cursor: pointer;
+}
+
+.api-tab:hover {
+  color: var(--color-link-hover);
+  background: var(--color-bg-tint);
+}
+
+.api-tab[aria-selected="true"],
+.api-tab[aria-selected="true"]:hover {
+  color: var(--color-heading);
+  font-weight: 700;
+  background: var(--api-ground);
+  border-bottom-color: var(--api-ground);
+  cursor: default;
+}
+
+/* A language not offered yet. Dimmed and nothing else, with no hover, for the
+   reason the chips give. */
+.api-tab[aria-disabled="true"],
+.api-tab[aria-disabled="true"]:hover {
+  color: var(--color-ink-disabled);
+  background: var(--color-bg);
+  border-color: var(--color-rule);
+  border-bottom-color: var(--color-rule-strong);
+  cursor: default;
+}
+
+/* Square at the top left where the tabs join it, rounded elsewhere as the
+   tabs are. */
+.api-panels {
+  background: var(--api-ground);
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 0.35rem;
+  padding: 1rem 1.25rem;
+}
+
+.js .api-panels {
+  border-top-left-radius: 0;
+}
+
+/* All six tabs fit a phone at this padding, so the row never has to scroll
+   to show the last of them. The box gives its content the room back too. */
+@media (max-width: 39.99rem) {
+  .api-tab {
+    padding: 0.35rem 0.55rem;
+  }
+
+  .api-panels {
+    padding: 0.85rem 0.75rem;
+  }
+}
+
+.js .api-panel {
+  display: none;
+}
+
+.js[data-language="c"] .api-panel[data-language="c"],
+.js[data-language="cpp"] .api-panel[data-language="cpp"],
+.js[data-language="csharp"] .api-panel[data-language="csharp"],
+.js[data-language="javascript"] .api-panel[data-language="javascript"] {
+  display: block;
+}
+
+/* Apart from one another only where they show together, without the script. */
+.api-panel + .api-panel {
+  margin-top: 2rem;
+}
+
+.js .api-panel + .api-panel {
+  margin-top: 0;
+}
+
+.api-panel > :last-child {
+  margin-bottom: 0;
+}
+
+.api-panel__title {
+  font-size: var(--text-heading);
+  font-weight: 700;
+}
+
+.js .api-panel__title {
+  display: none;
+}
+
+.api-panel .section__title {
+  margin-top: 1.5rem;
+}
+
+/* The box's padding is the space above the first heading. */
+.js .api-panel > .section__title:first-of-type {
+  margin-top: 0;
+}
+
+.api-panel pre {
+  margin-bottom: 1rem;
+  /* Four columns to a tab, as in the generated code box. */
+  tab-size: 4;
+}
+
+/* The example of how an error is reported. The pattern is a chip like any
+   other naxp, with the offending characters underlined in the red rule
+   /interactive/ draws and set in red themselves, since here nothing sits over
+   them. Then the four parts of the report, named down the left. */
+.naxp .errmark {
+  color: var(--color-bad);
+}
+
+.api-error th {
+  width: 6rem;
+  white-space: nowrap;
+}
+
+/* A listing to paste, such as an install command, with the copy button in its
+   corner. The padding keeps the end of a long line clear of the button. */
+.listing {
+  position: relative;
+}
+
+.listing pre {
+  padding-right: 2.4rem;
+}
+
 /* ---------- status ---------- */
 
 .status {
@@ -1921,10 +2111,11 @@ textarea.input {
    not take the flag for something to click. The warning takes the one colour
    added for it: red is spoken for, and on this site it means a naxp is invalid,
    which is not what a warning says. */
-/* A rule down the left in the flag's own colour, and nothing else: no box, no
-   ground, no shadow. It was a 1px box for a while and went back, the rule being
-   what the site already uses for an aside - the blockquote in the specification
-   is drawn the same way, at the same width. */
+/* A rule down the left in the flag's own colour, over a faint wash of the same
+   colour: no box and no shadow. It was a 1px box for a while and went back, the
+   rule being what the site already uses for an aside - the blockquote in the
+   specification is drawn the same way, at the same width. The wash is mixed with
+   transparent rather than with the page, so it sits right on either theme. */
 .admonition {
   /* Top and bottom, where a paragraph carries only a bottom. Adjacent margins
      collapse, so this changes nothing where an admonition follows prose and
@@ -1943,6 +2134,7 @@ textarea.input {
 
 .admonition--note {
   border-color: var(--color-note);
+  background: color-mix(in srgb, var(--color-note) 2%, transparent);
 }
 
 .admonition--note .admonition__flag {
@@ -1951,6 +2143,7 @@ textarea.input {
 
 .admonition--warning {
   border-color: var(--color-warn);
+  background: color-mix(in srgb, var(--color-warn) 2%, transparent);
 }
 
 .admonition--warning .admonition__flag {
@@ -1960,6 +2153,7 @@ textarea.input {
 /* A tip takes the green of the tick: something that will go well if followed. */
 .admonition--tip {
   border-color: var(--color-ok);
+  background: color-mix(in srgb, var(--color-ok) 2%, transparent);
 }
 
 .admonition--tip .admonition__flag {
@@ -2009,7 +2203,7 @@ textarea.input {
   }
 }
 
-/* The fault's code, in front of the words that explain it. */
+/* The error's code, in front of the words that explain it. */
 .status__code {
   font-family: var(--font-code);
   font-feature-settings: var(--code-features);
@@ -2035,7 +2229,7 @@ a.status__code:hover {
   color: var(--color-ink-muted);
 }
 
-/* The fault is marked in the box the naxp is written in rather than in a copy of
+/* The error is marked in the box the naxp is written in rather than in a copy of
    it below. A layer holding the same text sits over the box, so the two have to
    agree on every metric that decides where a character lands: font, size, line
    height, padding and border.
@@ -2058,7 +2252,7 @@ a.status__code:hover {
 
 /* Sits in the top right corner of every text box and of the generated code,
    drawn in the muted ink until pointed at, so it is there when wanted and not
-   before. Above the fault layer on the pattern boxes, which is why it has a
+   before. Above the error layer on the pattern boxes, which is why it has a
    depth of its own. */
 .copy {
   position: absolute;
@@ -2116,21 +2310,21 @@ a.status__code:hover {
   user-select: none;
 }
 
-/* The characters at fault are marked in place. Everywhere else the layer's text
+/* The characters in error are marked in place. Everywhere else the layer's text
    is transparent and only the box below shows through; here it paints an opaque
-   ground over the box's own glyphs and then draws them again in red, so the fault
+   ground over the box's own glyphs and then draws them again in red, so the error
    reads as recoloured text rather than as something drawn near it.
 
    A wavy underline was tried first and does not work at this size: over a single
    space it is four pixels of stroke, which is a stray tick rather than a wave.
    A ground has no such floor, so the mark can name exactly the characters at
-   fault and nothing more.
+   error and nothing more.
 
    Nothing here is sized. The layer has to break its lines exactly where the box
    does, so a mark may recolour but never take space. */
 .errmark {
   /* A red rule and nothing else. The layer's text stays transparent here as it is
-     everywhere, so the characters at fault are the box's own, drawn once, with
+     everywhere, so the characters in error are the box's own, drawn once, with
      their own ink and the caret still visible through them.
 
      An opaque ground was tried and is what made this brittle: it had to cover the

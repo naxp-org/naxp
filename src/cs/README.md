@@ -1,6 +1,6 @@
 # naxp
 
-A **naxp** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
+A **[naxp](https://naxp.org)** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
 
 With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
@@ -75,7 +75,7 @@ If you want to use the same class for more than one **naxp** then use `[Naxp]` m
 
 The generated code needs C# 7.3 or later, and carries nullable annotations where the target framework supports them. The source generator needs the .NET 8 SDK or Visual Studio 2022 17.8 or later.
 
-Error codes begin with 'NAXP' and are documented at [naxp.org/codes/](https://naxp.org/codes/).
+Error codes begin with 'NAXP' and are documented at [naxp.org/error-codes/](https://naxp.org/error-codes/).
 
 ## Using a naxp at run time
 
@@ -110,7 +110,7 @@ The source-generated members are the same, as static members of your class, exce
 | `Naxp.Parse(pattern)` | A `Naxp` object or throws `FormatException`. |
 | `Naxp.TryParse(pattern, out naxp, out errorMessage)` | `true` if the pattern is a **naxp**, and throws nothing. |
 
-The `pattern` argument of `Naxp.Parse` and `Naxp.TryParse` is a `ReadOnlySpan<char>`.
+The `pattern` argument of `Naxp.Parse` and `Naxp.TryParse` is a `string` or a `ReadOnlySpan<char>`.
 
 A longer overload of `TryParse` provides additional diagnostics if required:
 
@@ -122,7 +122,7 @@ bool succeeded = Naxp.TryParse(
 
 succeeded;      // false
 naxp;           // null
-errorMessage;   // "The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'."
+errorMessage;   // "The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'."
 errorOffset;    // 3 (zero-based offset)
 errorLength;    // 1
 errorCode;      // "NAXP1002" (always text)
@@ -132,7 +132,7 @@ Use `errorOffset` and `errorLength` to locate the issue:
 
 ```
 A{2-5}
-   ^  The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'.
+   ^  The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'.
 ```
 
 If the error relates to the whole **naxp** then the whole text range is specified.
@@ -158,6 +158,8 @@ If the error relates to the whole **naxp** then the whole text range is specifie
 | `ToString()` | The same as `Pattern`. |
 
 `Encode` always returns a `ulong` in order to avoid overflow (given that a **naxp** can hold up to `2^64 - 1` encoded values).
+
+The `text` argument is a `string`, a `ReadOnlySpan<char>` or a `ReadOnlySpan<byte>` of ASCII.
 
 The `destination` argument of `TryDecode` and `TryGetCanonicalForm` is a text buffer of `Span<char>` or `Span<byte>`, with `written` being set to the number of characters written.
 

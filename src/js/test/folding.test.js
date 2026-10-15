@@ -42,9 +42,9 @@ function parse(text) {
  * Parses and checks, failing the test if the pattern is accepted.
  *
  * @param {string} text The pattern.
- * @returns {import('../lib/naxp-error.js').NaxpError} The fault.
+ * @returns {import('../lib/naxp-error.js').NaxpError} The error.
  */
-function faultOf(text) {
+function errorOf(text) {
 	const { ast, error } = tryParse(text);
 
 	if (ast === null) { return error; }
@@ -173,7 +173,7 @@ test('a case fold written after another sits inside it, and the outer governs', 
 });
 
 test('a case fold cannot begin a rendering', () => {
-	const error = faultOf('A!\\CA');
+	const error = errorOf('A!\\CA');
 
 	assert.equal(error.message, 'NAXP1058_FoldBeginsRendering');
 	assert.equal(ruleOf(error.message), 'syntax');
@@ -271,15 +271,15 @@ test('folding can break W3', () => {
 // #region Where a fold may not go
 
 test('a fold inside a character set is a syntax error', () => {
-	const error = faultOf('[\\CA]');
+	const error = errorOf('[\\CA]');
 
 	assert.equal(error.message, 'NAXP1052_FoldInCharacterSet');
 	assert.ok(error.text.includes('before the set'), error.text);
 });
 
 test("a fold inside a unified operand breaks W2", () => {
-	assert.equal(faultOf('(\\CA)!A').message, 'NAXP1039_UnifiedNested');
-	assert.equal(faultOf('A!(\\CA)').message, 'NAXP1039_UnifiedNested');
+	assert.equal(errorOf('(\\CA)!A').message, 'NAXP1039_UnifiedNested');
+	assert.equal(errorOf('A!(\\CA)').message, 'NAXP1039_UnifiedNested');
 });
 
 // #endregion

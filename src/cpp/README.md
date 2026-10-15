@@ -1,6 +1,6 @@
 # naxp for C and C++
 
-A **naxp** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
+A **[naxp](https://naxp.org)** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
 
 With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
@@ -21,7 +21,7 @@ naxp, and it builds on GCC 14 and MSVC 14.44 with warnings as errors.
 
 | Path | Contents |
 | --- | --- |
-| `include/naxp/naxp.hpp` | The C++ surface: `logmu::naxp`, `logmu::naxp_fault`, `logmu::naxp_error`, `logmu::naxp_comparison`, `logmu::set_relationship`, `logmu::output_language` and `logmu::naxp_value_type` |
+| `include/naxp/naxp.hpp` | The C++ surface: `logmu::naxp`, `logmu::naxp_error`, `logmu::naxp_format_error`, `logmu::naxp_comparison`, `logmu::set_relationship`, `logmu::output_language` and `logmu::naxp_value_type` |
 | `include/naxp/naxp.h` | The C surface: `naxp_parse`, `naxp_accepts`, `naxp_encode`, `naxp_decode`, `naxp_emit` and their kin |
 | `src/` | The library, in `logmu::detail`. Nothing here is reachable from outside it |
 | `src/emitter.cpp` and `src/*_emitter.cpp` | The code emitters: the shared skeleton, then C#, JavaScript, and C and C++ over a shared C family |
@@ -35,13 +35,13 @@ named the same as its namespace is a trap in C++, since `using naxp::naxp;` woul
 `naxp::parse` ambiguous, which is why the namespace is not `naxp`.
 
 The sources follow the C# file for file, so the two can be read side by side: `parser.cpp` is
-`Parser.cs`, `tx_machine.cpp` is `TxMachine.cs`, and so on. Where the C# passes a fault out
-through an `out` parameter the C++ passes a `std::optional<fault>&`; where the C# shares nodes by
+`Parser.cs`, `tx_machine.cpp` is `TxMachine.cs`, and so on. Where the C# passes an error out
+through an `out` parameter the C++ passes a `std::optional<error>&`; where the C# shares nodes by
 reference the C++ hands out `const rx*` and `const tx*` owned by their factory, and
 `std::shared_ptr` for the syntax tree, which the `x!!` form shares between two parents.
 
-The pattern is bytes. A byte outside whitespace and U+0021 to U+007E is a fault, named by its
-code point where the bytes are well-formed UTF-8 and by the byte where they are not; fault
+The pattern is bytes. A byte outside whitespace and U+0021 to U+007E is an error, named by its
+code point where the bytes are well-formed UTF-8 and by the byte where they are not; error
 offsets and lengths are in bytes.
 
 ## Building

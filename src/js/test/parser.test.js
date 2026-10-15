@@ -40,9 +40,9 @@ function parse(text) {
  * Parses, and fails the test if the pattern is accepted.
  *
  * @param {string} text The pattern.
- * @returns {import('../lib/naxp-error.js').NaxpError} The fault.
+ * @returns {import('../lib/naxp-error.js').NaxpError} The error.
  */
-function faultOf(text) {
+function errorOf(text) {
 	const { ast, error } = tryParse(text);
 
 	assert.equal(ast, null, `${text} was accepted.`);
@@ -215,22 +215,22 @@ test('whitespace between tokens is ignored', () => {
 test('an interval with a hyphen names the separator', () => {
 	// The counts take a comma, as in every regular expression dialect. A hyphen is what somebody
 	// carrying a habit over from a character range would reach for, so it earns its own message.
-	const error = faultOf('A{2-5}');
+	const error = errorOf('A{2-5}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.equal(error.offset, 3);
-	assert.ok(error.text.includes("',', not by a hyphen"), error.text);
+	assert.ok(error.text.includes("',', not '-'"), error.text);
 });
 
 test('an unbounded interval says there is none', () => {
-	const error = faultOf('A{2,}');
+	const error = errorOf('A{2,}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
-	assert.ok(error.text.includes('no unbounded interval'), error.text);
+	assert.ok(error.text.includes('cannot be unbounded'), error.text);
 });
 
 test('a bare bang names the three forms', () => {
-	const error = faultOf('A!');
+	const error = errorOf('A!');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.equal(error.offset, 1);
@@ -250,14 +250,14 @@ test('\\x is a digit or a lower case letter, so \\x41 is three positions', () =>
 });
 
 test('an undefined escape lists the escape letters', () => {
-	const error = faultOf('\\d');
+	const error = errorOf('\\d');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.ok(error.text.includes("'s', '9', 'A', 'a', 'X', 'x', 'C' and 'c'"), error.text);
 });
 
 test('a range written backwards says lowest first', () => {
-	const error = faultOf('[E-A]');
+	const error = errorOf('[E-A]');
 
 	assert.equal(ruleOf(error.message), 'W4');
 	assert.ok(error.text.includes('lowest first'), error.text);
@@ -275,7 +275,7 @@ test('a range written backwards suggests something that can be typed', () => {
 	];
 
 	for (const [text, suggestion] of cases) {
-		const error = faultOf(text);
+		const error = errorOf(text);
 
 		assert.ok(error.text.includes(`Write '${suggestion}'.`), `${text}: ${error.text}`);
 
@@ -284,15 +284,15 @@ test('a range written backwards suggests something that can be typed', () => {
 	}
 });
 
-test("'!!' after a '?' says to write it out", () => {
-	const error = faultOf('\\s?!!');
+test("'!!' after a '?' says to remove the '?'", () => {
+	const error = errorOf('\\s?!!');
 
 	assert.equal(ruleOf(error.message), 'syntax');
-	assert.ok(error.text.includes("x!(x)"), error.text);
+	assert.ok(error.text.includes("Remove the preceding '?'"), error.text);
 });
 
 test('two quantifiers on one base says to group it', () => {
-	const error = faultOf('A?{2}');
+	const error = errorOf('A?{2}');
 
 	assert.equal(ruleOf(error.message), 'syntax');
 	assert.ok(error.text.includes("'(A?){2}'"), error.text);
@@ -301,14 +301,14 @@ test('two quantifiers on one base says to group it', () => {
 test('whitespace splitting a token points at the whitespace', () => {
 	const cases = [
 		['\\ s', 1, 'cannot be followed by whitespace'],
-		['A! !', 2, 'is one token'],
+		['A! !', 2, 'as one token'],
 		['A{2 5}', 3, 'cannot be separated by whitespace'],
 		['# [0-10]', 1, "no whitespace between '#' and '['"],
 		['#[1 0-20]', 3, 'cannot be separated by whitespace'],
 	];
 
 	for (const [text, offset, fragment] of cases) {
-		const error = faultOf(text);
+		const error = errorOf(text);
 
 		assert.equal(ruleOf(error.message), 'syntax', text);
 		assert.equal(error.offset, offset, text);
@@ -316,7 +316,17 @@ test('whitespace splitting a token points at the whitespace', () => {
 	}
 });
 
-test('further faults the test data does not cover', () => {
+test('a set ending after a range hyphen is not closed', () => {
+	for (const [text, offset] of [['[A-', 0], ['[A- ', 0], ['AB[0-', 2]]) {
+		const error = errorOf(text);
+
+		assert.equal(error.message, NaxpMessage.NAXP1025_CharacterSetNotClosed, text);
+		assert.equal(error.offset, offset, text);
+		assert.equal(error.length, 1, text);
+	}
+});
+
+test('further errors the test data does not cover', () => {
 	// Kept here so the parser cannot quietly grow lax.
 	const cases = [
 		['A)', 'syntax'],
@@ -336,7 +346,7 @@ test('further faults the test data does not cover', () => {
 	];
 
 	for (const [text, rule] of cases) {
-		assert.equal(ruleOf(faultOf(text).message), rule, text);
+		assert.equal(ruleOf(errorOf(text).message), rule, text);
 	}
 });
 
@@ -352,7 +362,7 @@ test('a closing parenthesis with no group to close says so', () => {
 	];
 
 	for (const [text, offset] of cases) {
-		const error = faultOf(text);
+		const error = errorOf(text);
 
 		assert.equal(error.message, NaxpMessage.NAXP1057_GroupNotOpened, text);
 		assert.equal(error.offset, offset, text);
@@ -360,35 +370,35 @@ test('a closing parenthesis with no group to close says so', () => {
 	}
 });
 
-test('the faults either side of it are unchanged', () => {
+test('the errors either side of it are unchanged', () => {
 	// An unclosed group still reports the opener, and an escaped parenthesis is still an
-	// ordinary character rather than a fault.
-	assert.equal(faultOf('(AB').message, NaxpMessage.NAXP1009_GroupNotClosed);
-	assert.equal(faultOf('((A)').message, NaxpMessage.NAXP1009_GroupNotClosed);
+	// ordinary character rather than an error.
+	assert.equal(errorOf('(AB').message, NaxpMessage.NAXP1009_GroupNotClosed);
+	assert.equal(errorOf('((A)').message, NaxpMessage.NAXP1009_GroupNotClosed);
 	assert.notEqual(tryParse('A\\)B').ast, null);
 });
 
 test('pattern outside the repertoire is invalid', () => {
 	// The pattern may hold whitespace and the printable ASCII characters U+0021 to U+007E.
 	for (const c of ['\u00e9', '\u0001', '\u007f']) {
-		const error = faultOf(`A${c}`);
+		const error = errorOf(`A${c}`);
 
 		assert.equal(ruleOf(error.message), 'syntax');
 		assert.equal(error.offset, 1);
-		assert.ok(error.text.includes('cannot appear in the pattern'), error.text);
+		assert.ok(error.text.includes('cannot appear in a naxp'), error.text);
 	}
 });
 
 test('the repertoire message names the code point', () => {
-	assert.ok(faultOf('A\u00e9').text.includes('U+00E9'));
+	assert.ok(errorOf('A\u00e9').text.includes('U+00E9'));
 });
 
 test('an empty pattern is not a naxp', () => {
-	assert.equal(ruleOf(faultOf('').message), 'syntax');
+	assert.equal(ruleOf(errorOf('').message), 'syntax');
 });
 
 test('a pattern of nothing but whitespace is not a naxp', () => {
-	assert.equal(ruleOf(faultOf('   ').message), 'syntax');
+	assert.equal(ruleOf(errorOf('   ').message), 'syntax');
 });
 
 // #endregion

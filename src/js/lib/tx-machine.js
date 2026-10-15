@@ -255,7 +255,7 @@ class Branch {
 /**
  * Builds a {@link TxMachine} from a transduction by determinisation.
  *
- * The single-valuedness faults here duplicate the W3 checker, which decides the same question
+ * The single-valuedness errors here duplicate the W3 checker, which decides the same question
  * over the same derivatives, so on an expression the checker has passed they are unreachable. They
  * are kept as defence in depth, because the two walk different shapes – the checker walks pairs,
  * this walks sets – and a machine built from an unchecked expression would otherwise be silently
@@ -323,7 +323,7 @@ class Builder {
 	 * Records what the state emits where the input ends, failing where the parses disagree.
 	 *
 	 * @param {number} index The state.
-	 * @returns {NaxpError | null} The fault, or null.
+	 * @returns {NaxpError | null} The error, or null.
 	 */
 	setEndOutput(index) {
 		let endOutput = null;
@@ -359,7 +359,7 @@ class Builder {
 	 *
 	 * @param {number} index The state.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The fault, or null.
+	 * @returns {NaxpError | null} The error, or null.
 	 */
 	explore(index, queue) {
 		const firstSets = [];
@@ -386,7 +386,7 @@ class Builder {
 	 * @param {number} index The state.
 	 * @param {AsciiCharSet} block The block to step by.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The fault, or null.
+	 * @returns {NaxpError | null} The error, or null.
 	 */
 	step(index, block, queue) {
 		/** @type {Map<import('./tx.js').Tx, string>} */
@@ -457,7 +457,7 @@ class Builder {
 	 * @param {number} index The state.
 	 * @param {AsciiCharSet} block The block to split.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The fault, or null.
+	 * @returns {NaxpError | null} The error, or null.
 	 */
 	narrow(index, block, queue) {
 		for (const code of block) {
@@ -486,7 +486,7 @@ class Builder {
 	 *
 	 * @param {Branch[]} branches The branch set, already sorted and deduplicated.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {{index: number, error: NaxpError | null}} Its index, or the fault.
+	 * @returns {{index: number, error: NaxpError | null}} Its index, or the error.
 	 */
 	add(branches, queue) {
 		const key = branches.map(branch => branch.key()).join(';');
@@ -613,14 +613,14 @@ function compareOrdinal(left, right) {
 	return left < right ? -1 : 1;
 }
 
-/** @returns {NaxpError} The fault. */
+/** @returns {NaxpError} The error. */
 function violation() {
 	return new NaxpError(NaxpMessage.NAXP1044_UnificationNotSingleValued);
 }
 
 /**
  * @param {number} maxStates The budget.
- * @returns {NaxpError} The fault.
+ * @returns {NaxpError} The error.
  */
 function tooLarge(maxStates) {
 	return new NaxpError(NaxpMessage.NAXP1049_TooManyCanonicalStates);

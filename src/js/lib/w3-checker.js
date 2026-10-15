@@ -156,7 +156,7 @@ class Square {
 	 * @param {number} index Its index.
 	 * @param {AsciiCharSet} block The block to step by.
 	 * @param {number[]} queue The queue to append to.
-	 * @returns {NaxpError | null} The fault, or null.
+	 * @returns {NaxpError | null} The error, or null.
 	 */
 	step(state, index, block, queue) {
 		const left = this.factory.derivative(state.left, block);
@@ -330,7 +330,7 @@ class Square {
 		return String.fromCharCode(...codes);
 	}
 
-	/** @returns {NaxpError} The fault. */
+	/** @returns {NaxpError} The error. */
 	tooLarge() {
 		return new NaxpError(NaxpMessage.NAXP1050_TooManyPairStates);
 	}
@@ -340,7 +340,7 @@ class Square {
  * The decision was abandoned because an intermediate result grew too large, which is a different
  * thing from running out of pair states and must not claim to be that.
  *
- * @returns {NaxpError} The fault.
+ * @returns {NaxpError} The error.
  */
 function abandoned() {
 	return new NaxpError(NaxpMessage.NAXP1051_PairOutputAbandoned);
@@ -380,7 +380,7 @@ function violation(witness) {
  * @param {{hasUnified?: boolean, maxStates?: number}} [options] `hasUnified` lets a
  * caller that already knows whether there is anything to check avoid walking the tree for it
  * twice. `maxStates` is lowered by tests so the cap can be reached cheaply.
- * @returns {NaxpError | null} The fault, or null if the naxp passes.
+ * @returns {NaxpError | null} The error, or null if the naxp passes.
  */
 export function checkW3(ast, rxFactory, options = {}) {
 	// Both arguments are checked before the tree is walked, so a bad call fails at once rather

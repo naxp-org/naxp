@@ -158,7 +158,7 @@ public class CodecTests
 
 		Assert.Null(compilation);
 		Assert.Equal("W3", NaxpMessageRules.RuleOf(error!.Value.Message));
-		Assert.Contains("more than one canonical form", error.Value.Text, StringComparison.Ordinal);
+		Assert.Contains("multiple canonical forms", error.Value.Text, StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -188,8 +188,8 @@ public class CodecTests
 		// This naxp compiles again. Canonicalising it as a machine once wanted 2^18 states,
 		// because nothing before the last character says which alternative was taken; holding
 		// the characters read in a register rather than in the state space makes it linear.
-		Assert.True(Compiler.TryCompile(pattern, out _, out NaxpError? fault));
-		Assert.Null(fault);
+		Assert.True(Compiler.TryCompile(pattern, out _, out NaxpError? error));
+		Assert.Null(error);
 
 		// The property this test exists for belongs to the tree walk, so it is exercised
 		// directly whatever the machine costs.

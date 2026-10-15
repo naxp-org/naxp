@@ -85,38 +85,38 @@ NAXP_TEST(a_case_fold_runs_to_the_end_of_the_enclosing_group)
 	NAXP_CHECK_EQUAL(std::string("AB"), later.decode(later.encode("ab")));
 }
 
-NAXP_TEST(parse_throws_with_the_fault_in_parts)
+NAXP_TEST(parse_throws_with_the_error_in_parts)
 {
 	try
 	{
 		logmu::naxp::parse("A{2-5}");
 		NAXP_CHECK(false);
 	}
-	catch (const logmu::naxp_error& error)
+	catch (const logmu::naxp_format_error& thrown)
 	{
-		NAXP_CHECK_EQUAL(std::string("NAXP1002"), error.fault().code);
-		NAXP_CHECK_EQUAL(std::size_t{3}, error.fault().offset);
-		NAXP_CHECK_EQUAL(std::size_t{1}, error.fault().length);
-		NAXP_CHECK(std::string(error.what()).find("NAXP1002 at 3..4: ") == 0);
+		NAXP_CHECK_EQUAL(std::string("NAXP1002"), thrown.error().code);
+		NAXP_CHECK_EQUAL(std::size_t{3}, thrown.error().offset);
+		NAXP_CHECK_EQUAL(std::size_t{1}, thrown.error().length);
+		NAXP_CHECK(std::string(thrown.what()).find("NAXP1002 at 3..4: ") == 0);
 	}
 }
 
-NAXP_TEST(try_parse_reports_the_fault_or_leaves_it_alone)
+NAXP_TEST(try_parse_reports_the_error_or_leaves_it_alone)
 {
-	logmu::naxp_fault fault;
+	logmu::naxp_error error;
 
-	NAXP_CHECK(logmu::naxp::try_parse("A", &fault).has_value());
-	NAXP_CHECK(fault.code.empty());
+	NAXP_CHECK(logmu::naxp::try_parse("A", &error).has_value());
+	NAXP_CHECK(error.code.empty());
 
-	NAXP_CHECK(!logmu::naxp::try_parse("A!", &fault).has_value());
-	NAXP_CHECK_EQUAL(std::string("NAXP1014"), fault.code);
-	NAXP_CHECK(!fault.message.empty());
+	NAXP_CHECK(!logmu::naxp::try_parse("A!", &error).has_value());
+	NAXP_CHECK_EQUAL(std::string("NAXP1014"), error.code);
+	NAXP_CHECK(!error.message.empty());
 
-	// A fault of the naxp as a whole is given the whole pattern as its span.
-	NAXP_CHECK(!logmu::naxp::try_parse("A!(B|C)", &fault).has_value());
-	NAXP_CHECK_EQUAL(std::string("NAXP1041"), fault.code);
-	NAXP_CHECK_EQUAL(std::size_t{0}, fault.offset);
-	NAXP_CHECK_EQUAL(std::size_t{7}, fault.length);
+	// An error of the naxp as a whole is given the whole pattern as its span.
+	NAXP_CHECK(!logmu::naxp::try_parse("A!(B|C)", &error).has_value());
+	NAXP_CHECK_EQUAL(std::string("NAXP1041"), error.code);
+	NAXP_CHECK_EQUAL(std::size_t{0}, error.offset);
+	NAXP_CHECK_EQUAL(std::size_t{7}, error.length);
 
 	NAXP_CHECK(!logmu::naxp::try_parse("").has_value());
 }
@@ -213,11 +213,11 @@ NAXP_TEST(a_byte_outside_ascii_is_never_accepted)
 
 NAXP_TEST(c_parse_and_free_round_trip)
 {
-	::naxp_fault* fault = nullptr;
-	::naxp* expression = naxp_parse(postcode.data(), postcode.size(), &fault);
+	::naxp_error* error = nullptr;
+	::naxp* expression = naxp_parse(postcode.data(), postcode.size(), &error);
 
 	NAXP_CHECK(expression != nullptr);
-	NAXP_CHECK(fault == nullptr);
+	NAXP_CHECK(error == nullptr);
 
 	const char* pattern = naxp_pattern(expression);
 
@@ -296,21 +296,21 @@ NAXP_TEST(c_cstr_functions_read_and_write_nul_terminated_strings)
 	naxp_free(expression);
 }
 
-NAXP_TEST(c_parse_hands_back_a_fault_to_free)
+NAXP_TEST(c_parse_hands_back_a_error_to_free)
 {
-	::naxp_fault* fault = nullptr;
-	::naxp* expression = naxp_parse("A{2-5}", 6, &fault);
+	::naxp_error* error = nullptr;
+	::naxp* expression = naxp_parse("A{2-5}", 6, &error);
 
 	NAXP_CHECK(expression == nullptr);
-	NAXP_CHECK(fault != nullptr);
-	NAXP_CHECK_EQUAL(std::string("NAXP1002"), std::string(naxp_fault_code(fault)));
-	NAXP_CHECK(std::strlen(naxp_fault_message(fault)) > 0);
-	NAXP_CHECK_EQUAL(std::size_t{3}, naxp_fault_offset(fault));
-	NAXP_CHECK_EQUAL(std::size_t{1}, naxp_fault_length(fault));
+	NAXP_CHECK(error != nullptr);
+	NAXP_CHECK_EQUAL(std::string("NAXP1002"), std::string(naxp_error_code(error)));
+	NAXP_CHECK(std::strlen(naxp_error_message(error)) > 0);
+	NAXP_CHECK_EQUAL(std::size_t{3}, naxp_error_offset(error));
+	NAXP_CHECK_EQUAL(std::size_t{1}, naxp_error_length(error));
 
-	naxp_fault_free(fault);
-	naxp_fault_free(nullptr);
+	naxp_error_free(error);
+	naxp_error_free(nullptr);
 
-	// Without a place to put the fault the parse still says no.
+	// Without a place to put the error the parse still says no.
 	NAXP_CHECK(naxp_parse("A{2-5}", 6, nullptr) == nullptr);
 }

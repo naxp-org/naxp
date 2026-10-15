@@ -56,8 +56,8 @@ public class NaxpTests
 	}
 
 	/// <summary>
-	/// One per rule, so a fault that arrives for the wrong reason is caught here rather than
-	/// merely counted as a fault. <c>A{2,5}</c> is a syntax error and not W4: the comma is the
+	/// One per rule, so an error that arrives for the wrong reason is caught here rather than
+	/// merely counted as an error. <c>A{2,5}</c> is a syntax error and not W4: the comma is the
 	/// near miss the parser has an error production for, so it never reaches a count to check.
 	/// </summary>
 	[Theory]
@@ -83,7 +83,7 @@ public class NaxpTests
 	}
 
 	/// <summary>
-	/// The message is now the reason alone, and where the fault is has its own two numbers, so a
+	/// The message is now the reason alone, and where the error is has its own two numbers, so a
 	/// caller can underline it rather than read a position out of the prose.
 	/// </summary>
 	[Fact]
@@ -108,11 +108,11 @@ public class NaxpTests
 	}
 
 	/// <summary>
-	/// A fault that belongs to no one place in the naxp reports the whole of it, so that a
+	/// An error that belongs to no one place in the naxp reports the whole of it, so that a
 	/// caller underlining the span never points at an innocent first character.
 	/// </summary>
 	[Fact]
-	public void TryParse_OfAFaultWithNoPosition_ReportsTheWholeNaxp()
+	public void TryParse_OfAErrorWithNoPosition_ReportsTheWholeNaxp()
 	{
 		const string Pattern = "\\9{20}";
 
@@ -194,7 +194,7 @@ public class NaxpTests
 
 	/// <summary>
 	/// The naxp breaks no other rule. It is W6 that rules it out, and the
-	/// fault has to arrive through the same door as any other.
+	/// error has to arrive through the same door as any other.
 	/// </summary>
 	[Fact]
 	public void Parse_ThrowsOnANaxpOverBudget()
@@ -587,6 +587,52 @@ public class NaxpTests
 		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, newLine: null!));
 		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, indent: null!));
 		Assert.Throws<ArgumentNullException>(() => naxp.Emit(OutputLanguage.CSharp, initialIndent: null!));
+	}
+
+	[Fact]
+	public void StringOverloads_AgreeWithTheSpanOverloads()
+	{
+		Naxp postcode = Naxp.Parse(Postcode);
+
+		foreach (string text in new[] { "EC4M 8AD", "EC4M8AD", "invalid", "" })
+		{
+			Assert.Equal(postcode.Accepts(text.AsSpan()), postcode.Accepts(text));
+			Assert.Equal(postcode.Encode(text.AsSpan()), postcode.Encode(text));
+			Assert.Equal(postcode.GetCanonicalForm(text.AsSpan()), postcode.GetCanonicalForm(text));
+
+			Assert.Equal(postcode.TryEncode(text.AsSpan(), out ulong fromSpan), postcode.TryEncode(text, out ulong fromString));
+			Assert.Equal(fromSpan, fromString);
+
+			Assert.Equal(
+				postcode.TryGetCanonicalForm(text.AsSpan(), out string? formFromSpan),
+				postcode.TryGetCanonicalForm(text, out string? formFromString));
+			Assert.Equal(formFromSpan, formFromString);
+		}
+
+		Assert.Equal(postcode.Pattern, Naxp.Parse(Postcode.AsSpan()).Pattern);
+
+		Assert.False(Naxp.TryParse("A{2-5}", out Naxp? naxp, out string? shortMessage));
+		Assert.Null(naxp);
+		Assert.False(Naxp.TryParse("A{2-5}", out _, out string? message, out int offset, out int length, out string? code));
+		Assert.False(Naxp.TryParse("A{2-5}".AsSpan(), out _, out string? spanMessage, out int spanOffset, out int spanLength, out string? spanCode));
+		Assert.Equal(spanMessage, shortMessage);
+		Assert.Equal((spanMessage, spanOffset, spanLength, spanCode), (message, offset, length, code));
+	}
+
+	[Fact]
+	public void StringOverloads_RefuseNull()
+	{
+		Naxp naxp = Naxp.Parse("A");
+		string text = null!;
+
+		Assert.Throws<ArgumentNullException>(() => Naxp.Parse(text));
+		Assert.Throws<ArgumentNullException>(() => Naxp.TryParse(text, out _, out _));
+		Assert.Throws<ArgumentNullException>(() => Naxp.TryParse(text, out _, out _, out _, out _, out _));
+		Assert.Throws<ArgumentNullException>(() => naxp.Accepts(text));
+		Assert.Throws<ArgumentNullException>(() => naxp.Encode(text));
+		Assert.Throws<ArgumentNullException>(() => naxp.TryEncode(text, out _));
+		Assert.Throws<ArgumentNullException>(() => naxp.GetCanonicalForm(text));
+		Assert.Throws<ArgumentNullException>(() => naxp.TryGetCanonicalForm(text, out _));
 	}
 	#endregion
 	#region Private helpers

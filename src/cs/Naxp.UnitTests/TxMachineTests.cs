@@ -287,7 +287,7 @@ public class TxMachineTests
 	}
 
 	/// <summary>
-	/// A naxp can pass every rule, compile, and still have no machine. This is the one fault
+	/// A naxp can pass every rule, compile, and still have no machine. This is the one error
 	/// the builder makes that <see cref="W3Checker"/> does not already make.
 	/// </summary>
 	[Fact]
@@ -358,7 +358,7 @@ public class TxMachineTests
 	#region Defence in depth
 	/// <summary>
 	/// Naxps that break W3, built without running <see cref="W3Checker"/> first, so that the
-	/// builder's own faults are exercised.
+	/// builder's own errors are exercised.
 	/// </summary>
 	/// <remarks>
 	/// These paths are unreachable in the compiler, which checks before it builds. They are kept

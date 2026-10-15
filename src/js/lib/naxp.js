@@ -201,7 +201,7 @@ export class Naxp {
 	 * @param {string} pattern The pattern of the naxp.
 	 * @returns {{naxp: Naxp | null, errorMessage: string | null, errorOffset: number,
 	 * errorLength: number, errorCode: string | null}} The naxp, or what is wrong and where.
-	 * `errorMessage` is the reason alone; `errorLength` is the whole of `pattern` where the fault
+	 * `errorMessage` is the reason alone; `errorLength` is the whole of `pattern` where the error
 	 * belongs to the naxp rather than to any one place in it; and `errorCode` is a stable
 	 * identifier such as `NAXP1002`, for a log or a bug report rather than for
 	 * branching on.
@@ -224,7 +224,7 @@ export class Naxp {
 			errorMessage: error.text,
 			errorOffset: error.offset,
 
-			// Only here is the length of the pattern known, so this is where a fault that named
+			// Only here is the length of the pattern known, so this is where an error that named
 			// no place in the naxp is given the whole of it.
 			errorLength: error.isWholeNaxp ? pattern.length : error.length,
 			errorCode: error.code,

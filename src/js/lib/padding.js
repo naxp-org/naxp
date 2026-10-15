@@ -30,7 +30,7 @@ import {
  * run of padding contributes a fixed string. That is what keeps `07` to one canonical form under
  * `0!! 0!!`, where either of the two could have been the one that matched.
  *
- * Every node made here takes the pattern offset of the range it replaces, so a fault found in an
+ * Every node made here takes the pattern offset of the range it replaces, so an error found in an
  * expansion still points at what the author wrote.
  */
 
@@ -126,7 +126,7 @@ function zero(offset) {
 }
 
 /**
- * Puts a pattern offset on a node, which is what makes a fault in an expansion point at what the
+ * Puts a pattern offset on a node, which is what makes an error in an expansion point at what the
  * author wrote.
  *
  * @template {import('./ast.js').Ast} T

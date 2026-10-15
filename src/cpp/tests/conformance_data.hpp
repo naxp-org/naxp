@@ -41,7 +41,7 @@ namespace logmu::testing
 		std::string rule;
 		std::string note;
 
-		/// The fault's code and span, which the fuzz data records and the conformance data does
+		/// The error's code and span, which the fuzz data records and the conformance data does
 		/// not; empty where absent.
 		std::string code;
 		std::size_t offset = 0;

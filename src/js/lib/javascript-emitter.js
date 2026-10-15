@@ -235,11 +235,11 @@ class Fragment {
 	 * function has already set the flag saying which it holds.
 	 *
 	 * @param {string} step The stepping statement, over the code point `c`.
-	 * @param {string} onFault What a failed step does.
+	 * @param {string} onError What a failed step does.
 	 * @param {string | null} before A statement between reading the code point and stepping, or
 	 * null.
 	 */
-	emitReadLoop(step, onFault, before = null) {
+	emitReadLoop(step, onError, before = null) {
 		this.writer.line('for (let i = 0; i < text.length; i++) {');
 		this.writer.indentBy();
 		this.writer.line(`const c = ${BYTES_NAME} ? text[i] : text.charCodeAt(i);`);
@@ -249,7 +249,7 @@ class Fragment {
 
 		this.writer.line(step);
 		this.writer.line();
-		this.writer.line(`if (state < 0) { ${onFault} }`);
+		this.writer.line(`if (state < 0) { ${onError} }`);
 		this.writer.outdent();
 		this.writer.line('}');
 	}

@@ -164,7 +164,7 @@ sealed class StateMapBuilder
 	/// <param name="start">The expression, as produced by <see cref="RxConverter"/>.</param>
 	/// <param name="factory">The factory that made it, reused so derivatives stay interned.</param>
 	/// <param name="map">The machine, or <see langword="null"/> if it was invalid.</param>
-	/// <param name="error">The fault, or <see langword="null"/>.</param>
+	/// <param name="error">The error, or <see langword="null"/>.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the machine was built.</returns>
 	public static bool TryBuild(Rx start, RxFactory factory, out StateMap? map, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
@@ -298,7 +298,7 @@ sealed class StateMapBuilder
 	{
 		// A List<AsciiCharSet> satisfies both parameters, so this is a mistake the compiler will
 		// not catch. Clearing the output would empty the input and quietly give back no blocks at
-		// all, which reads downstream as a state with no transitions rather than as a fault.
+		// all, which reads downstream as a state with no transitions rather than as an error.
 		if (ReferenceEquals(sets, blocks))
 		{
 			throw new ArgumentException("The working list must not be the list of sets.", nameof(blocks));

@@ -105,7 +105,7 @@ public class FoldingTests
 	[Fact]
 	public void CaseFold_CannotBeginARendering()
 	{
-		NaxpError error = FaultOf("A!\\CA");
+		NaxpError error = ErrorOf("A!\\CA");
 
 		Assert.Equal(NaxpMessage.NAXP1058_FoldBeginsRendering, error.Message);
 		Assert.Equal(2, error.Offset);
@@ -248,7 +248,7 @@ public class FoldingTests
 	[Fact]
 	public void FoldInsideACharacterSet_IsASyntaxError()
 	{
-		NaxpError error = FaultOf("[\\CA]");
+		NaxpError error = ErrorOf("[\\CA]");
 
 		Assert.Equal(NaxpMessage.NAXP1052_FoldInCharacterSet, error.Message);
 		Assert.Contains("before the set", error.Text, StringComparison.Ordinal);
@@ -261,8 +261,8 @@ public class FoldingTests
 	[Fact]
 	public void FoldInsideAUnifiedOperand_BreaksW2()
 	{
-		Assert.Equal(NaxpMessage.NAXP1039_UnifiedNested, FaultOf("(\\CA)!A").Message);
-		Assert.Equal(NaxpMessage.NAXP1039_UnifiedNested, FaultOf("A!(\\CA)").Message);
+		Assert.Equal(NaxpMessage.NAXP1039_UnifiedNested, ErrorOf("(\\CA)!A").Message);
+		Assert.Equal(NaxpMessage.NAXP1039_UnifiedNested, ErrorOf("A!(\\CA)").Message);
 	}
 	#endregion
 	#region Helpers
@@ -274,7 +274,7 @@ public class FoldingTests
 		return ast!;
 	}
 
-	static NaxpError FaultOf(string text)
+	static NaxpError ErrorOf(string text)
 	{
 		if (!Parser.TryParse(text, out Ast? ast, out NaxpError? error)) { return error!.Value; }
 

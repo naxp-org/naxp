@@ -5,7 +5,7 @@
 
 #include "ast.hpp"
 #include "codec.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "naxp_message.hpp"
 #include "parser.hpp"
@@ -151,7 +151,7 @@ namespace logmu::detail
 
 	namespace compiler
 	{
-		bool try_compile(std::string_view pattern, std::unique_ptr<compilation>& result, std::optional<fault>& error)
+		bool try_compile(std::string_view pattern, std::unique_ptr<compilation>& result, std::optional<naxp_error>& error)
 		{
 			result = nullptr;
 
@@ -202,7 +202,7 @@ namespace logmu::detail
 
 			if (canonical->count_saturated)
 			{
-				error = fault(naxp_message::too_many_values);
+				error = naxp_error(naxp_message::too_many_values);
 
 				return false;
 			}

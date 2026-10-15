@@ -17,6 +17,49 @@ Rules for this changelog:
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-15
+
+Implements [**naxp specification 0.10.1**](https://naxp.org/spec/v0.10.1/).
+
+Encoding is identical to the previous library version, 0.12.0.
+
+<!-- START C# -->
+
+### Added
+
+- `string` overloads of `Parse`, `TryParse`, `Accepts`, `Encode`, `TryEncode`, `GetCanonicalForm` and `TryGetCanonicalForm`, in the library and in generated code, for callers that cannot pass a string as a span: .NET Framework projects before C# 14, Visual Basic, F# and PowerShell. Each throws `ArgumentNullException` for a `null` string.
+
+<!-- END -->
+
+### Changed
+
+- Many error messages are reworded to be shorter and clearer. The error codes are unchanged.
+
+<!-- START C -->
+
+- **Breaking:** what an invalid **naxp** reports is now called an *error* throughout, as it already was in C# and JavaScript, rather than a *fault*.
+    - C: the type `naxp_fault` is now `naxp_error`, and `naxp_fault_code`, `naxp_fault_message`, `naxp_fault_offset`, `naxp_fault_length` and `naxp_fault_free` are now `naxp_error_code`, `naxp_error_message`, `naxp_error_offset`, `naxp_error_length` and `naxp_error_free`.
+    - C++: the struct `naxp_fault` is now `naxp_error`, the same name as in C. The exception that was `naxp_error` is now `naxp_format_error`, matching `NaxpFormatError` in JavaScript, and its `fault()` is now `error()`.
+
+<!-- END -->
+
+<!-- START C# -->
+
+- **Breaking:** the source generator's own diagnostics are renumbered from `NAXP0001`–`NAXP0010` to `NAXP2001`–`NAXP2010`, so that the leading digit names the family: `NAXP1xxx` for an error in a **naxp**, reported by every library, and `NAXP2xxx` for one only the source generator reports. A build that suppresses a generator rule by its code needs the new code.
+- Source generator diagnostics link to the list of error codes at its new address, [naxp.org/error-codes/](https://naxp.org/error-codes/). The old address still works.
+
+<!-- END -->
+
+### Fixed
+
+- A character set that ends straight after a range's hyphen, such as `[A-`, is now reported as `NAXP1025` (the character set is not closed), as `[A-B` already was, rather than as `NAXP1036`.
+
+<!-- START C# -->
+
+- The message for the source generator diagnostic `NAXP2004` no longer gives an invalid **naxp** as its example.
+
+<!-- END -->
+
 ## [0.12.0] - 2026-09-24
 
 Implements [**naxp specification 0.10.1**](https://naxp.org/spec/v0.10.1/).
@@ -110,6 +153,7 @@ Each library can emit a self-contained encoder / decoder for a given **naxp** in
 
 The release attaches the C++ library as one file, `naxp.cpp`, which needs no include path, with `naxp.hpp` for C++ callers and `naxp.h` for C. `SHA256SUMS` holds their digests. The same library builds from source with CMake under `src/cpp`.
 
-[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/naxp-org/naxp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/naxp-org/naxp/compare/v0.10.0...v0.12.0
 [0.10.0]: https://github.com/naxp-org/naxp/releases/tag/v0.10.0

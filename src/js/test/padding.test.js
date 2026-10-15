@@ -43,9 +43,9 @@ function parse(text) {
  * Parses and checks, failing the test if the pattern is accepted.
  *
  * @param {string} text The pattern.
- * @returns {import('../lib/naxp-error.js').NaxpError} The fault.
+ * @returns {import('../lib/naxp-error.js').NaxpError} The error.
  */
-function faultOf(text) {
+function errorOf(text) {
 	const { ast, error } = tryParse(text);
 
 	if (ast === null) { return error; }
@@ -244,7 +244,7 @@ test('a lightly marked range goes wider, because the square grows with the marks
 });
 
 // #endregion
-// #region Faults
+// #region Errors
 
 test('a misplaced mark is refused', () => {
 	const cases = [
@@ -261,7 +261,7 @@ test('a misplaced mark is refused', () => {
 	];
 
 	for (const [pattern, rule, fragment] of cases) {
-		const error = faultOf(pattern);
+		const error = errorOf(pattern);
 
 		assert.equal(ruleOf(error.message), rule, pattern);
 		assert.ok(error.text.includes(fragment), `${pattern} said: ${error.text}`);
@@ -271,7 +271,7 @@ test('a misplaced mark is refused', () => {
 test('a marked range inside a unified element breaks W2', () => {
 	// A marked range holds unified elements once expanded, so W2 reaches it where the unmarked form
 	// was legal.
-	assert.equal(ruleOf(faultOf('(#[0!0-105])!(07)').message), 'W2');
+	assert.equal(ruleOf(errorOf('(#[0!0-105])!(07)').message), 'W2');
 
 	Naxp.parse('(#[00-105])!(07)');
 });

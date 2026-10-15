@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>naxp library APIs</title>
+<meta name="description" content="naxp packages, the reference implementations, and the conformance test data an implementation is validated against.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/Lisnoti-woff2/Lisnoti-Regular-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/LisnotiCode-woff2/LisnotiCode-Regular-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/Lisnoti-woff2/lisnoti.css">
+<link rel="stylesheet" href="/fonts/LisnotiCode-woff2/lisnoti-code.css">
+<link rel="stylesheet" href="/css/naxp.css">
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+
+// Also before the first paint: the language whose panel shows, so the page
+// never flashes another one. A language named in the address wins, then the
+// one last chosen here or on /code-gen/, which share it, then JavaScript.
+(function () {
+  var names = { c: 'C', cpp: 'C++', csharp: 'C#', javascript: 'JavaScript' };
+  var chosen = location.hash.slice(1).toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(names, chosen)) {
+    var kept = null;
+    try { kept = sessionStorage.getItem('naxp.generate.language'); } catch (e) {}
+    chosen = 'javascript';
+    for (var id in names) { if (names[id] === kept) { chosen = id; } }
+  }
+  document.documentElement.dataset.language = chosen;
+})();
+</script>
+<script src="/js/theme.js" defer></script>
+<script type="module" src="/js/api.js"></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="The naxp API">
+<meta property="og:description" content="naxp packages, the reference implementations, and the conformance test data an implementation is validated against.">
+<meta property="og:url" content="https://naxp.org/api/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle"><strong>naxp</strong> library APIs</h1>
+  </div>
+</section>
+
+<!-- Band 3: what a library does, then one panel per language -->
+<section class="band">
+  <div class="band__inner">
+    <p>
+      <strong>naxp</strong> libraries are available in a number of languages with the following 
+      run-time functionality:
+    </p>
+    <ul>
+      <li><em>Parse</em>. Parse a <strong>naxp</strong> pattern and, if successful, return an object representing the <strong>naxp</strong>.</li>
+      <li><em>Encode</em>. Map text to its encoded value.</li>
+      <li><em>Decode</em>. Map an encoded value back to (canonical) text.</li>
+      <li><em>Validate</em>. Check whether text is valid for a <strong>naxp</strong>, among other checks.</li>
+      <li><em>Generate code</em> for a specific <strong>naxp</strong>.</li>
+    </ul>
+
+    <p class="admonition admonition--tip">
+      <span class="admonition__flag">Tip</span>
+      If you want to implement a <em>specific</em> <strong>naxp</strong> without linking a library
+      or paying a run-time cost, the <a href="/code-gen/">code-gen</a> page writes the
+      functions for you.
+    </p>
+
+    <!-- The tabs show only where api.js runs. Without it every panel shows,
+         each under its own name. The wrapper is what the tabs stick within
+         while the page scrolls, so they let go where the box ends. -->
+    <div class="api-switcher">
+    <div id="api-languages" class="api-tabs" role="tablist" aria-label="Language">
+      <button type="button" class="api-tab" role="tab" id="api-tab-c" data-language="c" aria-controls="api-panel-c" aria-selected="false" tabindex="-1">C</button>
+      <button type="button" class="api-tab" role="tab" id="api-tab-cpp" data-language="cpp" aria-controls="api-panel-cpp" aria-selected="false" tabindex="-1">C++</button>
+      <button type="button" class="api-tab" role="tab" id="api-tab-csharp" data-language="csharp" aria-controls="api-panel-csharp" aria-selected="false" tabindex="-1">C#</button>
+      <button type="button" class="api-tab" role="tab" id="api-tab-javascript" data-language="javascript" aria-controls="api-panel-javascript" aria-selected="false" tabindex="-1">JavaScript</button>
+      <button type="button" class="api-tab" role="tab" aria-disabled="true" tabindex="-1">Python</button>
+      <button type="button" class="api-tab" role="tab" aria-disabled="true" tabindex="-1">R</button>
+    </div>
+
+    <div class="api-panels">
+
+    <!-- C -->
+    <div class="api-panel" id="api-panel-c" data-language="c" role="tabpanel" aria-labelledby="api-tab-c">
+      <p class="api-panel__title">C</p>
+
+      <p>
+        A plain C interface over the C++17 library, for C programs and for any language that can call C.
+      </p>
+
+      <h2 class="section__title">Install</h2>
+      <p>
+        For builds not using CMake, copy the self-contained amalgamated source <code>naxp.cpp</code>
+        plus <code>naxp.h</code> from <a href="https://github.com/naxp-org/naxp/releases/latest">the latest release</a>,
+        and link with the C++ driver (<code>g++</code> or <code>clang++</code>), since the library
+        behind the interface is C++. With CMake, fetch the library with <code>FetchContent</code>,
+        declaring C++ as well as C so that CMake links the C++ runtime:
+      </p>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="CMake">project(your_project LANGUAGES C CXX)
+
+include(FetchContent)
+FetchContent_Declare(naxp
+	GIT_REPOSITORY https://github.com/naxp-org/naxp.git
+	SOURCE_SUBDIR src/cpp)
+FetchContent_MakeAvailable(naxp)
+
+target_link_libraries(your_target PRIVATE naxp::naxp)</code></pre>
+      </div>
+
+      <h2 class="section__title">Example</h2>
+<div class="codebox">
+<pre><code class="code" data-highlight="C">#include &lt;naxp/naxp.h&gt;
+
+const char *pattern = "\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA";
+naxp_error *error = NULL;
+naxp *postcode = naxp_parse(pattern, strlen(pattern), &amp;error);
+char text[16];
+
+naxp_max_encoded_value(postcode);  /* 1755842401 */
+naxp_max_length(postcode);  /* 8 */
+naxp_encode_cstr(postcode, "EC4M 8AD");  /* 278794572 */
+naxp_encode_cstr(postcode, "EC4M8AD");  /* 278794572 (same as above) */
+naxp_decode_cstr(postcode, 278794572, text, sizeof text);  /* true, text is "EC4M 8AD" */
+naxp_canonical_form_cstr(postcode, "EC4M8AD", text, sizeof text);  /* true, text is "EC4M 8AD" */
+naxp_accepts_cstr(postcode, "invalid");  /* false */
+naxp_encode_cstr(postcode, "invalid");  /* 0 */
+
+naxp_free(postcode);</code></pre>
+      </div>
+
+      <h2 class="section__title">API</h2>
+      <p>
+        Notes:
+      </p>
+      <ul>
+        <li>API functions ending <code>_cstr</code> accept and write NUL-terminated strings.</li>
+        <li>Other functions take a string length, and write no NUL terminator.</li>
+        <li>
+          More detail is available in the doc comments in
+          <a href="https://github.com/naxp-org/naxp/blob/main/src/cpp/include/naxp/naxp.h"><code>naxp.h</code></a>.
+        </li>
+      </ul>
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr><th scope="col">Operation</th><th scope="col">Call</th><th scope="col">Returns</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse</th><td data-label="Call"><code>naxp_parse(pattern, pattern_length, &amp;error)</code></td><td data-label="Returns">A <code>naxp *</code>, or <code>NULL</code> where the pattern is invalid, with <code>error</code> set. Pass <code>NULL</code> for <code>error</code> where you only want to know whether it parsed.</td></tr>
+          <tr><th scope="row">Read an error</th><td data-label="Call"><code>naxp_error_code(error)</code>, <code>naxp_error_message(error)</code>, <code>naxp_error_offset(error)</code>, <code>naxp_error_length(error)</code></td><td data-label="Returns">The parts of the error. Free it with <code>naxp_error_free(error)</code>.</td></tr>
+          <tr><th scope="row">Free</th><td data-label="Call"><code>naxp_free(postcode)</code></td><td data-label="Returns">Nothing. <code>NULL</code> is allowed.</td></tr>
+          <tr><th scope="row">Pattern</th><td data-label="Call"><code>naxp_pattern(postcode)</code></td><td data-label="Returns">The pattern the <strong>naxp</strong> was parsed from, NUL-terminated.</td></tr>
+          <tr><th scope="row">Largest encoded value</th><td data-label="Call"><code>naxp_max_encoded_value(postcode)</code></td><td data-label="Returns">A <code>uint64_t</code>, which is also how many encoded values there are.</td></tr>
+          <tr><th scope="row">Longest text</th><td data-label="Call"><code>naxp_max_length(postcode)</code></td><td data-label="Returns">The length of the longest text a value decodes to, so a buffer of this length plus one always suffices.</td></tr>
+          <tr><th scope="row">Accepts</th><td data-label="Call"><code>naxp_accepts(postcode, text, text_length)</code>, <code>naxp_accepts_cstr(postcode, text)</code></td><td data-label="Returns">Whether the text is valid for the <strong>naxp</strong>.</td></tr>
+          <tr><th scope="row">Encode</th><td data-label="Call"><code>naxp_encode(postcode, text, text_length)</code>, <code>naxp_encode_cstr(postcode, text)</code></td><td data-label="Returns">The encoded value, from 1 to the largest, or 0 where the text is invalid.</td></tr>
+          <tr><th scope="row">Decode</th><td data-label="Call"><code>naxp_decode(postcode, value, destination, capacity, &amp;length)</code>, <code>naxp_decode_cstr(postcode, value, destination, capacity)</code></td><td data-label="Returns"><code>true</code> with the canonical text written, or <code>false</code> where the value is out of range or the destination is too short.</td></tr>
+          <tr><th scope="row">Canonical form</th><td data-label="Call"><code>naxp_canonical_form(postcode, text, text_length, destination, capacity, &amp;length)</code>, <code>naxp_canonical_form_cstr(postcode, text, destination, capacity)</code></td><td data-label="Returns"><code>true</code> with the canonical form written, or <code>false</code> where the text is invalid or the destination is too short.</td></tr>
+          <tr><th scope="row">Generate code</th><td data-label="Call"><code>naxp_emit(postcode, language, prefix, value_type, initial_indent, new_line, indent, &amp;length)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language, to free with <code>naxp_string_free</code>. See <a href="/code-gen/">code-gen</a>.</td></tr>
+          <tr><th scope="row">Compare</th><td data-label="Call"><code>naxp_compare(a, b, &amp;comparison)</code>, <code>naxp_compare_within(a, b, &amp;comparison, budget)</code></td><td data-label="Returns">How two <strong>naxp</strong>s relate, or <code>false</code> where the budget runs out. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
+          <tr><th scope="row">First divergent value</th><td data-label="Call"><code>naxp_first_divergent_value(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or 0.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- C++ -->
+    <div class="api-panel" id="api-panel-cpp" data-language="cpp" role="tabpanel" aria-labelledby="api-tab-cpp">
+      <p class="api-panel__title">C++</p>
+
+      <p>
+        A C++17 library in the namespace <code>logmu</code>.
+      </p>
+
+      <h2 class="section__title">Install</h2>
+      <p>
+        For builds not using CMake, copy the self-contained amalgamated source <code>naxp.cpp</code>
+        plus <code>naxp.hpp</code> from <a href="https://github.com/naxp-org/naxp/releases/latest">the latest release</a>.
+        With CMake, fetch the library with <code>FetchContent</code>:
+      </p>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="CMake">include(FetchContent)
+FetchContent_Declare(naxp
+	GIT_REPOSITORY https://github.com/naxp-org/naxp.git
+	SOURCE_SUBDIR src/cpp)
+FetchContent_MakeAvailable(naxp)
+
+target_link_libraries(your_target PRIVATE naxp::naxp)</code></pre>
+      </div>
+
+      <h2 class="section__title">Example</h2>
+<div class="codebox">
+<pre><code class="code" data-highlight="Cpp">#include &lt;naxp/naxp.hpp&gt;
+
+const auto postcode = logmu::naxp::parse(R"(\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA)");
+
+postcode.max_encoded_value();  // 1755842401
+postcode.max_length();  // 8
+postcode.encode("EC4M 8AD");  // 278794572
+postcode.encode("EC4M8AD");  // 278794572 (same as above)
+postcode.decode(278794572);  // "EC4M 8AD" (canonical form)
+*postcode.canonical_form("EC4M8AD");  // "EC4M 8AD" (canonical form)
+postcode.accepts("invalid");  // false
+postcode.encode("invalid");  // 0</code></pre>
+      </div>
+
+      <h2 class="section__title">API</h2>
+      <p>
+        Notes:
+      </p>
+      <ul>
+        <li><code>naxp</code> instances are cheap to copy and thread-safe.</li>
+        <li>Every API function text argument is a <code>std::string_view</code>.</li>
+        <li>
+          More detail is available in the doc comments in
+          <a href="https://github.com/naxp-org/naxp/blob/main/src/cpp/include/naxp/naxp.hpp"><code>naxp.hpp</code></a>.
+        </li>
+      </ul>
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr><th scope="col">Operation</th><th scope="col">Call</th><th scope="col">Returns</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse</th><td data-label="Call"><code>naxp::parse(pattern)</code></td><td data-label="Returns">A <code>naxp</code>, or throws <code>naxp_format_error</code>, whose <code>error()</code> holds the error.</td></tr>
+          <tr><th scope="row">Try to parse</th><td data-label="Call"><code>naxp::try_parse(pattern, &amp;error)</code></td><td data-label="Returns">A <code>std::optional&lt;naxp&gt;</code>, empty where the pattern is invalid, with the <code>naxp_error</code> filled in. The error argument is optional.</td></tr>
+          <tr><th scope="row">Pattern</th><td data-label="Call"><code>pattern()</code></td><td data-label="Returns">The pattern the <strong>naxp</strong> was parsed from.</td></tr>
+          <tr><th scope="row">Largest encoded value</th><td data-label="Call"><code>max_encoded_value()</code></td><td data-label="Returns">A <code>std::uint64_t</code>, which is also how many encoded values there are.</td></tr>
+          <tr><th scope="row">Longest text</th><td data-label="Call"><code>max_length()</code></td><td data-label="Returns">The length of the longest text a value decodes to, so a buffer of this length always suffices.</td></tr>
+          <tr><th scope="row">Accepts</th><td data-label="Call"><code>accepts(text)</code></td><td data-label="Returns">Whether the text is valid for the <strong>naxp</strong>.</td></tr>
+          <tr><th scope="row">Encode</th><td data-label="Call"><code>encode(text)</code></td><td data-label="Returns">The encoded value, from 1 to <code>max_encoded_value()</code>, or 0 where the text is invalid.</td></tr>
+          <tr><th scope="row">Decode</th><td data-label="Call"><code>decode(value)</code></td><td data-label="Returns">The canonical text, or throws <code>std::out_of_range</code> where the value is out of range.</td></tr>
+          <tr><th scope="row">Try to decode</th><td data-label="Call"><code>try_decode(value, text)</code>, <code>try_decode(value, destination, capacity, length)</code></td><td data-label="Returns"><code>true</code> with the canonical text set or written, or <code>false</code> where the value is out of range or the destination is too short.</td></tr>
+          <tr><th scope="row">Canonical form</th><td data-label="Call"><code>canonical_form(text)</code>, <code>try_canonical_form(text, canonical_form)</code>, <code>try_canonical_form(text, destination, capacity, length)</code></td><td data-label="Returns">The canonical form of the text, as a <code>std::optional&lt;std::string&gt;</code> or a <code>bool</code>, empty or <code>false</code> where the text is invalid.</td></tr>
+          <tr><th scope="row">Generate code</th><td data-label="Call"><code>emit(language, prefix, value_type)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language. See <a href="/code-gen/">code-gen</a>.</td></tr>
+          <tr><th scope="row">Compare</th><td data-label="Call"><code>naxp::compare(a, b)</code>, <code>naxp::try_compare(a, b, comparison)</code>, each with an optional budget</td><td data-label="Returns">How two <strong>naxp</strong>s relate. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
+          <tr><th scope="row">First divergent value</th><td data-label="Call"><code>naxp::first_divergent_value(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or 0.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- C# -->
+    <div class="api-panel" id="api-panel-csharp" data-language="csharp" role="tabpanel" aria-labelledby="api-tab-csharp">
+      <p class="api-panel__title">C#</p>
+
+      <p>
+        .NET library <em>and</em> source generator.
+      </p>
+      <p>
+        The source generator compiles a <strong>naxp</strong> <em>at build time</em>
+        (just like C# does for regexes). The generated code needs C#&#xA0;7.3 or later, and
+        the source generator needs the .NET&#xA0;8 SDK or Visual Studio 2022 17.8 or later.
+      </p>
+
+      <h2 class="section__title">Install</h2>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="Shell">dotnet add package naxp</code></pre>
+      </div>
+      <p>
+        The <a href="https://www.nuget.org/packages/naxp">NuGet package</a> targets .NET&#xA0;8
+        and .NET Standard&#xA0;2.0, which means it runs on .NET Framework.
+      </p>
+
+      <h2 class="section__title">Example</h2>
+<div class="codebox">
+<pre><code class="code" data-highlight="CSharp">using LogMu;
+
+var postcode = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+
+postcode.MaxEncodedValue;  // 1755842401
+postcode.MaxLength;  // 8
+postcode.Encode("EC4M 8AD");  // 278794572
+postcode.Encode("EC4M8AD");  // 278794572 (same as above)
+postcode.Decode(278794572);  // "EC4M 8AD" (canonical form)
+postcode.GetCanonicalForm("EC4M8AD");  // "EC4M 8AD" (canonical form)
+postcode.Accepts("invalid");  // false
+postcode.Encode("invalid");  // 0</code></pre>
+      </div>
+
+      <h2 class="section__title">API</h2>
+      <p>
+        Notes:
+      </p>
+      <ul>
+        <li>
+          API function
+          <code>text</code> arguments are <code>string</code>,
+          <code>ReadOnlySpan&lt;char&gt;</code> or
+          <code>ReadOnlySpan&lt;byte&gt;</code> (ASCII).
+        </li>
+        <li>
+          API function <code>destination</code> arguments are
+          <code>Span&lt;char&gt;</code> or
+          <code>Span&lt;byte&gt;</code>,
+          with the number of characters written in the associated <code>written</code> output parameter.
+        </li>
+        <li>
+          More detail (including the source generator) is available in
+          the <a href="https://github.com/naxp-org/naxp/tree/main/src/cs#readme">source repo README</a>.
+        </li>
+      </ul>
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr><th scope="col">Operation</th><th scope="col">Call</th><th scope="col">Returns</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse</th><td data-label="Call"><code>Naxp.Parse(pattern)</code></td><td data-label="Returns">A <code>Naxp</code>, or throws <code>FormatException</code>.</td></tr>
+          <tr><th scope="row">Try to parse</th><td data-label="Call"><code>Naxp.TryParse(pattern, out naxp, out errorMessage)</code></td><td data-label="Returns"><code>true</code> where the pattern parsed. A longer overload adds <code>out errorOffset</code>, <code>out errorLength</code> and <code>out errorCode</code>.</td></tr>
+          <tr><th scope="row">Pattern</th><td data-label="Call"><code>Pattern</code></td><td data-label="Returns">The pattern the <strong>naxp</strong> was parsed from.</td></tr>
+          <tr><th scope="row">Largest encoded value</th><td data-label="Call"><code>MaxEncodedValue</code></td><td data-label="Returns">A <code>ulong</code>, which is also how many encoded values there are.</td></tr>
+          <tr><th scope="row">Longest text</th><td data-label="Call"><code>MaxLength</code></td><td data-label="Returns">The length of the longest text a value decodes to, so a buffer of this length always suffices.</td></tr>
+          <tr><th scope="row">Accepts</th><td data-label="Call"><code>Accepts(text)</code></td><td data-label="Returns">Whether the text is valid for the <strong>naxp</strong>.</td></tr>
+          <tr><th scope="row">Encode</th><td data-label="Call"><code>Encode(text)</code>, <code>TryEncode(text, out encoded)</code></td><td data-label="Returns">The encoded value, from 1 to <code>MaxEncodedValue</code>, or 0 (or <code>false</code>) where the text is invalid.</td></tr>
+          <tr><th scope="row">Decode</th><td data-label="Call"><code>Decode(value)</code></td><td data-label="Returns">The canonical text, or throws <code>ArgumentOutOfRangeException</code> where the value is out of range.</td></tr>
+          <tr><th scope="row">Try to decode</th><td data-label="Call"><code>TryDecode(value, out text)</code>, <code>TryDecode(value, destination, out written)</code></td><td data-label="Returns"><code>true</code> with the canonical text set or written, or <code>false</code> where the value is out of range or the destination is too short.</td></tr>
+          <tr><th scope="row">Decode to bytes</th><td data-label="Call"><code>DecodeToBytes(value)</code></td><td data-label="Returns">The canonical text as a <code>byte[]</code> of ASCII.</td></tr>
+          <tr><th scope="row">Canonical form</th><td data-label="Call"><code>GetCanonicalForm(text)</code>, <code>TryGetCanonicalForm(text, out canonicalForm)</code>, <code>TryGetCanonicalForm(text, destination, out written)</code></td><td data-label="Returns">The canonical form of the text, or <code>null</code> (or <code>false</code>) where the text is invalid.</td></tr>
+          <tr><th scope="row">Generate code</th><td data-label="Call"><code>Emit(language, prefix, valueType)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language. See <a href="/code-gen/">code-gen</a>.</td></tr>
+          <tr><th scope="row">Compare</th><td data-label="Call"><code>Naxp.Compare(a, b)</code>, <code>Naxp.TryCompare(a, b, out comparison)</code>, each with an optional budget</td><td data-label="Returns">How two <strong>naxp</strong>s relate. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
+          <tr><th scope="row">First divergent value</th><td data-label="Call"><code>Naxp.FirstDivergentValue(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or 0.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- JavaScript -->
+    <div class="api-panel" id="api-panel-javascript" data-language="javascript" role="tabpanel" aria-labelledby="api-tab-javascript">
+      <p class="api-panel__title">JavaScript</p>
+
+      <p>
+        Plain JavaScript modules, with TypeScript declarations, for Node 18
+        or later and for the browser.
+      </p>
+      <p>
+        This is the library that runs the interactive pages on this website.
+      </p>
+
+      <h2 class="section__title">Install</h2>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="Shell">npm install @naxp/naxp</code></pre>
+      </div>
+      <p>
+        <a href="https://www.npmjs.com/package/@naxp/naxp">The package on npm</a> has zero
+        dependencies and no build step.
+      </p>
+
+      <h2 class="section__title">Example</h2>
+<div class="codebox">
+<pre><code class="code" data-highlight="JavaScript">import { Naxp } from '@naxp/naxp';
+
+const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA');
+
+postcode.maxEncodedValue;  // 1755842401n
+postcode.maxLength;  // 8
+postcode.encode('EC4M 8AD');  // 278794572n
+postcode.encode('EC4M8AD');  // 278794572n (same as above)
+postcode.decode(278794572n);  // 'EC4M 8AD' (canonical form)
+postcode.getCanonicalForm('EC4M8AD');  // 'EC4M 8AD' (canonical form)
+postcode.accepts('invalid');  // false
+postcode.encode('invalid');  // 0n</code></pre>
+      </div>
+
+      <h2 class="section__title">API</h2>
+      <p>
+        Notes:
+      </p>
+      <ul>
+        <li>
+          <code>text</code> arguments are a string or a <code>Uint8Array</code> of ASCII.
+        </li>
+        <li>
+          <code>value</code> arguments can be a <code>bigint</code> or a safe integer.
+        </li>
+        <li>
+          More detail is available in
+          the <a href="https://github.com/naxp-org/naxp/tree/main/src/js#readme">source repo README</a>.
+        </li>
+      </ul>
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr><th scope="col">Operation</th><th scope="col">Call</th><th scope="col">Returns</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse</th><td data-label="Call"><code>Naxp.parse(pattern)</code></td><td data-label="Returns">A <code>Naxp</code>, or throws <code>NaxpFormatError</code>.</td></tr>
+          <tr><th scope="row">Try to parse</th><td data-label="Call"><code>Naxp.tryParse(pattern)</code></td><td data-label="Returns"><code>{ naxp, errorMessage, errorOffset, errorLength, errorCode }</code>, with <code>naxp</code> <code>null</code> where the pattern is invalid.</td></tr>
+          <tr><th scope="row">Pattern</th><td data-label="Call"><code>pattern</code></td><td data-label="Returns">The pattern the <strong>naxp</strong> was parsed from.</td></tr>
+          <tr><th scope="row">Largest encoded value</th><td data-label="Call"><code>maxEncodedValue</code></td><td data-label="Returns">A <code>bigint</code>, which is also how many encoded values there are.</td></tr>
+          <tr><th scope="row">Longest text</th><td data-label="Call"><code>maxLength</code></td><td data-label="Returns">The length of the longest text a value decodes to.</td></tr>
+          <tr><th scope="row">Accepts</th><td data-label="Call"><code>accepts(text)</code></td><td data-label="Returns">Whether the text is valid for the <strong>naxp</strong>.</td></tr>
+          <tr><th scope="row">Encode</th><td data-label="Call"><code>encode(text)</code></td>
+            <td data-label="Returns">
+              The encoded value, from <code>1n</code> to <code>maxEncodedValue</code>, 
+              or <code>0n</code> where the text is invalid.
+              (The returned value is a <code>bigint</code> because a <strong>naxp</strong> may hold up
+              to 2<sup>64</sup>&nbsp;&minus;&nbsp;1 values.)
+            </td></tr>
+          <tr><th scope="row">Decode</th><td data-label="Call"><code>decode(value)</code></td><td data-label="Returns">The canonical text, or throws <code>RangeError</code> where the value is out of range.</td></tr>
+          <tr><th scope="row">Try to decode</th><td data-label="Call"><code>tryDecode(value)</code></td><td data-label="Returns">The canonical text, or <code>null</code> where the value is out of range.</td></tr>
+          <tr><th scope="row">Decode to bytes</th><td data-label="Call"><code>decodeToBytes(value)</code></td><td data-label="Returns">The canonical text as a <code>Uint8Array</code> of ASCII.</td></tr>
+          <tr><th scope="row">Canonical form</th><td data-label="Call"><code>getCanonicalForm(text)</code></td><td data-label="Returns">The canonical form of the text, or <code>null</code> where the text is invalid.</td></tr>
+          <tr><th scope="row">Generate code</th><td data-label="Call"><code>emit(language, prefix, valueType)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language. See <a href="/code-gen/">code-gen</a>.</td></tr>
+          <tr><th scope="row">Compare</th><td data-label="Call"><code>Naxp.compare(a, b, budget?)</code>, <code>Naxp.tryCompare(a, b, budget?)</code></td><td data-label="Returns">How two <strong>naxp</strong>s relate. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
+          <tr><th scope="row">First divergent value</th><td data-label="Call"><code>Naxp.firstDivergentValue(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or <code>0n</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Band 4: how an error is reported -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="section__title">Parsing errors</h2>
+    <p>
+      When parsing a <strong>naxp</strong> pattern fails, the error is reported as (a) an error code,
+      (b) an informative error message, and (c) the zero-based offset and (d) the length of the
+      part of the pattern in error.
+    </p>
+    <p>
+      For example, parsing <code class="naxp">A{2<span class="errmark">-</span>5}</code> reports:
+    </p>
+    <table class="datatable datatable--prose api-error">
+      <tbody>
+        <tr><th scope="row">Error code</th><td><a href="/error-codes/#naxp1002"><code>"NAXP1002"</code></a></td></tr>
+        <tr><th scope="row">Error message</th><td><code>"The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'."</code></td></tr>
+        <tr><th scope="row">Offset</th><td><code>3</code></td></tr>
+        <tr><th scope="row">Length</th><td><code>1</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      All error codes are listed
+      <a href="/error-codes/">here</a>.
+    </p>
+  </div>
+</section>
+
+<!-- Band 5: adding an implementation -->
+<section class="band band--edge-top">
+  <div class="band__inner">
+    <h2 class="section__title">Create a new implementation</h2>
+    <p>
+      If you want to write an implementation in a language not already covered then:
+    </p>
+    <ol>
+      <li>
+        Please <em>open an issue on <a href="https://github.com/naxp-org/naxp/issues">GitHub</a></em>
+        so that work is not duplicated.
+      </li>
+      <li>
+        Take a <em>look at the existing implementations</em> above to understand how they work.
+      </li>
+      <li>
+        <em>Test your implementation against the
+        <a href="/conformance/<!-- conformance data file -->">conformance data</a></em>, a JSON file per
+        specification version that is generated from the specification itself rather than from
+        any implementation, so an implementation cannot define its own truth by passing it. It
+        comprises
+        <ul>
+          <li>
+            well-formed <strong>naxp</strong>s, each with its value count and a set of texts with
+            their encoded values and canonical forms (every accepted string, for the smaller cases),
+          </li>
+          <li>invalid text for those <strong>naxp</strong>s, and</li>
+          <li>invalid <strong>naxp</strong>s, each tagged with the rule it breaks.</li>
+        </ul>
+        <p>
+          Counts and encoded values are written as decimal strings, because they legitimately
+          reach 2<sup>64</sup>&nbsp;&minus;&nbsp;1 and most JSON parsers read a number into a
+          double.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+</main>
+
+<!-- Band 6: credits and licensing -->
+<!-- sitefooter -->
+
+</body>
+</html>

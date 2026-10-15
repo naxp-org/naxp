@@ -5,7 +5,7 @@
 #define NAXP_COMPILER_HPP
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "state_map.hpp"
 #include "tx_machine.hpp"
 
@@ -158,7 +158,7 @@ namespace logmu::detail
 	/// compilation that succeeds is a well-formed naxp.
 	namespace compiler
 	{
-		bool try_compile(std::string_view pattern, std::unique_ptr<compilation>& result, std::optional<fault>& error);
+		bool try_compile(std::string_view pattern, std::unique_ptr<compilation>& result, std::optional<naxp_error>& error);
 	}
 }
 

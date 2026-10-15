@@ -175,7 +175,7 @@ class StateMapBuilder {
 
 	/**
 	 * @param {import('./rx.js').Rx} start The expression, as produced by the converter.
-	 * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the fault.
+	 * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the error.
 	 */
 	build(start) {
 		const explored = this.explore(start);
@@ -345,7 +345,7 @@ class StateMapBuilder {
  * @param {import('./rx.js').RxFactory} factory The factory that made it, reused so derivatives
  * stay interned.
  * @param {number} [maxStates] The budget, lowered by tests so the cap can be reached cheaply.
- * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the fault.
+ * @returns {{map: StateMap | null, error: NaxpError | null}} The machine, or the error.
  */
 export function tryBuild(start, factory, maxStates = NaxpLimits.maxStates) {
 	return new StateMapBuilder(factory, maxStates).build(start);

@@ -4,7 +4,7 @@
 #include "tx_machine.hpp"
 
 #include "ascii_char_set.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_message.hpp"
 #include "state_map.hpp"
 #include "tx.hpp"
@@ -238,14 +238,14 @@ namespace logmu::detail
 				std::size_t next;
 			};
 
-			fault violation()
+			naxp_error violation()
 			{
-				return fault(naxp_message::unification_not_single_valued);
+				return naxp_error(naxp_message::unification_not_single_valued);
 			}
 
-			fault too_large()
+			naxp_error too_large()
 			{
-				return fault(naxp_message::too_many_canonical_states);
+				return naxp_error(naxp_message::too_many_canonical_states);
 			}
 
 			std::string longest_common_prefix(const std::unordered_map<const tx*, std::string>& pendings)
@@ -307,7 +307,7 @@ namespace logmu::detail
 				{
 				}
 
-				bool try_run(const tx* root, std::unique_ptr<tx_machine>& machine, std::optional<fault>& error)
+				bool try_run(const tx* root, std::unique_ptr<tx_machine>& machine, std::optional<naxp_error>& error)
 				{
 					machine = nullptr;
 
@@ -366,7 +366,7 @@ namespace logmu::detail
 
 				/// Records what the state emits where the input ends, failing where the parses
 				/// disagree.
-				bool try_set_end_output(std::size_t index, std::optional<fault>& error)
+				bool try_set_end_output(std::size_t index, std::optional<naxp_error>& error)
 				{
 					std::optional<std::string> end_output;
 
@@ -416,7 +416,7 @@ namespace logmu::detail
 				}
 
 				/// Follows every block of characters the state can read.
-				bool try_explore(std::size_t index, std::deque<std::size_t>& queue, std::optional<fault>& error)
+				bool try_explore(std::size_t index, std::deque<std::size_t>& queue, std::optional<naxp_error>& error)
 				{
 					this->first_sets.clear();
 
@@ -454,7 +454,7 @@ namespace logmu::detail
 
 				/// Takes one step, narrowing the block to single characters where what is
 				/// emitted would otherwise stay undecided past this step.
-				bool try_step(std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<fault>& error)
+				bool try_step(std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<naxp_error>& error)
 				{
 					std::unordered_map<const tx*, std::string> pending_of;
 
@@ -552,7 +552,7 @@ namespace logmu::detail
 
 				/// Retakes a step one character at a time, so that a reference to the character
 				/// being read becomes the character itself and two parses can be compared.
-				bool try_narrow(std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<fault>& error)
+				bool try_narrow(std::size_t index, ascii_char_set block, std::deque<std::size_t>& queue, std::optional<naxp_error>& error)
 				{
 					for (const char c : block)
 					{
@@ -568,7 +568,7 @@ namespace logmu::detail
 				}
 
 				/// Finds a state, adding it and queueing it where it is new.
-				bool try_add(branch_set_key key, std::deque<std::size_t>& queue, std::size_t& index, std::optional<fault>& error)
+				bool try_add(branch_set_key key, std::deque<std::size_t>& queue, std::size_t& index, std::optional<naxp_error>& error)
 				{
 					if (const auto found = this->index_of.find(key); found != this->index_of.end())
 					{
@@ -645,7 +645,7 @@ namespace logmu::detail
 			};
 		}
 
-		bool try_build(const tx* root, tx_factory& factory, std::unique_ptr<tx_machine>& machine, std::optional<fault>& error, int max_states)
+		bool try_build(const tx* root, tx_factory& factory, std::unique_ptr<tx_machine>& machine, std::optional<naxp_error>& error, int max_states)
 		{
 			return builder(factory, max_states).try_run(root, machine, error);
 		}

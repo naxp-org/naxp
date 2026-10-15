@@ -7,7 +7,7 @@ using System.Globalization;
 namespace LogMu;
 
 /// <summary>
-/// Every fault this implementation can produce, one member per message.
+/// Every error this implementation can produce, one member per message.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,10 +16,10 @@ namespace LogMu;
 /// it readable, which is why both are in the name rather than in a lookup somewhere else.
 /// </para>
 /// <para>
-/// Nothing inside the library handles message text. A fault names a member of this enum and, at
+/// Nothing inside the library handles message text. An error names a member of this enum and, at
 /// most, supplies one string for it to interpolate; <see cref="NaxpMessages"/> is the only place
 /// that knows what any of them say. Two messages that used to be chosen by a ternary where the
-/// fault is found are therefore two members here.
+/// error is found are therefore two members here.
 /// </para>
 /// <para>
 /// The comment above each group names the rule of the specification it belongs to. That is the
@@ -103,7 +103,7 @@ enum NaxpMessage
 	// W5: the size of the encoding
 	NAXP1046_TooManyValues,
 
-	// Not rules of the language: budgets this implementation imposes
+	// W6: machine budgets
 	NAXP1047_ElementTooLong,
 	NAXP1048_TooManyStates,
 	NAXP1049_TooManyCanonicalStates,
@@ -184,31 +184,31 @@ static class NaxpMessages
 		return
 		[
 			// NAXP1001_QuantifierRepeated
-			"An atom may take only one quantifier. To repeat something already quantified, group it first, as in '(A?){2}'.",
+			"An atom may take only one quantifier. To repeat something already quantified, group it first with parentheses, as in '(A?){2}'.",
 			// NAXP1002_IntervalHyphen
-			"The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'.",
+			"The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'.",
 			// NAXP1003_IntervalUnbounded
-			"There is no unbounded interval, because a naxp must have a finite count of values. Write both counts, as in 'A{2,5}'.",
+			"An interval cannot be unbounded. Include both counts, as in 'A{2,5}'.",
 			// NAXP1004_IntervalNotClosed
 			"This interval is not closed. Add a '}'.",
 			// NAXP1005_IntervalCountNotDigits
-			"An interval count must be a run of one to two digits.",
+			"An interval count must be one or two digits.",
 			// NAXP1006_IntervalCountSplit
 			"The digits of an interval count cannot be separated by whitespace.",
 			// NAXP1007_IntervalCountsOutOfOrder
 			"The first count of an interval cannot exceed the second.",
 			// NAXP1008_IntervalCountTooLong
-			"An interval count may have at most two digits. The cap bounds the expansion an implementation must carry out before it can judge a naxp on any other ground.",
+			"An interval count may have at most two digits.",
 			// NAXP1009_GroupNotClosed
 			"This group is not closed. Add a ')'.",
 			// NAXP1010_ReproducedAfterOptional
-			"'!!' carries its own '?', so it cannot follow one. Write 'x!(x)' instead.",
+			"'!!' makes the element before it optional, so that element cannot also have a '?'. Remove the preceding '?'.",
 			// NAXP1011_DroppedAfterOptional
-			"'!?' carries its own '?', so it cannot follow one. Write 'x!()' instead.",
+			"'!?' makes the element before it optional, so that element cannot also have a '?'. Remove the preceding '?'.",
 			// NAXP1012_ReproducedSplit
-			"'!!' is one token, so whitespace may not split it.",
+			"'!!' must be written as one token. It cannot be split by whitespace.",
 			// NAXP1013_DroppedSplit
-			"'!?' is one token, so whitespace may not split it.",
+			"'!?' must be written as one token. It cannot be split by whitespace.",
 			// NAXP1014_RenderingMissing
 			"A '!' must be followed by its rendering. Write 'x!y', 'x!!' or 'x!?'; there is no bare 'x!'.",
 			// NAXP1015_HashSplitFromBracket
@@ -216,7 +216,7 @@ static class NaxpMessages
 			// NAXP1016_HashWithoutBracket
 			"A '#' introduces a decimal range and must be followed by '['. To match a hash write '\\#'.",
 			// NAXP1017_DecimalRangeBoundsSeparator
-			"The bounds of a decimal range are separated by '-'. Write '#[0-105]'.",
+			"The bounds of a decimal range are separated by '-', not ','. Write '#[0-105]'.",
 			// NAXP1018_DecimalRangeNotClosed
 			"This decimal range is not closed. Add a ']'.",
 			// NAXP1019_DecimalRangeBoundNotDigits
@@ -230,15 +230,15 @@ static class NaxpMessages
 			// NAXP1023_LowerBoundExceedsUpper
 			"The lower bound of a decimal range may not exceed the upper bound.",
 			// NAXP1024_DecimalRangeBoundTooLong
-			"A decimal range bound may have at most fifteen digits, which is what a 53 bit mantissa holds exactly.",
+			"A decimal range bound may have at most fifteen digits.",
 			// NAXP1025_CharacterSetNotClosed
 			"This character set is not closed. Add a ']'.",
 			// NAXP1026_RangeUpperBoundIsBlockEscape
-			"A range in a character set runs between two single characters, so its upper bound cannot be a block escape.",
+			"A range in a character set runs between two single characters. Its upper bound cannot be a block escape.",
 			// NAXP1027_RangeReversed
 			"A range in a character set must be written lowest first. Write '{0}'.",
 			// NAXP1028_CharacterSetEmpty
-			"A character set must contain at least one character, so '[]' is not legal.",
+			"A character set must contain at least one character. '[]' is invalid.",
 			// NAXP1029_BackslashBeforeWhitespace
 			"A '\\' cannot be followed by whitespace. To match a space write '\\s'.",
 			// NAXP1030_BackslashWithoutEscape
@@ -246,45 +246,45 @@ static class NaxpMessages
 			// NAXP1031_EscapeUndefined
 			"'\\{0}' is not an escape. A backslash may be followed by one of the letters 's', '9', 'A', 'a', 'X', 'x', 'C' and 'c', or by a reserved character.",
 			// NAXP1032_CharacterNotAllowed
-			"{0} cannot appear in the pattern of a naxp, which may hold whitespace and the printable ASCII characters U+0021 to U+007E.",
+			"{0} cannot appear in a naxp. The only valid characters in a naxp are whitespace and the printable ASCII characters U+0021 to U+007E.",
 			// NAXP1033_ElementRequired
-			"An element is required here, but the naxp ends.",
+			"An element is expected here, but the naxp ends.",
 			// NAXP1034_AlternativeEmpty
 			"An alternative must contain at least one element. To admit the empty string write '()'.",
 			// NAXP1035_UnifiedWithoutElement
-			"A '!' must follow its left operand, the subject it unifies. To match an exclamation mark write '\\!'.",
+			"The '!' operator requires a left operand, the subject it unifies. To match an exclamation mark write '\\!'.",
 			// NAXP1036_NaxpIncomplete
 			"The naxp ends before it is complete.",
 			// NAXP1037_ReservedCharacterHere
-			"'{0}' is reserved and cannot appear here. To match it write '\\{0}'.",
+			"'{0}' is reserved and cannot appear here. To match that character write '\\{0}'.",
 			// NAXP1038_CharacterHere
 			"{0} cannot appear here.",
 			// NAXP1039_UnifiedNested
-			"A '!' may not nest, so neither the subject nor the rendering may contain another '!'.",
+			"A '!' may not nest. Neither the left operand (the subject) nor the right one (the rendering) may contain another '!'.",
 			// NAXP1040_ReproducedSubjectNotSingle
-			"The subject of a '!!' must generate exactly one string, since '!!' reproduces it.",
+			"The subject of a '!!' must generate exactly one string, because it is also the rendering.",
 			// NAXP1041_RenderingNotSingle
-			"The rendering of a '!' must generate exactly one string, or there would be no basis on which to choose between them.",
+			"The rendering of a '!' must generate exactly one string.",
 			// NAXP1042_ElementNotDeletable
 			"This element cannot be deleted, because its subject does not generate the empty string. Make the subject optional.",
 			// NAXP1043_RenderingNotGenerated
-			"The rendering '{0}' is not one of the strings its subject generates, so reconstituted text would not encode again.",
+			"The rendering '{0}' is not one of the strings its subject generates, so reconstituted text could not be encoded.",
 			// NAXP1044_UnificationNotSingleValued
-			"Text unification must be single valued, but this naxp gives one string more than one canonical form, so it would have more than one value.",
+			"Text unification must be single valued, but this naxp results in multiple canonical forms for some text inputs.",
 			// NAXP1045_UnificationNotSingleValuedWitness
-			"Text unification must be single valued, but '{0}' has more than one canonical form under this naxp, so it would have more than one value.",
+			"Text unification must be single valued, but '{0}' results in multiple canonical forms.",
 			// NAXP1046_TooManyValues
-			"This naxp has more than 18 446 744 073 709 551 615 encoded values, which is more than W5 allows.",
+			"This naxp has more than the maximum permitted 18 446 744 073 709 551 615 encoded values.",
 			// NAXP1047_ElementTooLong
-			$"This element generates a string longer than {maxGeneratedLength} characters, which W6 does not allow.",
+			$"This element generates a string longer than the maximum permitted {maxGeneratedLength} characters.",
 			// NAXP1048_TooManyStates
-			$"This naxp needs more than {maxStates} states, which W6 does not allow.",
+			$"This naxp exceeds the maximum permitted {maxStates} states.",
 			// NAXP1049_TooManyCanonicalStates
-			$"This naxp needs more than {maxCanonicalStates} states to canonicalise, which W6 does not allow.",
+			$"This naxp needs more than the maximum permitted {maxCanonicalStates} states to canonicalise.",
 			// NAXP1050_TooManyPairStates
-			$"Deciding whether unification is single valued for this naxp needs more than {maxStates} pair states, which W6 does not allow.",
+			$"Deciding whether unification is single valued for this naxp needs more than the maximum permitted {maxStates} pair states.",
 			// NAXP1051_PairOutputAbandoned
-			$"Deciding whether unification is single valued for this naxp needs an intermediate string longer than {maxGeneratedLength} characters, which W6 does not allow.",
+			$"Deciding whether unification is single valued for this naxp needs an intermediate string longer than the maximum permitted {maxGeneratedLength} characters.",
 			// NAXP1052_FoldInCharacterSet
 			"'\\{0}' is a case fold and applies to a whole element, so it cannot appear inside a character set. Write it before the set instead.",
 			// NAXP1053_DecimalRangeMarkSplit
@@ -304,7 +304,7 @@ static class NaxpMessages
 			// NAXP1060_AnyCharacter
 			"'.' is reserved. Write the character set you mean, such as '\\X'. To match a full stop write '\\.'.",
 			// NAXP1061_Anchor
-			"'{0}' is reserved. A naxp matches the whole text, so there are no anchors. To match the character write '\\{0}'.",
+			"'{0}' is reserved. A naxp always matches the whole text, so there are no anchor operators. To match the character write '\\{0}'.",
 			// NAXP1062_IntervalCountZero
 			"A fixed count of zero matches only the empty string. Write '()' instead.",
 		];

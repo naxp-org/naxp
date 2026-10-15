@@ -91,8 +91,8 @@ public class CSharpEmitterTests
 			+ "#else\npublic static string GetCanonicalForm(global::System.ReadOnlySpan<char> text)\n#endif\n",
 			source,
 			StringComparison.Ordinal);
-		Assert.Equal(5, source.Split(new[] { "string?" }, StringSplitOptions.None).Length - 1);
-		Assert.Equal(5, source.Split(new[] { "#else" }, StringSplitOptions.None).Length - 1);
+		Assert.Equal(7, source.Split(new[] { "string?" }, StringSplitOptions.None).Length - 1);
+		Assert.Equal(7, source.Split(new[] { "#else" }, StringSplitOptions.None).Length - 1);
 	}
 
 	[Fact]

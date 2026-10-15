@@ -40,7 +40,7 @@ static class W3Checker
 	/// </summary>
 	/// <param name="ast">The tree, which must already have passed W1 and W2.</param>
 	/// <param name="rxFactory">The factory the machines will be built with, reused for interning.</param>
-	/// <param name="error">The fault, or <see langword="null"/> if the naxp passes.</param>
+	/// <param name="error">The error, or <see langword="null"/> if the naxp passes.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the naxp passes.</returns>
 	public static bool TryCheck(Ast ast, RxFactory rxFactory, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)
@@ -63,7 +63,7 @@ static class W3Checker
 	/// <see cref="Ast.ContainsUnified"/> for <paramref name="ast"/>, so that a caller which
 	/// needs the same fact does not walk the tree for it twice.
 	/// </param>
-	/// <param name="error">The fault, or <see langword="null"/> if the naxp passes.</param>
+	/// <param name="error">The error, or <see langword="null"/> if the naxp passes.</param>
 	/// <param name="maxStates">The budget, lowered by tests so the cap can be reached cheaply.</param>
 	/// <returns>Whether the naxp passes.</returns>
 	public static bool TryCheck(Ast ast, RxFactory rxFactory, bool hasUnified, out NaxpError? error, int maxStates = NaxpLimits.MaxStates)

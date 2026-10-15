@@ -31,7 +31,7 @@ namespace LogMu;
 /// element pays it up to four times over - the canonical machine, the accepted machine, the W3
 /// square and the machine that canonicalises - so the worst a compilation can cost is roughly
 /// four times the budget. That is what these numbers are chosen against, because naxp.org will
-/// compile naxps supplied by strangers and a fault costs as much as an acceptance.
+/// compile naxps supplied by strangers and an error costs as much as an acceptance.
 /// </para>
 /// </remarks>
 static class NaxpLimits

@@ -163,7 +163,7 @@ function element(depth, insideUnified) {
 		text += space() + chosen;
 	}
 
-	// A unified element inside another breaks W2, '!!' after a '?' is a syntax fault, '!!' on
+	// A unified element inside another breaks W2, '!!' after a '?' is a syntax error, '!!' on
 	// a subject with more than one string and a rendering with more than one string both
 	// break W1, so each is rare rather than impossible: some invalid naxps are wanted, but not
 	// most.
@@ -184,7 +184,7 @@ function element(depth, insideUnified) {
 /**
  * A rendering for a subject: mostly one of the strings the subject generates, found by
  * compiling the subject on its own and decoding a value, since W1 asks for exactly that; the
- * rest are a short literal that may or may not be, so W1's faults are exercised too.
+ * rest are a short literal that may or may not be, so W1's errors are exercised too.
  */
 function rendering(subject) {
 	const { compilation } = tryCompile(subject);
@@ -295,7 +295,7 @@ while (cases.length + invalidNaxps.length < options.count) {
 	const { compilation, error } = tryCompile(naxp);
 
 	if (compilation === null) {
-		// A fault of the naxp as a whole is given the whole pattern as its span, which is what
+		// An error of the naxp as a whole is given the whole pattern as its span, which is what
 		// the public surface of every implementation reports.
 		const whole = error.offset === 0 && error.length === 0;
 

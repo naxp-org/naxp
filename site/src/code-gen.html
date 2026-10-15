@@ -46,9 +46,9 @@ try {
       If you want to implement a specific <strong>naxp</strong> but
     </p>
     <ul>
-      <li>you don't want to link in a <a href="/libraries/">library</a>,</li>
+      <li>you don't want to link in a <a href="/api/">library</a>,</li>
       <li>
-        you don't want to pay the run-time cost associated with a <a href="/libraries/">library</a>
+        you don't want to pay the run-time cost associated with a <a href="/api/">library</a>
         for something that can be completely determined in advance, or
       </li>
       <li>there is no library for your language,</li>
@@ -73,7 +73,7 @@ try {
           to ensure stored encoded values continue to mean the same thing.
         </li>
         <li>
-          &hellip; <em>using C#</em>, then the source generator in the <a href="/libraries/">NuGet package</a>
+          &hellip; <em>using C#</em>, then the source generator in the <a href="/api/">NuGet package</a>
           gets you the same code as this page but <em>generated automatically from your source code</em>.
         </li>
       </ul>
@@ -88,19 +88,19 @@ try {
     </p>
 
     <p>
-      The generated code API corresponds to the
-      <a href="/libraries/">library</a>'s
-      functionality for a single <strong>naxp</strong>.
-      It is fully documented in place, but, in broad terms
-      (noting that actual naming conventions vary by language),
+      The generated code API is similar to the
+      corresponding <a href="/api/">library</a> API
+      for a single <strong>naxp</strong> and is fully documented.
+      The following is a high level summary
+      (with precise naming following the language's convention):
     </p>
     <ul>
-      <li><code>accepts</code> tests whether text is valid,</li>
-      <li><code>encode</code> gets the encoded value of text (with <code>0</code> indicating invalid text),</li>
-      <li><code>decode</code> and friends get the (canonical) text from an encoded value,</li>
-      <li><code>getCanonicalForm</code> and friends get the canonical form of text,</li>
-      <li><code>pattern</code> is the <strong>naxp</strong> the code was generated from,</li>
-      <li><code>maxEncodedValue</code> is the largest possible encoded value, and</li>
+      <li><code>accepts(...)</code> tests whether text is valid.</li>
+      <li><code>encode(...)</code> gets the encoded value of text (with <code>0</code> indicating invalid text).</li>
+      <li><code>decode(...)</code> and friends get the (canonical) text from an encoded value.</li>
+      <li><code>getCanonicalForm(...)</code> and friends get the canonical form of text.</li>
+      <li><code>pattern</code> is the original <strong>naxp</strong> pattern used to generate the code.</li>
+      <li><code>maxEncodedValue</code> is the largest possible encoded value.</li>
       <li>
         <code>maxLength</code> is the length of the longest canonical text 
         &ndash; a buffer this size is sufficient for any text returned by
@@ -125,7 +125,7 @@ try {
 
     <div class="field field--pattern">
       <label class="field__label" for="naxp-pattern"><strong>naxp</strong></label>
-      <!-- The box and the layer that marks a fault in it are stacked, so the squiggle lands
+      <!-- The box and the layer that marks an error in it are stacked, so the squiggle lands
            under the text being edited rather than in a box of its own. -->
       <div class="field__stack">
         <div id="naxp-underlay" class="input input--naxp field__underlay" aria-hidden="true"></div>
@@ -145,7 +145,7 @@ try {
         <button type="button" class="chip" aria-disabled="true">Go</button>
         <button type="button" class="chip" aria-disabled="true">Java</button>
         <button type="button" class="chip" aria-pressed="true">JavaScript</button>
-        <button type="button" class="chip" aria-disabled="true">Kotlin</button>
+        <button type="button" class="chip" aria-disabled="true">Julia</button>
         <button type="button" class="chip" aria-disabled="true">Python</button>
         <button type="button" class="chip" aria-disabled="true">R</button>
         <button type="button" class="chip" aria-disabled="true">Rust</button>

@@ -5,7 +5,7 @@
 #include "state_map.hpp"
 
 #include "ascii_char_set.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "naxp_message.hpp"
 #include "rx.hpp"
@@ -113,7 +113,7 @@ namespace logmu::detail
 				{
 				}
 
-				bool try_build(const rx* start, std::unique_ptr<state_map>& map, std::optional<fault>& error)
+				bool try_build(const rx* start, std::unique_ptr<state_map>& map, std::optional<naxp_error>& error)
 				{
 					map = nullptr;
 
@@ -189,7 +189,7 @@ namespace logmu::detail
 			private:
 				/// Walks the derivatives breadth first, collecting the distinct expressions
 				/// and the edges between them.
-				bool try_explore(const rx* start, std::vector<const rx*>& explored, std::unordered_map<const rx*, std::vector<edge>>& edges, std::optional<fault>& error)
+				bool try_explore(const rx* start, std::vector<const rx*>& explored, std::unordered_map<const rx*, std::vector<edge>>& edges, std::optional<naxp_error>& error)
 				{
 					explored.push_back(start);
 
@@ -232,7 +232,7 @@ namespace logmu::detail
 								{
 									explored.clear();
 									edges.clear();
-									error = fault(naxp_message::too_many_states);
+									error = naxp_error(naxp_message::too_many_states);
 
 									return false;
 								}
@@ -338,7 +338,7 @@ namespace logmu::detail
 			};
 		}
 
-		bool try_build(const rx* start, rx_factory& factory, std::unique_ptr<state_map>& map, std::optional<fault>& error, int max_states)
+		bool try_build(const rx* start, rx_factory& factory, std::unique_ptr<state_map>& map, std::optional<naxp_error>& error, int max_states)
 		{
 			return builder(factory, max_states).try_build(start, map, error);
 		}

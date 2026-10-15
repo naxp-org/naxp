@@ -23,7 +23,7 @@ import { ruleOf } from './naxp-message-rules.js';
  * @param {boolean} isCanonical Whether the canonical language is wanted rather than the accepted one.
  * @param {number} [maxStates] The state budget.
  * @returns {{map: import('../lib/state-map.js').StateMap | null,
- *   error: import('../lib/naxp-error.js').NaxpError | null}} The machine, or the fault.
+ *   error: import('../lib/naxp-error.js').NaxpError | null}} The machine, or the error.
  */
 function build(naxp, isCanonical, maxStates) {
 	const { ast, error } = tryParse(naxp);
@@ -265,7 +265,7 @@ test('a machine too large to build breaks W6', () => {
 	// The code, not the prose. The message names the budget this implementation ships with,
 	// which is not the lowered one a test builds against.
 	assert.equal(error.message, NaxpMessage.NAXP1048_TooManyStates);
-	assert.ok(error.text.includes('W6'), error.text);
+	assert.ok(error.text.includes('maximum permitted'), error.text);
 });
 
 test('a machine inside the budget is built', () => {

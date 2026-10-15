@@ -43,9 +43,9 @@ const DEFERRED_RULES = new Set(['W5', 'W6']);
  * Runs everything that is written, in the order a compilation would.
  *
  * @param {string} naxp The pattern.
- * @returns {import('../lib/naxp-error.js').NaxpError | null} The fault, or null.
+ * @returns {import('../lib/naxp-error.js').NaxpError | null} The error, or null.
  */
-function fault(naxp) {
+function errorIn(naxp) {
 	const { ast, error } = tryParse(naxp);
 
 	if (ast === null) { return error; }
@@ -74,7 +74,7 @@ test('every well-formed naxp in the test data parses and passes W1, W2 and W3', 
 	const failures = [];
 
 	for (const item of data.cases) {
-		const error = fault(item.naxp);
+		const error = errorIn(item.naxp);
 
 		if (error !== null) { failures.push(`${item.naxp} was invalid: ${error}`); }
 	}
@@ -158,7 +158,7 @@ test('every naxp invalid under W5 or W6 passes every rule these layers own, and 
 	assert.equal(deferred.length, 3);
 
 	for (const item of deferred) {
-		assert.equal(fault(item.naxp), null, `${item.naxp} was invalid before the compiler`);
+		assert.equal(errorIn(item.naxp), null, `${item.naxp} was invalid before the compiler`);
 
 		const { naxp, errorCode } = Naxp.tryParse(item.naxp);
 
@@ -167,9 +167,9 @@ test('every naxp invalid under W5 or W6 passes every rule these layers own, and 
 	}
 });
 
-test('every fault points somewhere inside the pattern, or just past its end', () => {
+test('every error points somewhere inside the pattern, or just past its end', () => {
 	for (const item of data.invalidNaxps) {
-		const error = fault(item.naxp);
+		const error = errorIn(item.naxp);
 
 		if (error === null) { continue; }
 

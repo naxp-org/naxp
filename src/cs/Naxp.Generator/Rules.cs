@@ -17,9 +17,13 @@ namespace LogMu.Generator;
 /// this one file.
 /// </para>
 /// <para>
-/// NAXP00xx is the attribute and its surroundings, which the generator can see for itself. A
-/// fault in the naxp itself is not in this table: it is reported under the library's own code,
-/// NAXP1002 and its like, by <see cref="Rules.NaxpFault"/>. That code names the rule broken, so
+/// NAXP2xxx is the attribute and its surroundings, which the generator can see for itself. The
+/// leading digit names the family: NAXP1xxx is an error in a naxp, which every implementation
+/// reports alike, and NAXP2xxx is one only this generator reports.
+/// </para>
+/// <para>
+/// An error in the naxp itself is not in this table: it is reported under the library's own code,
+/// NAXP1002 and its like, by <see cref="Rules.NaxpError"/>. That code names the rule broken, so
 /// putting it in the identifier rather than inside the message leaves one code where a reader
 /// expects one, and lets a build suppress a single rule. Every one of these is an error: each
 /// stops one naxp being generated, and generated code that silently went missing would fail later
@@ -27,16 +31,16 @@ namespace LogMu.Generator;
 /// </para>
 /// <code>
 /// Id        Rule                  Severity  Title
-/// NAXP0001  NotPartial            Error     A type holding a naxp must be partial
-/// NAXP0002  ContainerNotPartial   Error     A type holding a naxp must be nested in partial types
-/// NAXP0003  GenericType           Error     A type holding a naxp must not be generic
-/// NAXP0004  NaxpMissing           Error     The naxp is missing
-/// NAXP0005  PrefixNotIdentifier   Error     The prefix is not an ASCII identifier
-/// NAXP0006  PrefixNotUnique       Error     Two naxps in one type share a prefix
-/// NAXP0007  ValueTypeUnknown      Error     The value type is not an integer type
-/// NAXP0008  ValueTypeTooNarrow    Error     The naxp does not fit the value type
-/// NAXP0009  GeneratorFailed       Error     The naxp generator failed
-/// NAXP0010  FileLocalType         Error     A file-local type cannot hold a naxp
+/// NAXP2001  NotPartial            Error     A type holding a naxp must be partial
+/// NAXP2002  ContainerNotPartial   Error     A type holding a naxp must be nested in partial types
+/// NAXP2003  GenericType           Error     A type holding a naxp must not be generic
+/// NAXP2004  NaxpMissing           Error     The naxp is missing
+/// NAXP2005  PrefixNotIdentifier   Error     The prefix is not an ASCII identifier
+/// NAXP2006  PrefixNotUnique       Error     Two naxps in one type share a prefix
+/// NAXP2007  ValueTypeUnknown      Error     The encoded value type is not an integer type
+/// NAXP2008  ValueTypeTooNarrow    Error     The naxp does not fit the encoded value type
+/// NAXP2009  GeneratorFailed       Error     The naxp generator failed
+/// NAXP2010  FileLocalType         Error     A file-local type cannot hold a naxp
 /// </code>
 /// </remarks>
 enum Rule
@@ -67,57 +71,57 @@ static class Rules
 	/// </remarks>
 	static readonly ImmutableArray<DiagnosticDescriptor> Descriptors = ImmutableArray.Create(
 		Error(
-			"NAXP0001",
+			"NAXP2001",
 			"A type holding a naxp must be partial",
-			"'{0}' carries [Naxp] but is not partial, so there is nowhere to put the generated code. Add the 'partial' modifier to '{0}'."),
+			"'{0}' is annotated with [Naxp] but is not a partial class or struct. Add the 'partial' modifier to '{0}'."),
 		Error(
-			"NAXP0002",
+			"NAXP2002",
 			"A type holding a naxp must be nested in partial types",
-			"'{0}' carries [Naxp] but the type it sits in, '{1}', is not partial. Add the 'partial' modifier to '{1}' as well."),
+			"'{0}' is annotated with [Naxp] but its containing type, '{1}', is not a partial class or struct. Add the 'partial' modifier to '{1}' as well."),
 		Error(
-			"NAXP0003",
+			"NAXP2003",
 			"A type holding a naxp must not be generic",
-			"'{0}' is generic, and every constructed type would get its own copy of the generated tables and constants. Move the naxp to a type without type parameters."),
+			"The [Naxp] attribute cannot be applied to a generic type such as '{0}'."),
 		Error(
-			"NAXP0004",
+			"NAXP2004",
 			"The naxp is missing",
-			"[Naxp] takes the naxp itself as its first argument, and this one is null. Write the naxp as a string, such as [Naxp(@\"\\A\\9\\X \\s! \\9\\A\\A\", typeof(int))]."),
+			"Missing or null naxp argument. It should look something like '[Naxp(@\"\\A\\9\\X \\s!! \\9\\A\\A\", typeof(int))]'."),
 		Error(
-			"NAXP0005",
+			"NAXP2005",
 			"The prefix is not an ASCII identifier",
 			"Prefix = \"{0}\" cannot start the generated member names: {1} Use ASCII letters, digits and underscores, starting with a letter or an underscore."),
 		Error(
-			"NAXP0006",
+			"NAXP2006",
 			"Two naxps in one type share a prefix",
-			"'{0}' has two naxps with Prefix = \"{1}\", which would generate two members called '{1}Accepts'. Give each naxp in a type a different Prefix."),
+			"'{0}' has two naxps with Prefix = \"{1}\", which would generate two members called '{1}Accepts'. Give each naxp in the same class or struct a different Prefix."),
 		Error(
-			"NAXP0007",
-			"The value type is not an integer type",
-			"{0} is not a type a naxp can encode to. Write typeof of an integer type: " + ValueTypes.Choices + "."),
+			"NAXP2007",
+			"The encoded value type is not an integer type",
+			"{0} is not a valid encoded value type. Pass typeof of an integer type, e.g. 'typeof(int)'."),
 		Error(
-			"NAXP0008",
-			"The naxp does not fit the value type",
-			"This naxp encodes {0} values, which does not fit {1}. Pass typeof({2}) or wider as the value type, or narrow the naxp."),
+			"NAXP2008",
+			"The naxp does not fit the encoded value type",
+			"This naxp encodes {0} values, which does not fit into {1}. Pass 'typeof({2})' or wider as the encoded value type (or change the naxp to produce a smaller number of encoded values)."),
 		Error(
-			"NAXP0009",
+			"NAXP2009",
 			"The naxp generator failed",
-			"The naxp generator failed on this naxp, which is a fault in naxp rather than in your code: {0} Please report it at https://github.com/naxp-org/naxp/issues."),
+			"The naxp generator failed on this naxp. This is likely a bug in naxp rather than in your code: {0} Please report it at https://github.com/naxp-org/naxp/issues."),
 		Error(
-			"NAXP0010",
+			"NAXP2010",
 			"A file-local type cannot hold a naxp",
-			"'{0}' is a file-local type, and the generated code goes in a file of its own, which cannot be part of it. Drop the 'file' modifier."));
+			"'{0}' is a file-local type, which will not work with the source generator. Drop the 'file' modifier."));
 
 	/// <summary>The descriptor for a rule.</summary>
 	public static DiagnosticDescriptor Descriptor(Rule rule) => Descriptors[(int)rule];
 
-	/// <summary>The identifier a build log shows for a rule, such as <c>NAXP0008</c>.</summary>
+	/// <summary>The identifier a build log shows for a rule, such as <c>NAXP2008</c>.</summary>
 	public static string Id(Rule rule) => Descriptor(rule).Id;
 
 	/// <summary>Reports a rule at a location, with the arguments its message takes.</summary>
 	public static Diagnostic Create(Rule rule, Location? location, params object?[] arguments)
 		=> Diagnostic.Create(Descriptor(rule), location ?? Location.None, arguments);
 
-	/// <summary>Reports a fault in the naxp itself, under the library's own code for it.</summary>
+	/// <summary>Reports an error in the naxp itself, under the library's own code for it.</summary>
 	/// <remarks>
 	/// The descriptor is built here rather than taken from the table above, because the set of
 	/// codes is the language's rather than the generator's: NAXP1002, NAXP1031 and the rest. A
@@ -130,8 +134,8 @@ static class Rules
 	/// </remarks>
 	/// <param name="code">The library's code, such as <c>NAXP1031</c>.</param>
 	/// <param name="message">What is wrong, and where practical what to write instead.</param>
-	/// <param name="location">Where in the naxp the fault is.</param>
-	public static Diagnostic NaxpFault(string code, string message, Location? location)
+	/// <param name="location">Where in the naxp the error is.</param>
+	public static Diagnostic NaxpError(string code, string message, Location? location)
 		=> Diagnostic.Create(
 			new DiagnosticDescriptor(code, "The naxp is invalid", "{0}", Category, DiagnosticSeverity.Error, isEnabledByDefault: true, helpLinkUri: Help(code)),
 			location ?? Location.None,
@@ -141,5 +145,5 @@ static class Rules
 		=> new(id, title, messageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, helpLinkUri: Help(id));
 
 	/// <summary>Where a code is documented, which every row of that page is an anchor of.</summary>
-	static string Help(string id) => "https://naxp.org/codes/#" + id.ToLowerInvariant();
+	static string Help(string id) => "https://naxp.org/error-codes/#" + id.ToLowerInvariant();
 }

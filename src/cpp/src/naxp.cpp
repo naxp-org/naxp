@@ -8,7 +8,7 @@
 #include "cpp_emitter.hpp"
 #include "csharp_emitter.hpp"
 #include "emitter.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "javascript_emitter.hpp"
 #include "naxp_limits.hpp"
 #include "relations.hpp"
@@ -27,18 +27,18 @@ namespace logmu
 {
 	namespace
 	{
-		/// The public fault for an internal one, which is where a fault that named no place in
+		/// The public error for an internal one, which is where an error that named no place in
 		/// the naxp is given the whole of it, since only here is the length of the pattern known.
-		naxp_fault to_public(const detail::fault& found, std::size_t pattern_length)
+		naxp_error to_public(const detail::naxp_error& found, std::size_t pattern_length)
 		{
-			return naxp_fault{
+			return naxp_error{
 				std::string(found.code()),
 				found.text(),
 				found.offset,
 				found.is_whole_naxp() ? pattern_length : found.length};
 		}
 
-		std::string describe(const naxp_fault& parts)
+		std::string describe(const naxp_error& parts)
 		{
 			// The code and the span are in the message because a thrown exception is all
 			// anybody gets.
@@ -63,7 +63,7 @@ namespace logmu
 		}
 	}
 
-	naxp_error::naxp_error(naxp_fault parts)
+	naxp_format_error::naxp_format_error(naxp_error parts)
 		: std::invalid_argument(describe(parts))
 		, parts(std::move(parts))
 	{
@@ -76,30 +76,30 @@ namespace logmu
 
 	naxp naxp::parse(std::string_view pattern)
 	{
-		naxp_fault found;
+		naxp_error found;
 		std::optional<naxp> parsed = try_parse(pattern, &found);
 
 		if (!parsed.has_value())
 		{
-			throw naxp_error(std::move(found));
+			throw naxp_format_error(std::move(found));
 		}
 
 		return std::move(*parsed);
 	}
 
-	std::optional<naxp> naxp::try_parse(std::string_view pattern, naxp_fault* fault)
+	std::optional<naxp> naxp::try_parse(std::string_view pattern, naxp_error* error)
 	{
 		std::unique_ptr<detail::compilation> compiled;
-		std::optional<detail::fault> error;
+		std::optional<detail::naxp_error> found;
 
-		if (detail::compiler::try_compile(pattern, compiled, error))
+		if (detail::compiler::try_compile(pattern, compiled, found))
 		{
 			return naxp(std::shared_ptr<const detail::compilation>(std::move(compiled)));
 		}
 
-		if (fault != nullptr)
+		if (error != nullptr)
 		{
-			*fault = to_public(*error, pattern.size());
+			*error = to_public(*found, pattern.size());
 		}
 
 		return std::nullopt;

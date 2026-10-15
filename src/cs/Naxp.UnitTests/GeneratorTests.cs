@@ -159,18 +159,18 @@ public class GeneratorTests
 	#endregion
 	#region What it finds invalid
 	[Fact]
-	public void AClassThatIsNotPartial_IsNAXP0001()
+	public void AClassThatIsNotPartial_IsNAXP2001()
 	{
 		Run(Source($"[LogMu.Naxp(@\"{LetterDigit}\", typeof(short))]", "internal class Codes"), out GeneratorResult result);
 
-		Diagnostic diagnostic = result.Only("NAXP0001");
+		Diagnostic diagnostic = result.Only("NAXP2001");
 
 		Assert.Contains("Add the 'partial' modifier", diagnostic.GetMessage());
 		Assert.Empty(result.GeneratedFileNames);
 	}
 
 	[Fact]
-	public void AContainerThatIsNotPartial_IsNAXP0002()
+	public void AContainerThatIsNotPartial_IsNAXP2002()
 	{
 		string source = "internal class Outer" + Environment.NewLine
 			+ "{" + Environment.NewLine
@@ -182,37 +182,37 @@ public class GeneratorTests
 
 		Run(source, out GeneratorResult result);
 
-		Assert.Contains("'Outer'", result.Only("NAXP0002").GetMessage());
+		Assert.Contains("'Outer'", result.Only("NAXP2002").GetMessage());
 	}
 
 	[Fact]
-	public void AGenericClass_IsNAXP0003()
+	public void AGenericClass_IsNAXP2003()
 	{
 		Run(Source($"[LogMu.Naxp(@\"{LetterDigit}\", typeof(short))]", "internal partial class Codes<T>"), out GeneratorResult result);
 
-		result.Only("NAXP0003");
+		result.Only("NAXP2003");
 	}
 
 	[Fact]
-	public void AFileLocalClass_IsNAXP0010()
+	public void AFileLocalClass_IsNAXP2010()
 	{
 		Run(Source($"[LogMu.Naxp(@\"{LetterDigit}\", typeof(short))]", "file partial class Codes"), out GeneratorResult result);
 
-		result.Only("NAXP0010");
+		result.Only("NAXP2010");
 	}
 
 	[Fact]
-	public void APrefixThatIsNotAnIdentifier_IsNAXP0005()
+	public void APrefixThatIsNotAnIdentifier_IsNAXP2005()
 	{
 		Run(
 			Source($"[LogMu.Naxp(@\"{LetterDigit}\", typeof(short), Prefix = \"Post code\")]", "internal partial class Codes"),
 			out GeneratorResult result);
 
-		Assert.Contains("' '", result.Only("NAXP0005").GetMessage());
+		Assert.Contains("' '", result.Only("NAXP2005").GetMessage());
 	}
 
 	[Fact]
-	public void TwoNaxpsWithOnePrefix_IsNAXP0006()
+	public void TwoNaxpsWithOnePrefix_IsNAXP2006()
 	{
 		string source = Source(
 			$"[LogMu.Naxp(@\"{Postcode}\", typeof(long), Prefix = \"Code\")]" + Environment.NewLine
@@ -221,14 +221,14 @@ public class GeneratorTests
 
 		Run(source, out GeneratorResult result);
 
-		Assert.Contains("CodeAccepts", result.Only("NAXP0006").GetMessage());
+		Assert.Contains("CodeAccepts", result.Only("NAXP2006").GetMessage());
 	}
 
 	/// <summary>
 	/// The count is written invariant and unseparated, as every other count in a message is.
 	/// </summary>
 	[Fact]
-	public void AValueTypeTooNarrow_IsNAXP0008_AndNamesTheNarrowestThatFits()
+	public void AValueTypeTooNarrow_IsNAXP2008_AndNamesTheNarrowestThatFits()
 	{
 		Run(
 			Source(
@@ -236,15 +236,15 @@ public class GeneratorTests
 				"internal partial class Codes"),
 			out GeneratorResult result);
 
-		string message = result.Only("NAXP0008").GetMessage();
+		string message = result.Only("NAXP2008").GetMessage();
 
 		Assert.Contains("1755842400 values", message);
-		Assert.Contains("does not fit ushort", message);
+		Assert.Contains("does not fit into ushort", message);
 		Assert.Contains("typeof(int)", message);
 	}
 
 	[Fact]
-	public void AValueTypeThatIsNotAnInteger_IsNAXP0007()
+	public void AValueTypeThatIsNotAnInteger_IsNAXP2007()
 	{
 		Run(
 			Source(
@@ -252,12 +252,12 @@ public class GeneratorTests
 				"internal partial class Codes"),
 			out GeneratorResult result);
 
-		Assert.Contains("typeof(string)", result.Only("NAXP0007").GetMessage());
+		Assert.Contains("typeof(string)", result.Only("NAXP2007").GetMessage());
 	}
 
 	/// <summary>
-	/// A fault in the naxp is reported under the library's own code for the rule it breaks, rather
-	/// than under one identifier standing for every fault. The code in the build log then names the
+	/// An error in the naxp is reported under the library's own code for the rule it breaks, rather
+	/// than under one identifier standing for every error. The code in the build log then names the
 	/// rule, and a build can suppress one rule without suppressing the rest.
 	/// </summary>
 	[Fact]
@@ -280,7 +280,7 @@ public class GeneratorTests
 	/// source and the unmapped offset would land four characters early.
 	/// </summary>
 	[Fact]
-	public void AFault_PointsAtTheCharacterInTheLiteral()
+	public void AError_PointsAtTheCharacterInTheLiteral()
 	{
 		string source = Source("[LogMu.Naxp(\"\\\\A\\\\9{2-5}\", typeof(long))]", "internal partial class Codes");
 

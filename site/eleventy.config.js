@@ -1,11 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+// The syntax colouring the code generator uses, so the examples the build
+// colours match it.
+import { tokenise } from "./src/js/highlight.js";
 
 // The library's own message table, so that the codes page is written from the
-// thing that defines the codes rather than from a copy of it. Importing across
-// `..` is Node resolving a module, not Eleventy being given a path, so the trap
-// described beside the brand assets below does not apply.
-import { formatNaxpMessage } from "../src/js/lib/naxp-message.js";
+// thing that defines the codes rather than from a copy of it. It is loaded by a
+// dynamic import of an absolute URL, not a static import: Eleventy watches every
+// module the configuration imports statically, and one reached across `..` is
+// the trap described beside the brand assets below.
+const { formatNaxpMessage } = await import(
+  pathToFileURL(path.join(import.meta.dirname, "..", "src", "js", "lib", "naxp-message.js")).href);
 
 // The specification is authored once, as spec/naxp-v<version>.md at the root
 // of the repository, and nothing under this folder is edited by hand to
@@ -79,14 +86,14 @@ function escapeHtml(text)
 }
 
 // The rows of the two tables on the codes page, read from the two places that
-// define the codes: the JavaScript library's message table for a fault in a
+// define the codes: the JavaScript library's message table for an error in a
 // naxp, which every implementation reports alike, and the C# generator's rule
-// table for the faults only a build can see. Read rather than restated, so the
+// table for the errors only a build can see. Read rather than restated, so the
 // page cannot drift from either, and it throws rather than writing an empty
 // table if either file stops looking the way this expects.
 //
 // Each row carries the code as its id, so a build log's NAXP1031 can be linked
-// to /codes/#naxp1031. The generator sets exactly that as its help link.
+// to /error-codes/#naxp1031. The generator sets exactly that as its help link.
 function buildCodeTables(configDirectory)
 {
   const messageFile = path.join(configDirectory, "..", "src", "js", "lib", "naxp-message.js");
@@ -135,18 +142,22 @@ function buildCodeTables(configDirectory)
 
   const rulesFile = path.join(configDirectory, "..", "src", "cs", "Naxp.Generator", "Rules.cs");
   const declarations = [...fs.readFileSync(rulesFile, "utf8")
-    .matchAll(/Error\(\s*"(NAXP\d+)",\s*"((?:[^"\\]|\\.)*)"/g)];
+    .matchAll(/Error\(\s*"(NAXP\d+)",\s*"(?:[^"\\]|\\.)*",\s*"((?:[^"\\]|\\.)*)"/g)];
 
   if (declarations.length === 0)
   {
     throw new Error(`buildCodeTables found no rules in ${rulesFile}.`);
   }
 
+  // The message, which is what a build log and the Error List show, rather
+  // than the title, which they hardly ever do. Its placeholders are left as
+  // they are. Only the first literal of a message is read, so one built by
+  // joining a constant on, as NAXP2007's is, shows the part before the join.
+  // C# escapes are undone, since NAXP2004's message holds \" and \\.
   const generator = declarations
-    .map(([, code, title]) => `<tr id="${code.toLowerCase()}">`
+    .map(([, code, message]) => `<tr id="${code.toLowerCase()}">`
       + `<th scope="row"><code>${code}</code></th>`
-      // A title may hold an escaped quote, as NAXP0005's does.
-      + `<td data-label="Means"><samp>${escapeHtml(title.split("\\\"").join("\""))}</samp></td>`
+      + `<td data-label="Message"><samp>${escapeHtml(message.replace(/\\(.)/g, "$1"))}</samp></td>`
       + "</tr>")
     .join("\n");
 
@@ -347,8 +358,8 @@ const siteHeaderLinks = [
   { href: "/guidelines/", label: "Guidelines", hint: "Guidelines for designing a naxp" },
   { href: "/interactive/", label: "Interactive", hint: "Test and develop a naxp interactively" },
   { href: "/migrate/", label: "Migrate", hint: "Understand the impact of changing a naxp" },
+  { href: "/api/", label: "API", hint: "Find a package or code implementation in your chosen language" },
   { href: "/code-gen/", label: "Code&#8209;gen", hint: "Given a naxp, generate custom code to encode text and get text from encoded values", page: "code-gen.html" },
-  { href: "/libraries/", label: "Libraries", hint: "Find a package or code implementation in your chosen language" },
   { href: "/spec/", label: "Spec", hint: "The naxp specification", page: "latest.njk", section: "/spec/" }
 ];
 
@@ -631,6 +642,38 @@ export default function (eleventyConfig)
     return content.replace(/<table>[\s\S]*?<\/table>/g, (table) => `<div class="table-scroll">${table}</div>`);
   });
 
+  // Code examples, coloured here rather than in the browser so that they are
+  // coloured from the first paint and without a script, by the grammars the
+  // code generator colours its fragment with. A listing asks for it with
+  // data-highlight naming its language as OutputLanguage does. The listing is
+  // written as HTML, so its entities are read back to text before it is split
+  // and escaped again after.
+  eleventyConfig.addTransform("highlight", function (content)
+  {
+    if (!(this.page.outputPath || "").endsWith(".html"))
+    {
+      return content;
+    }
+
+    return content.replace(
+      /(<code\b[^>]*\bdata-highlight="(\w+)"[^>]*>)([\s\S]*?)(<\/code>)/g,
+      (match, open, language, listing, close) =>
+      {
+        const text = listing
+          .split("&lt;").join("<")
+          .split("&gt;").join(">")
+          .split("&amp;").join("&");
+
+        const coloured = tokenise(text, language)
+          .map(({ kind, text: piece }) => kind === null
+            ? escapeHtml(piece)
+            : `<span class="code__${kind}">${escapeHtml(piece)}</span>`)
+          .join("");
+
+        return open + coloured + close;
+      });
+  });
+
   // Registered after the other transforms so it sees the finished page, the
   // stamped-in site header included. The specification pages are excluded: a
   // published version is immutable, so its text is reproduced as written and
@@ -683,10 +726,10 @@ export default function (eleventyConfig)
   // it costs an afternoon to find.
   //
   // Copying after each build has the same effect and none of that.
-  eleventyConfig.on("eleventy.after", ({ dir }) =>
+  eleventyConfig.on("eleventy.after", ({ directories }) =>
   {
     const from = (...parts) => path.join(import.meta.dirname, "..", ...parts);
-    const into = (...parts) => path.join(import.meta.dirname, dir.output, ...parts);
+    const into = (...parts) => path.join(import.meta.dirname, directories.output, ...parts);
 
     fs.mkdirSync(into("img"), { recursive: true });
     fs.copyFileSync(from("brand", "naxp-icon-solid-white.svg"), into("img", "naxp-icon-solid-white.svg"));

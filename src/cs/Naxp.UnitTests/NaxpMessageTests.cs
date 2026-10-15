@@ -98,7 +98,7 @@ public class NaxpMessageTests
 	/// Several messages quote naxps holding braces - <c>'A{2,5}'</c> and <c>Add a '}'</c> among
 	/// them - and those never reach <see cref="string.Format(IFormatProvider, string, object?)"/>
 	/// because they take no argument. Giving one an argument later without doubling its braces
-	/// would throw at the moment of fault, which is the worst time to find out.
+	/// would throw at the moment of error, which is the worst time to find out.
 	/// </remarks>
 	[Fact]
 	public void EveryMessageTakingAnArgument_FormatsWithoutThrowing()
@@ -151,12 +151,12 @@ public class NaxpMessageTests
 	}
 
 	/// <summary>
-	/// A fault that names no place in the naxp leaves both numbers at zero, which the public
-	/// surface reads as the whole of it. A fault that does name one must never do that, or it
+	/// An error that names no place in the naxp leaves both numbers at zero, which the public
+	/// surface reads as the whole of it. An error that does name one must never do that, or it
 	/// would be mistaken for the same thing.
 	/// </summary>
 	[Fact]
-	public void AFaultWithAPosition_IsNotMistakenForTheWholeNaxp()
+	public void AErrorWithAPosition_IsNotMistakenForTheWholeNaxp()
 	{
 		Assert.True(new NaxpError(NaxpMessage.NAXP1046_TooManyValues).IsWholeNaxp);
 		Assert.False(new NaxpError(NaxpMessage.NAXP1002_IntervalHyphen, offset: 0, length: 1).IsWholeNaxp);
@@ -168,7 +168,7 @@ public class NaxpMessageTests
 	/// </summary>
 	/// <remarks>
 	/// A member is spelled <c>NAXP1002_IntervalHyphen</c> so that a line of the library says which
-	/// fault it is about at a glance. That half is a note to ourselves: it would read as a
+	/// error it is about at a glance. That half is a note to ourselves: it would read as a
 	/// promise about wording nobody has made, so it stops at the boundary.
 	/// </remarks>
 	[Fact]

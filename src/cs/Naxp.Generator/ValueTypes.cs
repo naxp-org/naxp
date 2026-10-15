@@ -27,9 +27,6 @@ static class ValueTypes
 		(SpecialType.System_UInt64, NaxpValueType.UInt64, "ulong"),
 	];
 
-	/// <summary>The types a message offers when it has just ruled one out, in the same order.</summary>
-	public const string Choices = "sbyte, byte, short, ushort, int, uint, long or ulong";
-
 	/// <summary>The type <c>typeof(...)</c> named, where it is one a naxp can encode to.</summary>
 	public static bool TryFrom(ITypeSymbol symbol, out NaxpValueType valueType)
 	{

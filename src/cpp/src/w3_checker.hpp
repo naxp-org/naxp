@@ -5,7 +5,7 @@
 #define NAXP_W3_CHECKER_HPP
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "rx.hpp"
 #include "tx.hpp"
@@ -36,10 +36,10 @@ namespace logmu::detail::w3_checker
 	///
 	/// @param tree The tree, which must already have passed W1 and W2.
 	/// @param rxs The factory the machines will be built with, reused for interning.
-	/// @param error The fault, or nothing if the naxp passes.
+	/// @param error The error, or nothing if the naxp passes.
 	/// @param max_states The budget, lowered by tests so the cap can be reached cheaply.
 	/// @returns Whether the naxp passes.
-	bool try_check(const ast& tree, rx_factory& rxs, std::optional<fault>& error, int max_states = limits::max_states);
+	bool try_check(const ast& tree, rx_factory& rxs, std::optional<naxp_error>& error, int max_states = limits::max_states);
 
 	/// Checks a transduction that has already been built.
 	///
@@ -52,7 +52,7 @@ namespace logmu::detail::w3_checker
 	/// @param error The violation, or nothing where there is none.
 	/// @param max_states The budget, lowered by tests so the cap can be reached cheaply.
 	/// @returns Whether unification is single valued.
-	bool try_check(const tx* root, tx_factory& factory, std::optional<fault>& error, int max_states = limits::max_states);
+	bool try_check(const tx* root, tx_factory& factory, std::optional<naxp_error>& error, int max_states = limits::max_states);
 }
 
 #endif

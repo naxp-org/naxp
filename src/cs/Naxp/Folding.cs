@@ -27,7 +27,7 @@ namespace LogMu;
 /// alternation and this follows it.
 /// </para>
 /// <para>
-/// Every node made here takes the pattern offset of the node it replaces, so a fault found in an
+/// Every node made here takes the pattern offset of the node it replaces, so an error found in an
 /// expansion still points at what the author wrote.
 /// </para>
 /// </remarks>

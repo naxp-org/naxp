@@ -10,7 +10,7 @@ eleventyExcludeFromCollections: true
 <title>naxp spec</title>
 <link rel="canonical" href="https://naxp.org/spec/v{{ newest.data.version }}/">
 <meta http-equiv="refresh" content="0; url=/spec/v{{ newest.data.version }}/">
-<script>location.replace("/spec/v{{ newest.data.version }}/");</script>
+<script>location.replace("/spec/v{{ newest.data.version }}/" + location.hash);</script>
 </head>
 <body>
 <p>The latest <strong>naxp</strong> specification is

@@ -1,11 +1,11 @@
 # naxp
 
-A **naxp** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
+A **[naxp](https://naxp.org)** ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.
 
 With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
 ```bash
-npm install @naxp/naxp@0.12.0
+npm install @naxp/naxp@0.13.0
 ```
 
 The **naxp** package has zero dependencies and comprises plain ECMAScript modules with no build step. TypeScript declarations are included. Requires Node 18 or later. Runs as is in a browser.
@@ -71,7 +71,7 @@ const { naxp, errorMessage, errorOffset, errorLength, errorCode }
     = Naxp.tryParse('A{2-5}');
 
 naxp;           // null
-errorMessage;   // "The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'."
+errorMessage;   // "The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'."
 errorOffset;    // 3 (zero-based offset)
 errorLength;    // 1
 errorCode;      // 'NAXP1002' (always text)
@@ -81,7 +81,7 @@ Use `errorOffset` and `errorLength` to locate the issue:
 
 ```
 A{2-5}
-   ^  The counts of an interval are separated by ',', not by a hyphen. Write 'A{2,5}'.
+   ^  The counts of an interval are separated by ',', not '-'. Write 'A{2,5}'.
 ```
 
 If the error relates to the whole **naxp** then the whole text range is specified.

@@ -24,7 +24,7 @@ try {
 <meta property="og:type" content="website">
 <meta property="og:title" content="naxp error codes">
 <meta property="og:description" content="Every code a naxp implementation reports, what it means, and which rule of the specification it belongs to.">
-<meta property="og:url" content="https://naxp.org/codes/">
+<meta property="og:url" content="https://naxp.org/error-codes/">
 <meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -46,31 +46,25 @@ try {
 <section class="band">
   <div class="band__inner">
     <p>
-      A <strong>naxp</strong> that is refused is refused with a code, such as <code>NAXP1031</code>.
-      The code names the fault, so a log or a bug report can identify it without quoting the words,
-      and the words can be improved without breaking anything that reads the code.
+      <strong>naxp</strong> error reporting is founded on invariant <em>error codes</em>, e.g. <code>NAXP1031</code>.
+      (In contrast, the associated error messages may vary,
+      because they include some of the invalid text or
+      because they are later revised for improved clarity or even translated into another language.)
     </p>
 
     <p>
-      There are two families.
+      Error codes <code>NAXP1001</code> to <code>NAXP1999</code> are reserved for
+      parsing and other <strong>naxp</strong> errors.
+      Validation and error reporting are identical across all implementations.
     </p>
-
-    <ul>
-      <li>
-        <strong>NAXP1001 and upwards</strong> are faults in the <strong>naxp</strong> itself.
-        Every implementation reports these, and reports the same fault under the same code:
-        a <strong>naxp</strong> refused by one implementation is refused by all of them.
-      </li>
-      <li>
-        <strong>NAXP0001 to NAXP0010</strong> are faults only a build can see, raised by the C#
-        source generator about the <code>[Naxp]</code> attribute and the type carrying it. They
-        are specific to that package.
-      </li>
-    </ul>
+    <p>
+      Error codes from <code>NAXP2001</code> upwards are used for build errors,
+      currently produced only by the C# source generator.
+    </p>
 
     <p class="admonition admonition--tip">
       <span class="admonition__flag">Tip</span>
-      Each code below is linkable, as <a href="/codes/#naxp1031"><code>/codes/#naxp1031</code></a>.
+      Each code below is linkable, as <a href="/error-codes/#naxp1031"><code>/error-codes/#naxp1031</code></a>.
       In Visual Studio the code in the Error List links here directly.
     </p>
   </div>
@@ -79,17 +73,28 @@ try {
 <!-- Band 4: the language's own codes, written from the library's message table -->
 <section class="band band--edge-top">
   <div class="band__inner">
-    <h2 class="section__title">Faults in a <strong>naxp</strong></h2>
+    <h2 class="section__title"><strong>naxp</strong> errors</h2>
 
     <p>
-      The <em>Rule</em> column says what the fault offends against: <em>Syntax</em> for a pattern
-      that does not parse, and W1 to W6 for a pattern that parses but is not well formed, as
-      <a href="/spec/">the specification</a> defines them. A few are limits this implementation
-      imposes rather than rules of the language.
+      The table below lists parsing and other <strong>naxp</strong> errors.
     </p>
 
     <p>
-      Where a message shows <code>{0}</code>, the text at fault is written there.
+      The <strong>Rule</strong> column categorises the errors as
+    </p>
+    <ul>
+      <li>
+        <em>Syntax</em> for syntax errors, or
+      </li>
+      <li>
+        <em>W1</em> to <em>W6</em> for failure against the spec's
+        <a href="/spec/#10-well-formedness">well-formedness rules</a>.
+      </li>
+    </ul>
+
+    <p>
+      A <code>{0}</code> in the <strong>Message</strong> entry is
+      a placeholder for a context-dependent diagnostic.
     </p>
 
     <div class="table-scroll">
@@ -112,15 +117,13 @@ try {
 <!-- Band 5: the generator's codes, written from its rule table -->
 <section class="band band--edge-top">
   <div class="band__inner">
-    <h2 class="section__title">Faults the C# generator reports</h2>
-
+    <h2 class="section__title">Build errors (C# source generator)</h2>
     <p>
-      These come from the source generator in the
-      <a href="/libraries/"><code>naxp</code> package for .NET</a>, which compiles a
-      <strong>naxp</strong> at build time. They are about the attribute and the type it sits on
-      rather than about the <strong>naxp</strong>, which is why they are numbered apart. Each is an
-      error: every one of them stops a <strong>naxp</strong> being generated, and generated code
-      that silently went missing would fail later and further away.
+      Build errors are currently reported only by the C# source generator included with the
+      <a href="/api/#csharp"><code>naxp</code> .NET package</a>.
+    </p>
+    <p>
+      These errors relate to either the <code>[Naxp]</code> attribute itself or the type it annotates.
     </p>
 
     <div class="table-scroll">
@@ -128,7 +131,7 @@ try {
         <thead>
           <tr>
             <th scope="col">Code</th>
-            <th scope="col">Means</th>
+            <th scope="col">Message</th>
           </tr>
         </thead>
         <tbody>

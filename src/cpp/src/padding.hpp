@@ -30,7 +30,7 @@ namespace logmu::detail::padding
 	/// so a run of padding contributes a fixed string. That is what keeps `07` to one canonical
 	/// form under `0!! 0!!`, where either of the two could have been the one that matched.
 	///
-	/// Every node made here takes the pattern offset of the range it replaces, so a fault found
+	/// Every node made here takes the pattern offset of the range it replaces, so an error found
 	/// in an expansion still points at what the author wrote.
 	///
 	/// @param low The value of the lower bound.

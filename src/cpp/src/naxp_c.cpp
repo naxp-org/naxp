@@ -28,14 +28,14 @@ struct naxp
 	logmu::naxp value;
 };
 
-struct naxp_fault
+struct naxp_error
 {
-	explicit naxp_fault(logmu::naxp_fault parts)
+	explicit naxp_error(logmu::naxp_error parts)
 		: value(std::move(parts))
 	{
 	}
 
-	logmu::naxp_fault value;
+	logmu::naxp_error value;
 };
 
 namespace
@@ -66,16 +66,16 @@ namespace
 
 extern "C"
 {
-	naxp *naxp_parse(const char *pattern, size_t pattern_length, naxp_fault **fault)
+	naxp *naxp_parse(const char *pattern, size_t pattern_length, naxp_error **error)
 	{
-		if (fault != nullptr)
+		if (error != nullptr)
 		{
-			*fault = nullptr;
+			*error = nullptr;
 		}
 
 		try
 		{
-			logmu::naxp_fault found;
+			logmu::naxp_error found;
 			std::optional<logmu::naxp> parsed = logmu::naxp::try_parse(std::string_view(pattern, pattern_length), &found);
 
 			if (parsed.has_value())
@@ -83,9 +83,9 @@ extern "C"
 				return new naxp(std::move(*parsed));
 			}
 
-			if (fault != nullptr)
+			if (error != nullptr)
 			{
-				*fault = new naxp_fault(std::move(found));
+				*error = new naxp_error(std::move(found));
 			}
 
 			return nullptr;
@@ -101,29 +101,29 @@ extern "C"
 		delete expression;
 	}
 
-	const char *naxp_fault_code(const naxp_fault *fault)
+	const char *naxp_error_code(const naxp_error *error)
 	{
-		return fault->value.code.c_str();
+		return error->value.code.c_str();
 	}
 
-	const char *naxp_fault_message(const naxp_fault *fault)
+	const char *naxp_error_message(const naxp_error *error)
 	{
-		return fault->value.message.c_str();
+		return error->value.message.c_str();
 	}
 
-	size_t naxp_fault_offset(const naxp_fault *fault)
+	size_t naxp_error_offset(const naxp_error *error)
 	{
-		return fault->value.offset;
+		return error->value.offset;
 	}
 
-	size_t naxp_fault_length(const naxp_fault *fault)
+	size_t naxp_error_length(const naxp_error *error)
 	{
-		return fault->value.length;
+		return error->value.length;
 	}
 
-	void naxp_fault_free(naxp_fault *fault)
+	void naxp_error_free(naxp_error *error)
 	{
-		delete fault;
+		delete error;
 	}
 
 	const char *naxp_pattern(const naxp *expression)

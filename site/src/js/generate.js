@@ -6,6 +6,7 @@
 // written by the same code the npm package ships and the source generator uses.
 import { Naxp, NaxpValueType, OutputLanguage } from '/naxp/index.js';
 import { copyButton, keep, recall, remember, reserveHeight, textBox } from './boxes.js';
+import { tokenise } from './highlight.js';
 
 /**
  * The languages the emitters cover. Everything else on the page is a chip marked unavailable,
@@ -39,84 +40,6 @@ const MAX_SAFE_INTEGER = 9007199254740991n;
 
 /** How many lines the box shows before it has to be asked to open. */
 const CLIPPED_LINES = 40;
-
-/**
- * How each language spells its keywords, and how its comments, strings and numbers are written.
- *
- * A generated fragment is a small, regular subset of its language, written by one emitter that
- * never nests a comment or breaks a string over a line, so telling three kinds of token apart
- * needs no parser. Anything this does not recognise stays plain, which is the right failure.
- *
- * The keywords are each language's reserved words rather than the handful an emitter happens to
- * write today, so a new construct in a fragment cannot quietly lose its colour. A reserved word
- * can never be an identifier, so nothing here can colour a name by mistake.
- */
-const GRAMMARS = {
-	[OutputLanguage.CSharp]: {
-		comment: String.raw`\/\/.*`,
-		literal: String.raw`"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b0[xX][0-9A-Fa-f]+\b|\b\d[\d_]*(?:UL|U|L)?\b`,
-		keywords: new Set([
-			'abstract', 'as', 'base', 'bool', 'break', 'byte', 'case', 'catch', 'char', 'checked',
-			'class', 'const', 'continue', 'decimal', 'default', 'delegate', 'do', 'double', 'else',
-			'enum', 'event', 'explicit', 'extern', 'false', 'finally', 'fixed', 'float', 'for',
-			'foreach', 'goto', 'if', 'implicit', 'in', 'int', 'interface', 'internal', 'is',
-			'lock', 'long', 'namespace', 'new', 'null', 'object', 'operator', 'out', 'override',
-			'params', 'private', 'protected', 'public', 'readonly', 'ref', 'return', 'sbyte',
-			'sealed', 'short', 'sizeof', 'stackalloc', 'static', 'string', 'struct', 'switch',
-			'this', 'throw', 'true', 'try', 'typeof', 'uint', 'ulong', 'unchecked', 'unsafe',
-			'ushort', 'using', 'virtual', 'void', 'volatile', 'while',
-
-			// Contextual, so each is here only because no generated name can collide with it.
-			// `value` is contextual too and is deliberately absent: Decode takes a parameter of
-			// that name, and colouring it would be a lie.
-			'global', 'nameof', 'var',
-		]),
-	},
-	[OutputLanguage.JavaScript]: {
-		comment: String.raw`\/\*[\s\S]*?\*\/|\/\/.*`,
-		literal: String.raw`'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b0[xX][0-9A-Fa-f]+n?\b|\b\d[\d_]*n?\b`,
-		keywords: new Set([
-			'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default',
-			'delete', 'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for',
-			'function', 'if', 'implements', 'import', 'in', 'instanceof', 'interface', 'let',
-			'new', 'null', 'package', 'private', 'protected', 'public', 'return', 'static',
-			'super', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'var', 'void', 'while',
-			'with', 'yield',
-
-			// Contextual, and safe for the same reason as the C# three above.
-			'of',
-		]),
-	},
-	[OutputLanguage.C]: {
-		comment: String.raw`\/\*[\s\S]*?\*\/`,
-		literal: String.raw`"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b0[xX][0-9A-Fa-f]+\b|\b\d+(?:ULL|UL|LL|U|L)?\b`,
-		keywords: new Set([
-			'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do', 'double', 'else',
-			'enum', 'extern', 'float', 'for', 'goto', 'if', 'inline', 'int', 'long', 'register',
-			'restrict', 'return', 'short', 'signed', 'sizeof', 'static', 'struct', 'switch',
-			'typedef', 'union', 'unsigned', 'void', 'volatile', 'while',
-
-			// From the headers the fragment names, and coloured because they read as types.
-			'bool', 'false', 'true', 'size_t', 'int8_t', 'uint8_t', 'int16_t', 'uint16_t',
-			'int32_t', 'uint32_t', 'int64_t', 'uint64_t', 'NULL',
-		]),
-	},
-	[OutputLanguage.Cpp]: {
-		comment: String.raw`\/\/.*`,
-		literal: String.raw`"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b0[xX][0-9A-Fa-f]+\b|\b\d[\d']*(?:ULL|UL|LL|U|L)?\b`,
-		keywords: new Set([
-			'alignas', 'alignof', 'auto', 'bool', 'break', 'case', 'catch', 'char', 'class',
-			'const', 'constexpr', 'const_cast', 'continue', 'decltype', 'default', 'delete', 'do',
-			'double', 'dynamic_cast', 'else', 'enum', 'explicit', 'export', 'extern', 'false',
-			'float', 'for', 'friend', 'goto', 'if', 'inline', 'int', 'long', 'mutable',
-			'namespace', 'new', 'noexcept', 'nullptr', 'operator', 'private', 'protected',
-			'public', 'register', 'reinterpret_cast', 'return', 'short', 'signed', 'sizeof',
-			'static', 'static_assert', 'static_cast', 'struct', 'switch', 'template', 'this',
-			'throw', 'true', 'try', 'typedef', 'typeid', 'typename', 'union', 'unsigned', 'using',
-			'virtual', 'void', 'volatile', 'while',
-		]),
-	},
-};
 
 const dom = {
 	pattern: document.getElementById('naxp-pattern'),
@@ -196,7 +119,7 @@ function element(tag, className, ...children) {
 }
 
 /**
- * The code of a fault, linked to the page that documents it.
+ * The code of an error, linked to the page that documents it.
  *
  * A reader meets a code at exactly this moment, so this is where the page is
  * worth offering. The anchor is the code in lower case, which every row of that
@@ -208,7 +131,7 @@ function element(tag, className, ...children) {
 function codeLink(code) {
 	const link = element('a', 'status__code', code);
 
-	link.href = `/codes/#${code.toLowerCase()}`;
+	link.href = `/error-codes/#${code.toLowerCase()}`;
 	link.title = `What ${code} means`;
 
 	return link;
@@ -256,9 +179,9 @@ function nameOf(value) {
 	return Object.keys(LANGUAGES).find(name => LANGUAGES[name] === value) ?? value;
 }
 
-/* ---------- marking a fault in the naxp ---------- */
+/* ---------- marking an error in the naxp ---------- */
 
-/** Clears the layer that marks a fault in the pattern box. */
+/** Clears the layer that marks an error in the pattern box. */
 function clearUnderlay() {
 	fill(dom.underlay);
 }
@@ -276,14 +199,14 @@ function mirrorUnderlay() {
 }
 
 /**
- * Marks the span at fault in the pattern box itself, under the text being edited.
+ * Marks the span in error in the pattern box itself, under the text being edited.
  *
  * @param {string} pattern The pattern.
  * @param {number} from Where the span starts.
  * @param {number} to Where it ends.
  */
 function markUnderlay(pattern, from, to) {
-	// A fault of no width still has to point somewhere, and the mark cannot be given a width of
+	// An error of no width still has to point somewhere, and the mark cannot be given a width of
 	// its own: anything that takes space in this layer moves its text out of step with the box
 	// behind it. So a character beside the offset is marked instead.
 	let start = from;
@@ -376,36 +299,8 @@ function offerValueTypes() {
  * @returns {(Node | string)[]} The pieces, in order.
  */
 function highlight(source, of) {
-	const grammar = GRAMMARS[of];
-	const tokens = new RegExp(
-		`(?<comment>${grammar.comment})|(?<literal>${grammar.literal})|(?<word>[A-Za-z_][A-Za-z0-9_]*)`,
-		'g');
-
-	const pieces = [];
-	let at = 0;
-
-	for (const match of source.matchAll(tokens)) {
-		const [text] = match;
-		const { comment, literal } = match.groups;
-
-		// A word that is not a keyword is left plain, and so is everything the pattern skipped.
-		if (comment === undefined && literal === undefined && !grammar.keywords.has(text)) {
-			continue;
-		}
-
-		if (match.index > at) { pieces.push(source.slice(at, match.index)); }
-
-		pieces.push(element(
-			'span',
-			`code__${comment !== undefined ? 'comment' : literal !== undefined ? 'literal' : 'keyword'}`,
-			text));
-
-		at = match.index + text.length;
-	}
-
-	pieces.push(source.slice(at));
-
-	return pieces;
+	return tokenise(source, of)
+		.map(({ kind, text }) => kind === null ? text : element('span', `code__${kind}`, text));
 }
 
 /* ---------- emitting ---------- */
@@ -506,7 +401,7 @@ function showGeneratorHint(valueType) {
 
 	const packages = element('a', null, element('strong', null, 'naxp'), ' NuGet package');
 
-	packages.href = '/libraries/';
+	packages.href = '/api/';
 
 	fill(
 		dom.generatorHint,

@@ -5,7 +5,7 @@
 #define NAXP_WELL_FORMEDNESS_HPP
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 
 #include <optional>
 
@@ -21,9 +21,9 @@ namespace logmu::detail::well_formedness
 	/// Checks the rules that can be decided from the tree, which is W2 then W1.
 	///
 	/// @param tree The tree, as returned by `try_parse`.
-	/// @param error The fault, or nothing if the tree passes.
+	/// @param error The error, or nothing if the tree passes.
 	/// @returns Whether the tree passes.
-	bool try_check(const ast& tree, std::optional<fault>& error);
+	bool try_check(const ast& tree, std::optional<naxp_error>& error);
 }
 
 #endif

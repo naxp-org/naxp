@@ -155,6 +155,8 @@ namespace logmu::detail
 		void emit_try_encode(bool bytes);
 		void emit_decode_publics();
 		void emit_canonical_publics(bool bytes);
+		void emit_string_publics();
+		void emit_string_body(const std::string& hand_over);
 		void emit_canonicalise(bool bytes);
 		void emit_steppers();
 		void emit_accept_case(int id);
@@ -338,6 +340,7 @@ namespace logmu::detail
 		this->emit_decode_publics();
 		this->emit_canonical_publics(false);
 		this->emit_canonical_publics(true);
+		this->emit_string_publics();
 		this->emit_steppers();
 		out.line();
 		out.line(nullable_condition);
@@ -691,6 +694,74 @@ namespace logmu::detail
 		out.line();
 		out.line(written + " = length;");
 		out.line("return true;");
+		out.close_block();
+		out.line();
+	}
+
+	/// Writes the overloads that take a string, as the library has, for a caller that cannot pass
+	/// a string as a span: C# before version 14 on .NET Framework, Visual Basic, F# and
+	/// PowerShell. Each refuses null rather than reading it as empty, which some naxps accept, and
+	/// hands the string to its span overload.
+	void csharp_emitter::fragment::emit_string_publics()
+	{
+		code_writer& out = this->writer();
+		const std::string text_doc = "/// <param name=\"text\">The string.</param>";
+		const std::string null_doc = "/// <exception cref=\"global::System.ArgumentNullException\">The string is null.</exception>";
+		const std::string span = "global::System.MemoryExtensions.AsSpan(text)";
+
+		out.line("/// <summary>Whether this naxp accepts the specified string.</summary>");
+		out.line(text_doc);
+		out.line("/// <returns>Whether the naxp accepts it.</returns>");
+		out.line(null_doc);
+		out.line("public static bool " + this->accepts_name + "(string text)");
+		this->emit_string_body("return " + this->accepts_name + "(" + span + ");");
+
+		out.line("/// <summary>The encoded value of a string.</summary>");
+		out.line(text_doc);
+		out.line("/// <returns>The encoded value, from 1 to <see cref=\"" + this->max_encoded_value_name + "\"/>, or zero where the string is invalid.</returns>");
+		out.line(null_doc);
+		out.line("public static " + this->value_keyword + " " + this->encode_name + "(string text)");
+		this->emit_string_body("return " + this->encode_name + "(" + span + ");");
+
+		out.line("/// <summary>Tries to encode a string.</summary>");
+		out.line(text_doc);
+		out.line("/// <param name=\"encoded\">The encoded value, or zero where the string is invalid.</param>");
+		out.line("/// <returns>Whether the naxp accepts the string.</returns>");
+		out.line(null_doc);
+		out.line("public static bool " + this->try_encode_name + "(string text, out " + this->value_keyword + " encoded)");
+		this->emit_string_body("return " + this->try_encode_name + "(" + span + ", out encoded);");
+
+		out.line("/// <summary>The canonical form of a string.</summary>");
+		out.line(text_doc);
+		out.line("/// <returns>The canonical form, or null where the string is invalid.</returns>");
+		out.line(null_doc);
+		this->emit_signature(
+			"public static string? " + this->get_canonical_form_name + "(string text)",
+			"public static string " + this->get_canonical_form_name + "(string text)");
+		this->emit_string_body("return " + this->get_canonical_form_name + "(" + span + ");");
+
+		out.line("/// <summary>Tries to find the canonical form of a string.</summary>");
+		out.line(text_doc);
+		out.line("/// <param name=\"canonicalForm\">The canonical form, or null where the string is invalid.</param>");
+		out.line("/// <returns>Whether the naxp accepts the string.</returns>");
+		out.line(null_doc);
+		this->emit_signature(
+			"public static bool " + this->try_get_canonical_form_name + "(string text, " + not_null_when_true + " out string? canonicalForm)",
+			"public static bool " + this->try_get_canonical_form_name + "(string text, out string canonicalForm)");
+		this->emit_string_body("return " + this->try_get_canonical_form_name + "(" + span + ", out canonicalForm);");
+	}
+
+	/// The body of a string overload: refuse null, then hand over to the span overload.
+	///
+	/// @param hand_over The statement that calls the span overload.
+	void csharp_emitter::fragment::emit_string_body(const std::string& hand_over)
+	{
+		code_writer& out = this->writer();
+
+		out.open_block();
+		out.line("if (text == null) { throw new global::System.ArgumentNullException(nameof(text)); }");
+		out.line();
+		out.line(hand_over);
 		out.close_block();
 		out.line();
 	}

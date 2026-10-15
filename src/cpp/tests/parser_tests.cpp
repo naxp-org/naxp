@@ -5,7 +5,7 @@
 #include "naxp_message_rules.hpp"
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_message.hpp"
 #include "parser.hpp"
 #include "tree_walker.hpp"
@@ -24,7 +24,7 @@ namespace
 	ast_ptr parse(std::string_view text)
 	{
 		ast_ptr tree;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (!try_parse(text, tree, error) || !well_formedness::try_check(*tree, error))
 		{
@@ -34,10 +34,10 @@ namespace
 		return tree;
 	}
 
-	fault fault_of(std::string_view text)
+	naxp_error error_of(std::string_view text)
 	{
 		ast_ptr tree;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (!try_parse(text, tree, error))
 		{
@@ -181,24 +181,24 @@ NAXP_TEST(whitespace_between_tokens_is_ignored)
 
 NAXP_TEST(interval_with_a_hyphen_names_the_separator)
 {
-	const fault error = fault_of("A{2-5}");
+	const naxp_error error = error_of("A{2-5}");
 
 	NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
 	NAXP_CHECK_EQUAL(std::size_t{3}, error.offset);
-	NAXP_CHECK(contains(error.text(), "',', not by a hyphen"));
+	NAXP_CHECK(contains(error.text(), "',', not '-'"));
 }
 
 NAXP_TEST(interval_unbounded_says_there_is_none)
 {
-	const fault error = fault_of("A{2,}");
+	const naxp_error error = error_of("A{2,}");
 
 	NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
-	NAXP_CHECK(contains(error.text(), "no unbounded interval"));
+	NAXP_CHECK(contains(error.text(), "cannot be unbounded"));
 }
 
 NAXP_TEST(bare_bang_names_the_three_forms)
 {
-	const fault error = fault_of("A!");
+	const naxp_error error = error_of("A!");
 
 	NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
 	NAXP_CHECK_EQUAL(std::size_t{1}, error.offset);
@@ -207,7 +207,7 @@ NAXP_TEST(bare_bang_names_the_three_forms)
 
 NAXP_TEST(undefined_escape_lists_the_escape_letters)
 {
-	const fault error = fault_of("\\d");
+	const naxp_error error = error_of("\\d");
 
 	NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
 	NAXP_CHECK(contains(error.text(), "'s', '9', 'A', 'a', 'X', 'x', 'C' and 'c'"));
@@ -215,7 +215,7 @@ NAXP_TEST(undefined_escape_lists_the_escape_letters)
 
 NAXP_TEST(range_written_backwards_says_lowest_first)
 {
-	const fault error = fault_of("[E-A]");
+	const naxp_error error = error_of("[E-A]");
 
 	NAXP_CHECK_EQUAL("W4", rule_of(error.message));
 	NAXP_CHECK(contains(error.text(), "lowest first"));
@@ -232,7 +232,7 @@ NAXP_TEST(range_written_backwards_suggests_something_that_can_be_typed)
 
 	for (const auto& [text, suggestion] : cases)
 	{
-		const fault error = fault_of(text);
+		const naxp_error error = error_of(text);
 
 		NAXP_CHECK(contains(error.text(), std::string("Write '") + suggestion + "'."));
 
@@ -252,7 +252,7 @@ NAXP_TEST(whitespace_splitting_a_token_points_at_the_whitespace)
 
 	const case_ cases[] = {
 		{"\\ s", 1, "cannot be followed by whitespace"},
-		{"A! !", 2, "is one token"},
+		{"A! !", 2, "as one token"},
 		{"A{2 5}", 3, "cannot be separated by whitespace"},
 		{"# [0-10]", 1, "no whitespace between '#' and '['"},
 		{"#[1 0-20]", 3, "cannot be separated by whitespace"},
@@ -260,7 +260,7 @@ NAXP_TEST(whitespace_splitting_a_token_points_at_the_whitespace)
 
 	for (const auto& [text, offset, fragment] : cases)
 	{
-		const fault error = fault_of(text);
+		const naxp_error error = error_of(text);
 
 		NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
 		NAXP_CHECK_EQUAL(offset, error.offset);
@@ -268,7 +268,25 @@ NAXP_TEST(whitespace_splitting_a_token_points_at_the_whitespace)
 	}
 }
 
-NAXP_TEST(further_faults)
+NAXP_TEST(a_set_ending_after_a_range_hyphen_is_not_closed)
+{
+	const std::pair<const char*, std::size_t> cases[] = {
+		{"[A-", 0},
+		{"[A- ", 0},
+		{"AB[0-", 2},
+	};
+
+	for (const auto& [text, offset] : cases)
+	{
+		const naxp_error error = error_of(text);
+
+		NAXP_CHECK(error.message == naxp_message::character_set_not_closed);
+		NAXP_CHECK_EQUAL(offset, error.offset);
+		NAXP_CHECK_EQUAL(std::size_t{1}, error.length);
+	}
+}
+
+NAXP_TEST(further_errors)
 {
 	const std::pair<const char*, const char*> cases[] = {
 		{"A)", "syntax"},
@@ -283,7 +301,7 @@ NAXP_TEST(further_faults)
 
 	for (const auto& [text, rule] : cases)
 	{
-		NAXP_CHECK_EQUAL(rule, rule_of(fault_of(text).message));
+		NAXP_CHECK_EQUAL(rule, rule_of(error_of(text).message));
 	}
 }
 
@@ -298,7 +316,7 @@ NAXP_TEST(closing_parenthesis_with_no_group_is_not_reported_as_reserved)
 
 	for (const auto& [text, offset] : cases)
 	{
-		const fault error = fault_of(text);
+		const naxp_error error = error_of(text);
 
 		NAXP_CHECK(error.message == naxp_message::group_not_opened);
 		NAXP_CHECK_EQUAL(offset, error.offset);
@@ -306,10 +324,10 @@ NAXP_TEST(closing_parenthesis_with_no_group_is_not_reported_as_reserved)
 	}
 }
 
-NAXP_TEST(parenthesis_faults_either_side_are_unchanged)
+NAXP_TEST(parenthesis_errors_either_side_are_unchanged)
 {
-	NAXP_CHECK(fault_of("(AB").message == naxp_message::group_not_closed);
-	NAXP_CHECK(fault_of("((A)").message == naxp_message::group_not_closed);
+	NAXP_CHECK(error_of("(AB").message == naxp_message::group_not_closed);
+	NAXP_CHECK(error_of("((A)").message == naxp_message::group_not_closed);
 	parse("A\\)B");
 }
 
@@ -319,26 +337,26 @@ NAXP_TEST(pattern_outside_the_repertoire_is_invalid)
 {
 	for (const char c : {'\x01', '\x7F'})
 	{
-		const fault error = fault_of(std::string("A") + c);
+		const naxp_error error = error_of(std::string("A") + c);
 
 		NAXP_CHECK_EQUAL("syntax", rule_of(error.message));
 		NAXP_CHECK_EQUAL(std::size_t{1}, error.offset);
 		NAXP_CHECK_EQUAL(std::size_t{1}, error.length);
-		NAXP_CHECK(contains(error.text(), "cannot appear in the pattern"));
+		NAXP_CHECK(contains(error.text(), "cannot appear in a naxp"));
 	}
 }
 
 NAXP_TEST(pattern_outside_the_repertoire_names_the_code_point_where_it_can)
 {
 	// The pound sign, U+00A3, is two bytes of UTF-8 and is named as one character.
-	const fault pound = fault_of("A\xC2\xA3");
+	const naxp_error pound = error_of("A\xC2\xA3");
 
 	NAXP_CHECK_EQUAL(std::size_t{1}, pound.offset);
 	NAXP_CHECK_EQUAL(std::size_t{2}, pound.length);
 	NAXP_CHECK(contains(pound.text(), "U+00A3 cannot appear"));
 
 	// A stray continuation byte is not UTF-8, and is named as the byte it is.
-	const fault stray = fault_of("A\xA3");
+	const naxp_error stray = error_of("A\xA3");
 
 	NAXP_CHECK_EQUAL(std::size_t{1}, stray.offset);
 	NAXP_CHECK_EQUAL(std::size_t{1}, stray.length);
@@ -347,7 +365,7 @@ NAXP_TEST(pattern_outside_the_repertoire_names_the_code_point_where_it_can)
 
 NAXP_TEST(empty_pattern_is_not_a_naxp)
 {
-	NAXP_CHECK_EQUAL("syntax", rule_of(fault_of("").message));
+	NAXP_CHECK_EQUAL("syntax", rule_of(error_of("").message));
 }
 
 // Expansions the parser performs
@@ -393,7 +411,7 @@ NAXP_TEST(marked_decimal_range_expands_to_one_alternative_per_width)
 
 NAXP_TEST(mark_inside_the_value_names_the_zero_and_its_mark)
 {
-	const fault error = fault_of("#[10!0-999]");
+	const naxp_error error = error_of("#[10!0-999]");
 
 	NAXP_CHECK(error.message == naxp_message::decimal_range_mark_not_padding);
 	NAXP_CHECK_EQUAL(std::size_t{3}, error.offset);
@@ -460,20 +478,20 @@ NAXP_TEST(interval_matches_its_counts)
 
 NAXP_TEST(nested_unification_is_w2)
 {
-	NAXP_CHECK(fault_of("(A!B)!C").message == naxp_message::unified_nested);
-	NAXP_CHECK(fault_of("A!(B!C)").message == naxp_message::unified_nested);
+	NAXP_CHECK(error_of("(A!B)!C").message == naxp_message::unified_nested);
+	NAXP_CHECK(error_of("A!(B!C)").message == naxp_message::unified_nested);
 
 	// A fold binds to the whole element, '!' included, so this is one '!' and not two.
 	parse("\\CA!A");
 }
 
-NAXP_TEST(rendering_faults_are_w1)
+NAXP_TEST(rendering_errors_are_w1)
 {
-	NAXP_CHECK(fault_of("[AB]!!").message == naxp_message::reproduced_subject_not_single);
-	NAXP_CHECK(fault_of("A!(B|C)").message == naxp_message::rendering_not_single);
-	NAXP_CHECK(fault_of("A!()").message == naxp_message::element_not_deletable);
+	NAXP_CHECK(error_of("[AB]!!").message == naxp_message::reproduced_subject_not_single);
+	NAXP_CHECK(error_of("A!(B|C)").message == naxp_message::rendering_not_single);
+	NAXP_CHECK(error_of("A!()").message == naxp_message::element_not_deletable);
 
-	const fault not_generated = fault_of("A!B");
+	const naxp_error not_generated = error_of("A!B");
 
 	NAXP_CHECK(not_generated.message == naxp_message::rendering_not_generated);
 	NAXP_CHECK(contains(not_generated.text(), "'B'"));
@@ -481,7 +499,7 @@ NAXP_TEST(rendering_faults_are_w1)
 
 NAXP_TEST(a_case_fold_cannot_begin_a_rendering)
 {
-	const fault error = fault_of("A!\\CA");
+	const naxp_error error = error_of("A!\\CA");
 
 	NAXP_CHECK(error.message == naxp_message::fold_begins_rendering);
 	NAXP_CHECK_EQUAL("syntax", rule_of(error.message));

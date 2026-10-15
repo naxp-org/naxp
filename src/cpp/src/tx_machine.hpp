@@ -5,7 +5,7 @@
 #define NAXP_TX_MACHINE_HPP
 
 #include "ascii_char_set.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "tx.hpp"
 
@@ -167,7 +167,7 @@ namespace logmu::detail
 
 	/// Builds a `tx_machine` from a `tx` by determinisation.
 	///
-	/// The single-valuedness faults here duplicate the W3 checker, which decides the same
+	/// The single-valuedness errors here duplicate the W3 checker, which decides the same
 	/// question over the same derivatives, so on an expression the checker has passed they are
 	/// unreachable. They are kept as defence in depth, because the two walk different shapes,
 	/// the checker walks pairs and this walks sets, and a machine built from an unchecked
@@ -185,7 +185,7 @@ namespace logmu::detail
 		/// @param error The failure, or nothing on success.
 		/// @param max_states The budget, lowered by tests so the cap can be reached cheaply.
 		/// @returns Whether the machine was built.
-		bool try_build(const tx* root, tx_factory& factory, std::unique_ptr<tx_machine>& machine, std::optional<fault>& error, int max_states = limits::max_states);
+		bool try_build(const tx* root, tx_factory& factory, std::unique_ptr<tx_machine>& machine, std::optional<naxp_error>& error, int max_states = limits::max_states);
 	}
 
 	/// Merges states of a built `tx_machine` that behave alike.

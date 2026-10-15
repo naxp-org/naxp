@@ -19,24 +19,24 @@ namespace logmu
 		class compilation;
 	}
 
-	/// A fault found in a pattern: what is wrong, where, and a stable code naming it.
+	/// An error found in a pattern: what is wrong, where, and a stable code naming it.
 	///
 	/// An offset and a length of zero together mean the naxp as a whole rather than any one
-	/// place in it, which is what most faults outside the parser want. Every fault that does
+	/// place in it, which is what most errors outside the parser want. Every error that does
 	/// name a place has a length of at least one.
-	struct naxp_fault
+	struct naxp_error
 	{
-		/// The stable identifier for this fault, such as `NAXP1002`. Diagnostics only: it is
-		/// here so that a log or a bug report names the fault without quoting the prose.
+		/// The stable identifier for this error, such as `NAXP1002`. Diagnostics only: it is
+		/// here so that a log or a bug report names the error without quoting the prose.
 		std::string code;
 
 		/// What is wrong, and where practical what to write instead.
 		std::string message;
 
-		/// Where the fault starts, in characters from the start of the pattern.
+		/// Where the error starts, in characters from the start of the pattern.
 		std::size_t offset = 0;
 
-		/// How much of the pattern is at fault, which is the whole of it where the fault
+		/// How much of the pattern is in error, which is the whole of it where the error
 		/// belongs to the naxp rather than to any one place in it.
 		std::size_t length = 0;
 	};
@@ -155,22 +155,22 @@ namespace logmu
 
 	/// Thrown by `naxp::parse` where the pattern is not a well-formed naxp.
 	///
-	/// The message is the fault's code, offset, length and prose in one line, because a thrown
-	/// exception is all a caller of `parse` gets; the fault itself is kept for callers that want
+	/// The message is the error's code, offset, length and prose in one line, because a thrown
+	/// exception is all a caller of `parse` gets; the error itself is kept for callers that want
 	/// the parts.
-	class naxp_error : public std::invalid_argument
+	class naxp_format_error : public std::invalid_argument
 	{
 	public:
-		explicit naxp_error(naxp_fault parts);
+		explicit naxp_format_error(naxp_error parts);
 
-		/// The fault, in its parts.
-		const naxp_fault& fault() const noexcept
+		/// The error, in its parts.
+		const naxp_error& error() const noexcept
 		{
 			return this->parts;
 		}
 
 	private:
-		naxp_fault parts;
+		naxp_error parts;
 	};
 
 	/// A parsed naxp: a recogniser for its text and a codec between that text and the unsigned
@@ -193,16 +193,16 @@ namespace logmu
 		///
 		/// @param pattern The pattern of the naxp.
 		/// @returns The naxp.
-		/// @throws naxp_error The pattern is not a well-formed naxp.
+		/// @throws naxp_format_error The pattern is not a well-formed naxp.
 		static naxp parse(std::string_view pattern);
 
 		/// Tries to parse a naxp, or says what is wrong, where, and why it is invalid.
 		///
 		/// @param pattern The pattern of the naxp.
-		/// @param fault Where to put the fault where the pattern is invalid, or null where the
+		/// @param error Where to put the error where the pattern is invalid, or null where the
 		///     caller only wants to know whether it parsed. Untouched where it did.
 		/// @returns The naxp, or nothing where the pattern is not a well-formed naxp.
-		static std::optional<naxp> try_parse(std::string_view pattern, naxp_fault* fault = nullptr);
+		static std::optional<naxp> try_parse(std::string_view pattern, naxp_error* error = nullptr);
 
 		/// The pattern this naxp was parsed from.
 		std::string_view pattern() const noexcept;

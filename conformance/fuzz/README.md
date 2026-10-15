@@ -23,7 +23,7 @@ standard by agreement rather than by construction.
 
 The `cases` and `invalidNaxps` of the conformance data, plus:
 
-- `code`, `offset` and `length` on every invalid naxp, so the fault is compared
+- `code`, `offset` and `length` on every invalid naxp, so the error is compared
   exactly and not only by rule;
 - `pairs`, each two naxps with the three axes of their comparison, whether it was
   decided, and the first divergent value.

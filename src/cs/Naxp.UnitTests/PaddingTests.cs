@@ -196,7 +196,7 @@ public class PaddingTests
 
 	static string Repeat(string text, int times) => string.Concat(Enumerable.Repeat(text, times));
 	#endregion
-	#region Faults
+	#region Errors
 	[Theory]
 	// The last digit is the number, not padding in front of it.
 	[InlineData("#[0!-9]", "W4", "zeros at the front of a number")]
@@ -210,7 +210,7 @@ public class PaddingTests
 	[InlineData("#[0! 0-9]", "syntax", "cannot be separated by whitespace")]
 	public void MisplacedMark_IsRefused(string pattern, string rule, string fragment)
 	{
-		NaxpError error = FaultOf(pattern);
+		NaxpError error = ErrorOf(pattern);
 
 		Assert.Equal(rule, NaxpMessageRules.RuleOf(error.Message));
 		Assert.Contains(fragment, error.Text, StringComparison.Ordinal);
@@ -223,7 +223,7 @@ public class PaddingTests
 	[Fact]
 	public void MarkedRangeInsideAUnifiedElement_BreaksW2()
 	{
-		Assert.Equal("W2", NaxpMessageRules.RuleOf(FaultOf("(#[0!0-105])!(07)").Message));
+		Assert.Equal("W2", NaxpMessageRules.RuleOf(ErrorOf("(#[0!0-105])!(07)").Message));
 
 		// The same naxp without the mark is fine.
 		Naxp.Parse("(#[00-105])!(07)");
@@ -263,7 +263,7 @@ public class PaddingTests
 		return ast!;
 	}
 
-	static NaxpError FaultOf(string text)
+	static NaxpError ErrorOf(string text)
 	{
 		if (!Parser.TryParse(text, out Ast? ast, out NaxpError? error)) { return error!.Value; }
 

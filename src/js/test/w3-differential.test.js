@@ -236,7 +236,7 @@ test('an undecided copy is compared against a delay rather than guessed', () => 
 		assert.ok(error !== null, `${naxp} was accepted`);
 		assert.equal(ruleOf(error.message), 'W3', `${naxp}: ${error.text}`);
 
-		// And the oracle agrees, so the fault is right rather than merely present.
+		// And the oracle agrees, so the error is right rather than merely present.
 		const language = enumerateLanguage(ast);
 		const ambiguous = language.filter(
 			text => tryCanonicalise(ast, text).outcome === ReferenceOutcome.Ambiguous);

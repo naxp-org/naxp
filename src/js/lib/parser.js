@@ -44,12 +44,12 @@ const MAX_BOUND_DIGITS = 15;
  *
  * The C# implementation threads a `bool` and two `out` parameters through every production,
  * because it parses in a `ref struct` and will not allocate. Nothing here is measurable, parsing
- * happens once per naxp, and the two behave identically: the first fault wins and no production
+ * happens once per naxp, and the two behave identically: the first error wins and no production
  * backtracks.
  */
 class ParseFailure extends Error {
 	/**
-	 * @param {NaxpError} naxpError The fault.
+	 * @param {NaxpError} naxpError The error.
 	 */
 	constructor(naxpError) {
 		super(naxpError.toString());
@@ -542,7 +542,7 @@ class Parser {
 		let digitCount = 0;
 		let marks = null;
 
-		// Where each digit sits in the pattern, so that a fault on one can name it rather than
+		// Where each digit sits in the pattern, so that an error on one can name it rather than
 		// the whole range. A digit and its mark are one token, so these are not evenly spaced.
 		const digitOffsets = [];
 
@@ -643,6 +643,12 @@ class Parser {
 
 			this.advance();
 			this.skipWhitespace();
+
+			// A set that ends after a range's hyphen is one that is not closed, as it is
+			// everywhere else in a set.
+			if (this.peek() === END_OF_TEXT) {
+				throw fail(NaxpMessage.NAXP1025_CharacterSetNotClosed, null, start, 1);
+			}
 
 			const upper = this.parseCharAtom();
 
@@ -803,7 +809,7 @@ class Parser {
 	 * Rules out whitespace that splits a run of digits, which whitespace between tokens does not.
 	 * Called immediately after the run has been read.
 	 *
-	 * @param {string} message Which fault to give, since the two callers word it differently.
+	 * @param {string} message Which error to give, since the two callers word it differently.
 	 */
 	checkDigitRunNotSplit(message) {
 		if (!isWhitespace(this.peek())) { return; }
@@ -822,9 +828,9 @@ class Parser {
 	// #region Diagnostics
 
 	/**
-	 * The fault for a position at which an element was required and none begins.
+	 * The error for a position at which an element was required and none begins.
 	 *
-	 * @returns {ParseFailure} The fault.
+	 * @returns {ParseFailure} The error.
 	 */
 	noElementHere() {
 		const c = this.peek();
@@ -845,9 +851,9 @@ class Parser {
 	}
 
 	/**
-	 * The fault for a character that cannot appear where it stands.
+	 * The error for a character that cannot appear where it stands.
 	 *
-	 * @returns {ParseFailure} The fault.
+	 * @returns {ParseFailure} The error.
 	 */
 	unexpectedCharacter() {
 		const c = this.peek();
@@ -903,26 +909,26 @@ function at(node, offset) {
 }
 
 /**
- * A fault, ready to throw.
+ * An error, ready to throw.
  *
- * @param {string} message Which fault this is, a member of {@link NaxpMessage}.
+ * @param {string} message Which error this is, a member of {@link NaxpMessage}.
  * @param {string | null} argument What the message interpolates, or null.
- * @param {number} offset The offset in the pattern at which the fault was found.
+ * @param {number} offset The offset in the pattern at which the error was found.
  * @param {string} message What is wrong.
- * @returns {ParseFailure} The fault.
+ * @returns {ParseFailure} The error.
  */
 function fail(message, argument, offset, length) {
 	return new ParseFailure(new NaxpError(message, argument, offset, length));
 }
 
 /**
- * The fault for a backslash followed by something that is not an escape.
+ * The error for a backslash followed by something that is not an escape.
  *
  * The span covers the backslash and what follows it, which is two characters.
  *
  * @param {string} escaped The character after the backslash.
  * @param {number} backslashOffset Where the backslash is.
- * @returns {ParseFailure} The fault.
+ * @returns {ParseFailure} The error.
  */
 function undefinedEscape(escaped, backslashOffset) {
 	return fail(NaxpMessage.NAXP1031_EscapeUndefined, escaped, backslashOffset, 2);
@@ -1029,7 +1035,7 @@ function isStartOfElement(c) {
  *
  * @param {string} text The pattern of the naxp.
  * @returns {{ast: import('./ast.js').Ast | null, error: NaxpError | null}} The tree, or the
- * fault. Exactly one of the two is null.
+ * error. Exactly one of the two is null.
  */
 export function tryParse(text) {
 	try {

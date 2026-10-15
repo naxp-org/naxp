@@ -77,6 +77,21 @@ public sealed class Naxp
 	}
 
 	/// <summary>
+	/// Parses a naxp held in a string.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="Parse(ReadOnlySpan{char})"/>, for a caller that cannot pass a string
+	/// as a span: C# before version 14 on .NET Framework, Visual Basic, F# and PowerShell.
+	/// </remarks>
+	/// <param name="pattern">The pattern of the naxp.</param>
+	/// <returns>The naxp.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+	/// <exception cref="FormatException">
+	/// <paramref name="pattern"/> is not a well-formed naxp.
+	/// </exception>
+	public static Naxp Parse(string pattern) => Parse(SpanOf(pattern, nameof(pattern)));
+
+	/// <summary>
 	/// Tries to parse a naxp, or says what is wrong.
 	/// </summary>
 	/// <param name="pattern">The pattern of the naxp.</param>
@@ -93,6 +108,27 @@ public sealed class Naxp
 		=> TryParse(pattern, out naxp, out errorMessage, out _, out _, out _);
 
 	/// <summary>
+	/// Tries to parse a naxp held in a string, or says what is wrong.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="TryParse(ReadOnlySpan{char}, out Naxp?, out string?)"/>, for a
+	/// caller that cannot pass a string as a span.
+	/// </remarks>
+	/// <param name="pattern">The pattern of the naxp.</param>
+	/// <param name="naxp">The naxp, if this returns <see langword="true"/>.</param>
+	/// <param name="errorMessage">
+	/// What is wrong, and where practical what to write instead, if this returns
+	/// <see langword="false"/>.
+	/// </param>
+	/// <returns>Whether the pattern is a well-formed naxp.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+	public static bool TryParse(
+		string pattern,
+		[NotNullWhen(true)] out Naxp? naxp,
+		[NotNullWhen(false)] out string? errorMessage)
+		=> TryParse(SpanOf(pattern, nameof(pattern)), out naxp, out errorMessage, out _, out _, out _);
+
+	/// <summary>
 	/// Tries to parse a naxp, or says what is wrong, where, and why it is invalid.
 	/// </summary>
 	/// <param name="pattern">The pattern of the naxp.</param>
@@ -101,15 +137,15 @@ public sealed class Naxp
 	/// What is wrong, and where practical what to write instead.
 	/// </param>
 	/// <param name="errorOffset">
-	/// Where the fault starts, in characters from the start of <paramref name="pattern"/>.
+	/// Where the error starts, in characters from the start of <paramref name="pattern"/>.
 	/// </param>
 	/// <param name="errorLength">
-	/// How much of <paramref name="pattern"/> is at fault, which is the whole of it where the fault
+	/// How much of <paramref name="pattern"/> is in error, which is the whole of it where the error
 	/// belongs to the naxp rather than to any one place in it.
 	/// </param>
 	/// <param name="errorCode">
-	/// A stable identifier for this fault, such as <c>NAXP1002</c>. Diagnostics
-	/// only: it is here so that a log or a bug report names the fault without quoting the prose.
+	/// A stable identifier for this error, such as <c>NAXP1002</c>. Diagnostics
+	/// only: it is here so that a log or a bug report names the error without quoting the prose.
 	/// </param>
 	/// <returns>Whether the pattern is a well-formed naxp.</returns>
 	public static bool TryParse(
@@ -131,19 +167,58 @@ public sealed class Naxp
 			return true;
 		}
 
-		NaxpError fault = error!.Value;
+		NaxpError found = error!.Value;
 
 		naxp = null;
-		errorMessage = fault.Text;
-		errorCode = fault.Code;
-		errorOffset = fault.Offset;
+		errorMessage = found.Text;
+		errorCode = found.Code;
+		errorOffset = found.Offset;
 
-		// Only here is the length of the pattern known, so this is where a fault that named no
+		// Only here is the length of the pattern known, so this is where an error that named no
 		// place in the naxp is given the whole of it.
-		errorLength = fault.IsWholeNaxp ? pattern.Length : fault.Length;
+		errorLength = found.IsWholeNaxp ? pattern.Length : found.Length;
 
 		return false;
 	}
+
+	/// <summary>
+	/// Tries to parse a naxp held in a string, or says what is wrong, where, and why it is
+	/// invalid.
+	/// </summary>
+	/// <remarks>
+	/// The same as the overload taking a span, for a caller that cannot pass a string as one.
+	/// </remarks>
+	/// <param name="pattern">The pattern of the naxp.</param>
+	/// <param name="naxp">The naxp, if this returns <see langword="true"/>.</param>
+	/// <param name="errorMessage">
+	/// What is wrong, and where practical what to write instead.
+	/// </param>
+	/// <param name="errorOffset">
+	/// Where the error starts, in characters from the start of <paramref name="pattern"/>.
+	/// </param>
+	/// <param name="errorLength">
+	/// How much of <paramref name="pattern"/> is in error, which is the whole of it where the error
+	/// belongs to the naxp rather than to any one place in it.
+	/// </param>
+	/// <param name="errorCode">
+	/// A stable identifier for this error, such as <c>NAXP1002</c>.
+	/// </param>
+	/// <returns>Whether the pattern is a well-formed naxp.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+	public static bool TryParse(
+		string pattern,
+		[NotNullWhen(true)] out Naxp? naxp,
+		[NotNullWhen(false)] out string? errorMessage,
+		out int errorOffset,
+		out int errorLength,
+		[NotNullWhen(false)] out string? errorCode)
+		=> TryParse(
+			SpanOf(pattern, nameof(pattern)),
+			out naxp,
+			out errorMessage,
+			out errorOffset,
+			out errorLength,
+			out errorCode);
 	#endregion
 	#region Public properties
 	/// <summary>The pattern this naxp was parsed from.</summary>
@@ -188,6 +263,18 @@ public sealed class Naxp
 	public bool Accepts(ReadOnlySpan<char> text) => this.compilation.Accepts(text);
 
 	/// <summary>
+	/// Whether this naxp accepts the specified string.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="Accepts(ReadOnlySpan{char})"/>, for a caller that cannot pass a
+	/// string as a span.
+	/// </remarks>
+	/// <param name="text">The string to test.</param>
+	/// <returns>Whether the naxp accepts it.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+	public bool Accepts(string text) => this.Accepts(SpanOf(text, nameof(text)));
+
+	/// <summary>
 	/// Whether this naxp accepts the specified ASCII text.
 	/// </summary>
 	/// <remarks>
@@ -227,6 +314,21 @@ public sealed class Naxp
 	/// invalid.
 	/// </returns>
 	public ulong Encode(ReadOnlySpan<char> text) => this.compilation.Encode(text);
+
+	/// <summary>
+	/// The encoded value of a string.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="Encode(ReadOnlySpan{char})"/>, for a caller that cannot pass a
+	/// string as a span.
+	/// </remarks>
+	/// <param name="text">The string to encode.</param>
+	/// <returns>
+	/// The encoded value, from 1 to <see cref="MaxEncodedValue"/>, or zero if the string is
+	/// invalid.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+	public ulong Encode(string text) => this.Encode(SpanOf(text, nameof(text)));
 
 	/// <summary>
 	/// The encoded value of ASCII text.
@@ -269,6 +371,19 @@ public sealed class Naxp
 
 		return encoded != 0UL;
 	}
+
+	/// <summary>
+	/// Tries to encode a string.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="TryEncode(ReadOnlySpan{char}, out ulong)"/>, for a caller that
+	/// cannot pass a string as a span.
+	/// </remarks>
+	/// <param name="text">The string to encode.</param>
+	/// <param name="encoded">The value, or zero if the string is invalid.</param>
+	/// <returns>Whether the naxp accepts the string.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+	public bool TryEncode(string text, out ulong encoded) => this.TryEncode(SpanOf(text, nameof(text)), out encoded);
 
 	/// <summary>
 	/// Tries to encode ASCII text.
@@ -398,6 +513,20 @@ public sealed class Naxp
 		=> this.TryGetCanonicalForm(text, out string? canonicalForm) ? canonicalForm : null;
 
 	/// <summary>
+	/// The canonical form of a string.
+	/// </summary>
+	/// <remarks>
+	/// The same as <see cref="GetCanonicalForm(ReadOnlySpan{char})"/>, for a caller that cannot
+	/// pass a string as a span.
+	/// </remarks>
+	/// <param name="text">The string.</param>
+	/// <returns>
+	/// The canonical form, or <see langword="null"/> if the string is invalid.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+	public string? GetCanonicalForm(string text) => this.GetCanonicalForm(SpanOf(text, nameof(text)));
+
+	/// <summary>
 	/// Tries to find the canonical form of a string.
 	/// </summary>
 	/// <param name="text">The string.</param>
@@ -407,6 +536,21 @@ public sealed class Naxp
 	/// <returns>Whether the naxp accepts the string.</returns>
 	public bool TryGetCanonicalForm(ReadOnlySpan<char> text, [NotNullWhen(true)] out string? canonicalForm)
 		=> this.compilation.TryGetCanonicalForm(text, out canonicalForm);
+
+	/// <summary>
+	/// Tries to find the canonical form of a string.
+	/// </summary>
+	/// <remarks>
+	/// The same as the overload taking a span, for a caller that cannot pass a string as one.
+	/// </remarks>
+	/// <param name="text">The string.</param>
+	/// <param name="canonicalForm">
+	/// The canonical form, if this returns <see langword="true"/>.
+	/// </param>
+	/// <returns>Whether the naxp accepts the string.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+	public bool TryGetCanonicalForm(string text, [NotNullWhen(true)] out string? canonicalForm)
+		=> this.TryGetCanonicalForm(SpanOf(text, nameof(text)), out canonicalForm);
 
 	/// <summary>
 	/// The canonical form of ASCII text.
@@ -701,6 +845,13 @@ public sealed class Naxp
 	public override string ToString() => this.Pattern;
 	#endregion
 	#region Private methods
+	/// <summary>
+	/// A string a caller passed, as a span, refusing a null one rather than reading it as empty,
+	/// which is what <c>AsSpan</c> would do and which some naxps accept.
+	/// </summary>
+	static ReadOnlySpan<char> SpanOf(string text, string name)
+		=> text is null ? throw new ArgumentNullException(name) : text.AsSpan();
+
 	/// <summary>
 	/// Copies ASCII bytes into characters.
 	/// </summary>

@@ -4,7 +4,7 @@
 #include "well_formedness.hpp"
 
 #include "ast.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_message.hpp"
 #include "tree_walker.hpp"
 
@@ -60,7 +60,7 @@ namespace logmu::detail::well_formedness
 
 		// W2: '!' may not nest
 
-		bool try_check_w2(const ast& node, std::optional<fault>& error)
+		bool try_check_w2(const ast& node, std::optional<naxp_error>& error)
 		{
 			if (node.kind() == ast_kind::unified)
 			{
@@ -68,7 +68,7 @@ namespace logmu::detail::well_formedness
 
 				if (ast::contains_unified(*unified.subject) || ast::contains_unified(*unified.rendering))
 				{
-					error = fault(naxp_message::unified_nested);
+					error = naxp_error(naxp_message::unified_nested);
 
 					return false;
 				}
@@ -89,7 +89,7 @@ namespace logmu::detail::well_formedness
 
 		// W1: a rendering must be one of the strings it replaces
 
-		bool try_check_w1(const ast& node, std::optional<fault>& error)
+		bool try_check_w1(const ast& node, std::optional<naxp_error>& error)
 		{
 			if (node.kind() == ast_kind::unified)
 			{
@@ -99,14 +99,14 @@ namespace logmu::detail::well_formedness
 
 				if (outcome == tree_walker::single_string_outcome::too_long)
 				{
-					error = fault(naxp_message::element_too_long);
+					error = naxp_error(naxp_message::element_too_long);
 
 					return false;
 				}
 
 				if (outcome == tree_walker::single_string_outcome::multiple)
 				{
-					error = fault(unified.form == unified_form::reproduced
+					error = naxp_error(unified.form == unified_form::reproduced
 						? naxp_message::reproduced_subject_not_single
 						: naxp_message::rendering_not_single);
 
@@ -119,14 +119,14 @@ namespace logmu::detail::well_formedness
 				{
 					if (too_long)
 					{
-						error = fault(naxp_message::element_too_long);
+						error = naxp_error(naxp_message::element_too_long);
 
 						return false;
 					}
 
 					error = rendering.empty()
-						? fault(naxp_message::element_not_deletable)
-						: fault(naxp_message::rendering_not_generated, rendering);
+						? naxp_error(naxp_message::element_not_deletable)
+						: naxp_error(naxp_message::rendering_not_generated, rendering);
 
 					return false;
 				}
@@ -146,7 +146,7 @@ namespace logmu::detail::well_formedness
 		}
 	}
 
-	bool try_check(const ast& tree, std::optional<fault>& error)
+	bool try_check(const ast& tree, std::optional<naxp_error>& error)
 	{
 		// W2 first, because W1 reads inside both operands of a '!' and the answer is only
 		// meaningful once nothing is hidden in there.

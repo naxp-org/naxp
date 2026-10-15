@@ -168,7 +168,7 @@ function statusLine(kind, flag, ...rest) {
 	return line;
 }
 
-/** Clears the layer that marks a fault in the pattern box. */
+/** Clears the layer that marks an error in the pattern box. */
 function clearUnderlay() {
 	fill(dom.underlay);
 }
@@ -186,14 +186,14 @@ function mirrorUnderlay() {
 }
 
 /**
- * Marks the span at fault in the pattern box itself, under the text being edited.
+ * Marks the span in error in the pattern box itself, under the text being edited.
  *
  * @param {string} pattern The pattern.
  * @param {number} from Where the span starts.
  * @param {number} to Where it ends.
  */
 function markUnderlay(pattern, from, to) {
-	// A fault of no width still has to point somewhere, and the mark cannot be given a width of
+	// An error of no width still has to point somewhere, and the mark cannot be given a width of
 	// its own: anything that takes space in this layer moves its text out of step with the box
 	// behind it. So a character beside the offset is marked instead.
 	let start = from;
@@ -241,7 +241,7 @@ function showParsed(naxp) {
 }
 
 /**
- * The code of a fault, linked to the page that documents it.
+ * The code of an error, linked to the page that documents it.
  *
  * A reader meets a code at exactly this moment, so this is where the page is
  * worth offering. The anchor is the code in lower case, which every row of that
@@ -253,18 +253,18 @@ function showParsed(naxp) {
 function codeLink(code) {
 	const link = element('a', 'status__code', code);
 
-	link.href = `/codes/#${code.toLowerCase()}`;
+	link.href = `/error-codes/#${code.toLowerCase()}`;
 	link.title = `What ${code} means`;
 
 	return link;
 }
 
 /**
- * Reports an invalid naxp, with the span at fault marked in the pattern.
+ * Reports an invalid naxp, with the span in error marked in the pattern.
  *
  * @param {string} pattern The pattern.
  * @param {{errorMessage: string, errorOffset: number, errorLength: number,
- * errorCode: string}} result The fault.
+ * errorCode: string}} result The error.
  */
 function showInvalid(pattern, result) {
 	const from = Math.min(result.errorOffset, pattern.length);

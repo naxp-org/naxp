@@ -130,26 +130,26 @@ public class ParserTests
 	[Fact]
 	public void Interval_WithAHyphen_NamesTheSeparator()
 	{
-		NaxpError error = FaultOf("A{2-5}");
+		NaxpError error = ErrorOf("A{2-5}");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(3, error.Offset);
-		Assert.Contains("',', not by a hyphen", error.Text, StringComparison.Ordinal);
+		Assert.Contains("',', not '-'", error.Text, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void Interval_Unbounded_SaysThereIsNone()
 	{
-		NaxpError error = FaultOf("A{2,}");
+		NaxpError error = ErrorOf("A{2,}");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
-		Assert.Contains("no unbounded interval", error.Text, StringComparison.Ordinal);
+		Assert.Contains("cannot be unbounded", error.Text, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void BareBang_NamesTheThreeForms()
 	{
-		NaxpError error = FaultOf("A!");
+		NaxpError error = ErrorOf("A!");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(1, error.Offset);
@@ -175,7 +175,7 @@ public class ParserTests
 	[Fact]
 	public void UndefinedEscape_ListsTheEscapeLetters()
 	{
-		NaxpError error = FaultOf("\\d");
+		NaxpError error = ErrorOf("\\d");
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Contains("'s', '9', 'A', 'a', 'X', 'x', 'C' and 'c'", error.Text, StringComparison.Ordinal);
@@ -184,7 +184,7 @@ public class ParserTests
 	[Fact]
 	public void RangeWrittenBackwards_SaysLowestFirst()
 	{
-		NaxpError error = FaultOf("[E-A]");
+		NaxpError error = ErrorOf("[E-A]");
 
 		Assert.Equal("W4", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Contains("lowest first", error.Text, StringComparison.Ordinal);
@@ -202,7 +202,7 @@ public class ParserTests
 	[InlineData("[a-\\]]", "\\]-a")]
 	public void RangeWrittenBackwards_SuggestsSomethingThatCanBeTyped(string text, string suggestion)
 	{
-		NaxpError error = FaultOf(text);
+		NaxpError error = ErrorOf(text);
 
 		Assert.Contains($"Write '{suggestion}'.", error.Text, StringComparison.Ordinal);
 
@@ -211,21 +211,34 @@ public class ParserTests
 	}
 
 	[Theory]
+	[InlineData("[A-", 0)]
+	[InlineData("[A- ", 0)]
+	[InlineData("AB[0-", 2)]
+	public void ASetEndingAfterARangeHyphen_IsNotClosed(string text, int offset)
+	{
+		NaxpError error = ErrorOf(text);
+
+		Assert.Equal(NaxpMessage.NAXP1025_CharacterSetNotClosed, error.Message);
+		Assert.Equal(offset, error.Offset);
+		Assert.Equal(1, error.Length);
+	}
+
+	[Theory]
 	[InlineData("\\ s", 1, "cannot be followed by whitespace")]
-	[InlineData("A! !", 2, "is one token")]
+	[InlineData("A! !", 2, "as one token")]
 	[InlineData("A{2 5}", 3, "cannot be separated by whitespace")]
 	[InlineData("# [0-10]", 1, "no whitespace between '#' and '['")]
 	[InlineData("#[1 0-20]", 3, "cannot be separated by whitespace")]
 	public void WhitespaceSplittingAToken_PointsAtTheWhitespace(string text, int offset, string fragment)
 	{
-		NaxpError error = FaultOf(text);
+		NaxpError error = ErrorOf(text);
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 		Assert.Equal(offset, error.Offset);
 		Assert.Contains(fragment, error.Text, StringComparison.Ordinal);
 	}
 	/// <summary>
-	/// Faults the test data does not cover, kept here so the parser cannot quietly grow lax.
+	/// Errors the test data does not cover, kept here so the parser cannot quietly grow lax.
 	/// </summary>
 	[Theory]
 	[InlineData("A)", "syntax")]
@@ -236,8 +249,8 @@ public class ParserTests
 	[InlineData("A{2,1}", "W4")]
 	[InlineData("#[5-4]", "W4")]
 	[InlineData("(A|B)!(A|B)", "W1")]
-	public void FurtherFaults(string text, string rule)
-		=> Assert.Equal(rule, NaxpMessageRules.RuleOf(FaultOf(text).Message));
+	public void FurtherErrors(string text, string rule)
+		=> Assert.Equal(rule, NaxpMessageRules.RuleOf(ErrorOf(text).Message));
 
 	/// <summary>
 	/// A ')' that closes nothing says so. Reporting it as a reserved character and offering the
@@ -250,7 +263,7 @@ public class ParserTests
 	[InlineData("\\A\\A?\\9\\X? \\s!! \\9\\A\\A) | GIR \\s!! 0AA", 22)]
 	public void ClosingParenthesisWithNoGroup_IsNotReportedAsReserved(string text, int offset)
 	{
-		NaxpError error = FaultOf(text);
+		NaxpError error = ErrorOf(text);
 
 		Assert.Equal(NaxpMessage.NAXP1057_GroupNotOpened, error.Message);
 		Assert.Equal(offset, error.Offset);
@@ -258,14 +271,14 @@ public class ParserTests
 	}
 
 	/// <summary>
-	/// The neighbouring faults are untouched: an unclosed group, and a parenthesis that was
+	/// The neighbouring errors are untouched: an unclosed group, and a parenthesis that was
 	/// escaped and so is an ordinary character.
 	/// </summary>
 	[Fact]
-	public void ParenthesisFaultsEitherSide_AreUnchanged()
+	public void ParenthesisErrorsEitherSide_AreUnchanged()
 	{
-		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, FaultOf("(AB").Message);
-		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, FaultOf("((A)").Message);
+		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, ErrorOf("(AB").Message);
+		Assert.Equal(NaxpMessage.NAXP1009_GroupNotClosed, ErrorOf("((A)").Message);
 		Assert.NotNull(Naxp.Parse("A\\)B").ToString());
 	}
 	#endregion
@@ -278,18 +291,18 @@ public class ParserTests
 	{
 		foreach (char c in new[] { '\u00E9', '\u0001', '\u007F' })
 		{
-			NaxpError error = FaultOf("A" + c);
+			NaxpError error = ErrorOf("A" + c);
 
 			Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 			Assert.Equal(1, error.Offset);
-			Assert.Contains("cannot appear in the pattern", error.Text, StringComparison.Ordinal);
+			Assert.Contains("cannot appear in a naxp", error.Text, StringComparison.Ordinal);
 		}
 	}
 
 	[Fact]
 	public void EmptySource_IsNotANaxp()
 	{
-		NaxpError error = FaultOf(string.Empty);
+		NaxpError error = ErrorOf(string.Empty);
 
 		Assert.Equal("syntax", NaxpMessageRules.RuleOf(error.Message));
 	}
@@ -330,7 +343,7 @@ public class ParserTests
 		return ast!;
 	}
 
-	static NaxpError FaultOf(string text)
+	static NaxpError ErrorOf(string text)
 	{
 		if (!Parser.TryParse(text, out Ast? ast, out NaxpError? error)) { return error!.Value; }
 

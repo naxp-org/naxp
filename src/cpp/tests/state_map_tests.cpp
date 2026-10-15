@@ -7,7 +7,7 @@
 #include "ascii_char_set.hpp"
 #include "ast.hpp"
 #include "compiler.hpp"
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "parser.hpp"
 #include "rx.hpp"
 #include "rx_converter.hpp"
@@ -30,7 +30,7 @@ namespace
 	std::unique_ptr<compilation> compile(std::string_view naxp)
 	{
 		std::unique_ptr<compilation> compiled;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (!compiler::try_compile(naxp, compiled, error))
 		{
@@ -43,7 +43,7 @@ namespace
 	ast_ptr parse_only(std::string_view naxp)
 	{
 		ast_ptr tree;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (!try_parse(naxp, tree, error))
 		{
@@ -114,10 +114,10 @@ namespace
 		return text;
 	}
 
-	std::string fault_rule(std::string_view naxp)
+	std::string error_rule(std::string_view naxp)
 	{
 		std::unique_ptr<compilation> compiled;
-		std::optional<fault> error;
+		std::optional<naxp_error> error;
 
 		if (compiler::try_compile(naxp, compiled, error))
 		{
@@ -210,20 +210,20 @@ NAXP_TEST(string_counts)
 NAXP_TEST(w5_invalidates_twenty_digits)
 {
 	compile("\\9{19}");
-	NAXP_CHECK_EQUAL(std::string("W5"), fault_rule("\\9{20}"));
+	NAXP_CHECK_EQUAL(std::string("W5"), error_rule("\\9{20}"));
 }
 
 NAXP_TEST(w5_invalidates_a_product_of_two_legal_halves)
 {
 	compile("\\9{19}");
-	NAXP_CHECK_EQUAL(std::string("W5"), fault_rule("\\9{19}\\9{19}"));
+	NAXP_CHECK_EQUAL(std::string("W5"), error_rule("\\9{19}\\9{19}"));
 }
 
 NAXP_TEST(w5_invalidates_a_sum_of_two_legal_alternatives)
 {
 	compile("\\9{19}");
 	compile("[A-J]\\9{17}[A-J]");
-	NAXP_CHECK_EQUAL(std::string("W5"), fault_rule("\\9{19}|[A-J]\\9{17}[A-J]"));
+	NAXP_CHECK_EQUAL(std::string("W5"), error_rule("\\9{19}|[A-J]\\9{17}[A-J]"));
 }
 
 NAXP_TEST(state_budget_invalidates_a_machine_too_large_to_build)
@@ -236,7 +236,7 @@ NAXP_TEST(state_budget_invalidates_a_machine_too_large_to_build)
 	const rx* expression = rx_converter::convert(*tree, factory, true);
 
 	std::unique_ptr<state_map> map;
-	std::optional<fault> error;
+	std::optional<naxp_error> error;
 
 	NAXP_CHECK(!state_map_builder::try_build(expression, factory, map, error, 100));
 	NAXP_CHECK_EQUAL(std::string("W6"), std::string(rule_of(error->message)));

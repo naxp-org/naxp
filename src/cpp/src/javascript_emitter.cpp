@@ -117,7 +117,7 @@ namespace logmu::detail
 		void emit_constants();
 		void emit_accepts();
 		void emit_encode();
-		void emit_read_loop(const std::string& step, const std::string& on_fault, const std::optional<std::string>& before = std::nullopt);
+		void emit_read_loop(const std::string& step, const std::string& on_error, const std::optional<std::string>& before = std::nullopt);
 		void emit_decode_publics();
 		void emit_get_canonical_form();
 		void emit_range_check(const std::string& message);
@@ -367,9 +367,9 @@ namespace logmu::detail
 	/// function has already set the flag saying which it holds.
 	///
 	/// @param step The stepping statement, over the code point `c`.
-	/// @param on_fault What a failed step does.
+	/// @param on_error What a failed step does.
 	/// @param before A statement between reading the code point and stepping, if any.
-	void javascript_emitter::fragment::emit_read_loop(const std::string& step, const std::string& on_fault, const std::optional<std::string>& before)
+	void javascript_emitter::fragment::emit_read_loop(const std::string& step, const std::string& on_error, const std::optional<std::string>& before)
 	{
 		code_writer& out = this->writer();
 
@@ -385,7 +385,7 @@ namespace logmu::detail
 
 		out.line(step);
 		out.line();
-		out.line("if (state < 0) { " + on_fault + " }");
+		out.line("if (state < 0) { " + on_error + " }");
 		out.indent_less();
 		out.line("}");
 	}

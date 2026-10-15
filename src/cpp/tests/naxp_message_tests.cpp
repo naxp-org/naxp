@@ -4,7 +4,7 @@
 #include "check.hpp"
 #include "naxp_message_rules.hpp"
 
-#include "fault.hpp"
+#include "naxp_error.hpp"
 #include "naxp_limits.hpp"
 #include "naxp_message.hpp"
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-using logmu::detail::fault;
+using logmu::detail::naxp_error;
 using logmu::detail::format_message;
 using logmu::detail::message_code;
 using logmu::detail::naxp_message;
@@ -139,15 +139,15 @@ NAXP_TEST(every_message_has_a_rule)
 	}
 }
 
-NAXP_TEST(a_fault_with_a_position_is_not_mistaken_for_the_whole_naxp)
+NAXP_TEST(a_error_with_a_position_is_not_mistaken_for_the_whole_naxp)
 {
-	NAXP_CHECK(fault(naxp_message::too_many_values).is_whole_naxp());
-	NAXP_CHECK(!fault(naxp_message::interval_hyphen, 0, 1).is_whole_naxp());
-	NAXP_CHECK(!fault(naxp_message::interval_hyphen, 3, 1).is_whole_naxp());
+	NAXP_CHECK(naxp_error(naxp_message::too_many_values).is_whole_naxp());
+	NAXP_CHECK(!naxp_error(naxp_message::interval_hyphen, 0, 1).is_whole_naxp());
+	NAXP_CHECK(!naxp_error(naxp_message::interval_hyphen, 3, 1).is_whole_naxp());
 }
 
-NAXP_TEST(a_fault_prints_its_code_and_span_and_text)
+NAXP_TEST(a_error_prints_its_code_and_span_and_text)
 {
-	NAXP_CHECK_EQUAL(std::string("NAXP1046: ") + format_message(naxp_message::too_many_values, ""), fault(naxp_message::too_many_values).to_string());
-	NAXP_CHECK_EQUAL(std::string("NAXP1002 at 3..4: ") + format_message(naxp_message::interval_hyphen, ""), fault(naxp_message::interval_hyphen, 3, 1).to_string());
+	NAXP_CHECK_EQUAL(std::string("NAXP1046: ") + format_message(naxp_message::too_many_values, ""), naxp_error(naxp_message::too_many_values).to_string());
+	NAXP_CHECK_EQUAL(std::string("NAXP1002 at 3..4: ") + format_message(naxp_message::interval_hyphen, ""), naxp_error(naxp_message::interval_hyphen, 3, 1).to_string());
 }

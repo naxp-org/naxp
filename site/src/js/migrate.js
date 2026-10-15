@@ -87,7 +87,7 @@ function element(tag, className, ...children) {
 }
 
 /**
- * The code of a fault, linked to the page that documents it.
+ * The code of an error, linked to the page that documents it.
  *
  * A reader meets a code at exactly this moment, so this is where the page is
  * worth offering. The anchor is the code in lower case, which every row of that
@@ -99,7 +99,7 @@ function element(tag, className, ...children) {
 function codeLink(code) {
 	const link = element('a', 'status__code', code);
 
-	link.href = `/codes/#${code.toLowerCase()}`;
+	link.href = `/error-codes/#${code.toLowerCase()}`;
 	link.title = `What ${code} means`;
 
 	return link;
@@ -217,11 +217,11 @@ function isSafe(encoding) {
 /* ---------- parsing the two boxes ---------- */
 
 /**
- * Parses one box, reporting the fault where it will not parse.
+ * Parses one box, reporting the error where it will not parse.
  *
  * @param {HTMLTextAreaElement} box The box.
  * @param {string} name What the box is called, `a` or `b`.
- * @returns {{naxp: Naxp | null, fault: HTMLElement | null}} The naxp, or a line saying why not.
+ * @returns {{naxp: Naxp | null, error: HTMLElement | null}} The naxp, or a line saying why not.
  */
 function read(box, name) {
 	const pattern = box.value;
@@ -229,17 +229,17 @@ function read(box, name) {
 	if (pattern.trim() === '') {
 		return {
 			naxp: null,
-			fault: statusLine('idle', null, ...chipped(`Write {${name}} to begin.`)),
+			error: statusLine('idle', null, ...chipped(`Write {${name}} to begin.`)),
 		};
 	}
 
 	const result = Naxp.tryParse(pattern);
 
-	if (result.naxp !== null) { return { naxp: result.naxp, fault: null }; }
+	if (result.naxp !== null) { return { naxp: result.naxp, error: null }; }
 
 	return {
 		naxp: null,
-		fault: statusLine(
+		error: statusLine(
 			'bad',
 			'Invalid',
 			...chip(name),
@@ -428,9 +428,9 @@ function refresh() {
 	const right = read(dom.b, 'b');
 
 	if (left.naxp === null || right.naxp === null) {
-		// Both faults are shown. Somebody who has pasted two naxps in wants to be told about
+		// Both errors are shown. Somebody who has pasted two naxps in wants to be told about
 		// both of them, not sent back a second time.
-		fill(dom.verdict, ...[left.fault, right.fault].filter((line) => line !== null));
+		fill(dom.verdict, ...[left.error, right.error].filter((line) => line !== null));
 
 		fill(dom.axes);
 		dom.axesTable.hidden = true;

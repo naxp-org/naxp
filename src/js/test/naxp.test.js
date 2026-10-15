@@ -30,7 +30,7 @@ test('parse throws, and the thrown message leads with the code and the span', ()
 		error => {
 			assert.ok(error instanceof NaxpFormatError);
 			assert.ok(error.message.startsWith('NAXP1002 at 3..4: '), error.message);
-			assert.ok(error.message.includes('not by a hyphen'), error.message);
+			assert.ok(error.message.includes("not '-'"), error.message);
 
 			return true;
 		});
@@ -63,7 +63,7 @@ test('tryParse clears every field on success', () => {
 	assert.equal(result.naxp.maxEncodedValue, 1000n);
 });
 
-test('a fault with no position reports the whole naxp', () => {
+test('an error with no position reports the whole naxp', () => {
 	// W5 counts the canonical language, so it belongs to the naxp rather than to a place in it.
 	// Reporting offset zero with a zero length would send a caller underlining the first
 	// character, which is why the whole pattern is given instead.
@@ -270,7 +270,7 @@ test('W3 is invalid when the naxp is parsed, not when a string is encoded', () =
 
 	assert.equal(naxp, null);
 	assert.equal(ruleOfCode(errorCode), 'W3');
-	assert.ok(errorMessage.includes('more than one canonical form'), errorMessage);
+	assert.ok(errorMessage.includes('multiple canonical forms'), errorMessage);
 });
 
 test('a legal naxp can still be declined for its size, and the rule says so', () => {
