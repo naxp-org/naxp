@@ -39,8 +39,8 @@ public class NaxpComparisonTests
 		=> Assert.Equal(new NaxpComparison(SetRelationship.Equal, SetRelationship.Equal, SetRelationship.Equal), Compare(Postcode, Postcode));
 
 	/// <summary>
-	/// The axes are independent. The same values with different printed text, and the same
-	/// printed text with different values, are both possible, and each is a different kind
+	/// The axes are independent. The same values with different canonical forms, and the same
+	/// canonical forms with different values, are both possible, and each is a different kind
 	/// of change to warn about. The last pair prints <c>a</c> and <c>c</c> either way and
 	/// sends <c>b</c> to a different one of them.
 	/// </summary>
@@ -67,8 +67,8 @@ public class NaxpComparisonTests
 		Assert.Equal(SetRelationship.SupersetOf, backward.AcceptedText);
 		Assert.Equal(SetRelationship.Incomparable, forward.Encoding);
 		Assert.Equal(SetRelationship.Incomparable, backward.Encoding);
-		Assert.Equal(SetRelationship.SubsetOf, forward.PrintedText);
-		Assert.Equal(SetRelationship.SupersetOf, backward.PrintedText);
+		Assert.Equal(SetRelationship.SubsetOf, forward.CanonicalForms);
+		Assert.Equal(SetRelationship.SupersetOf, backward.CanonicalForms);
 	}
 	#endregion
 	#region The struct
@@ -79,7 +79,7 @@ public class NaxpComparisonTests
 
 		Assert.Equal(SetRelationship.Incomparable, comparison.AcceptedText);
 		Assert.Equal(SetRelationship.Incomparable, comparison.Encoding);
-		Assert.Equal(SetRelationship.Incomparable, comparison.PrintedText);
+		Assert.Equal(SetRelationship.Incomparable, comparison.CanonicalForms);
 	}
 
 	[Fact]

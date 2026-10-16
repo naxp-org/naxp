@@ -80,10 +80,10 @@ try {
             <tr>
               <th scope="row">Flight designator<span class="eg">e.g. <code>AC861</code></span></th>
               <td class="naxp--wrap">
-                <code class="naxp">
+                <a class="naxp-try" href="/interactive/?standard=flight-designator" title="Try in Interactive"><code class="naxp">
                   <span class="naxp__token">(\A\A|\A\9|\9\A)</span>
                   <span class="naxp__token">#[0!0!0!1-9999]</span>
-                </code>
+                </code></a>
               </td>
               <td class="num">12&#x202f;m</td>
               <td class="num">24</td>
@@ -91,11 +91,11 @@ try {
             <tr>
               <th scope="row">UK postcode<span class="eg">e.g. <code>EC4M 8AD</code></span></th>
               <td class="naxp--wrap">
-                <code class="naxp">
+                <a class="naxp-try" href="/interactive/?standard=uk-postcode" title="Try in Interactive"><code class="naxp">
                   <span class="naxp__token">\A\A?\9\X? \s!! \9\A\A</span>
                   <span class="naxp__token">|</span>
                   <span class="naxp__token">GIR \s!! 0AA</span>
-                </code>
+                </code></a>
               </td>
               <td class="num">1.8&#x202f;bn</td>
               <td class="num">31</td>
@@ -103,18 +103,18 @@ try {
             <tr>
               <th scope="row">Ireland Eircode<span class="eg">e.g. <code>A65 F4E2</code></span></th>
               <td class="naxp--wrap">
-                <code class="naxp">
+                <a class="naxp-try" href="/interactive/?standard=eircode" title="Try in Interactive"><code class="naxp">
                   <span class="naxp__token">[AC-FHKNPRTV-Y]</span><wbr><span class="naxp__token">\9</span><wbr><span class="naxp__token">[\9AC-FHKNPRTV-Y]</span>
                   <span class="naxp__token">\s!!</span>
                   <span class="naxp__token">[\9AC-FHKNPRTV-Y]{4}</span>
-                </code>
+                </code></a>
               </td>
               <td class="num">1.5&#x202f;bn</td>
               <td class="num">31</td>
             </tr>
             <tr>
               <th scope="row">Netherlands postcode<span class="eg">e.g. <code>1012 AB</code></span></th>
-              <td><code class="naxp">\9\9\9\9 \s!! \A\A</code></td>
+              <td><a class="naxp-try" href="/interactive/?standard=nl-postcode" title="Try in Interactive"><code class="naxp">\9\9\9\9 \s!! \A\A</code></a></td>
               <td class="num">6.8&#x202f;m</td>
               <td class="num">23</td>
             </tr>
@@ -141,7 +141,7 @@ try {
     <div class="card">
       <h3>Grab a standard <strong>naxp</strong></h3>
       <p>Check if a pre-written standard <strong>naxp</strong> already exists for your use case.</p>
-      <a class="btn" href="/pre-defined/">Standard <strong>naxp</strong>s</a>
+      <a class="btn" href="/standard/">Standard <strong>naxp</strong>s</a>
     </div>
 
     <div class="card">
@@ -525,7 +525,7 @@ try {
       <ul>
         <li><a href="/guidelines/">Guidelines for designing new <strong>naxp</strong>s</a></li>
         <li><a href="/migrate/">Migrate a <strong>naxp</strong></a></li>
-        <li><a href="/pre-defined/">Pre‑defined standard <strong>naxp</strong>s</a></li>
+        <li><a href="/standard/">Standard <strong>naxp</strong>s</a></li>
         <li><a href="/spec/">The <strong>naxp</strong> specification</a></li>
       </ul>
     </section>

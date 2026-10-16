@@ -383,7 +383,7 @@ for (let i = 0; i < pairCount; ++i) {
 		decided: comparison !== null,
 		acceptedText: comparison === null ? 'Incomparable' : comparison.acceptedText,
 		encoding: comparison === null ? 'Incomparable' : comparison.encoding,
-		printedText: comparison === null ? 'Incomparable' : comparison.printedText,
+		canonicalForms: comparison === null ? 'Incomparable' : comparison.canonicalForms,
 		firstDivergentValue: Naxp.firstDivergentValue(left, right).toString(),
 	});
 }

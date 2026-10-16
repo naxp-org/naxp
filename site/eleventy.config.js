@@ -164,6 +164,205 @@ function buildCodeTables(configDirectory)
   return { language, generator };
 }
 
+// A count as the site writes one: two significant figures and a scale word,
+// joined by a narrow no-break space, so 1 755 842 401 is '1.8 bn'.
+function formatCount(value)
+{
+  const scales = [[1e12, "tn"], [1e9, "bn"], [1e6, "m"], [1e3, "k"]];
+  const number = Number(value);
+
+  for (const [size, word] of scales)
+  {
+    if (number >= size)
+    {
+      const scaled = number / size;
+      const shown = scaled >= 10 ? String(Math.round(scaled)) : scaled.toFixed(1);
+
+      return `${shown}&#x202f;${word}`;
+    }
+  }
+
+  return String(number);
+}
+
+// Text from the standards file shown as code: spaces are kept as written,
+// because 'B1   1AA' and 'B1 1AA' are different strings.
+function codeHtml(text)
+{
+  return `<code>${escapeHtml(text).split(" ").join("&nbsp;")}</code>`;
+}
+
+// Where a run of a naxp with no spaces in it may still break: either side of a
+// character set that stands between two other items, as the landing page breaks
+// [AC-FHKNPRTV-Y]\9[\9AC-FHKNPRTV-Y] by hand. Never inside a set, never between
+// '#' and its '[', and never between a set and the interval, '?' or '!' after
+// it, since each of those reads as one item.
+function naxpPieces(token)
+{
+  const breaks = new Set();
+  let inSet = false;
+
+  for (let at = 0; at < token.length; ++at)
+  {
+    const character = token[at];
+
+    if (character === "\\") { ++at; continue; }
+
+    if (!inSet && character === "[")
+    {
+      inSet = true;
+
+      if (at > 0 && /[0-9A-Za-z\])]/.test(token[at - 1])) { breaks.add(at); }
+    }
+    else if (inSet && character === "]")
+    {
+      inSet = false;
+
+      if (at + 1 < token.length && /[\\[(0-9A-Za-z]/.test(token[at + 1])) { breaks.add(at + 1); }
+    }
+  }
+
+  const pieces = [];
+  let from = 0;
+
+  for (const at of [...breaks].sort((a, b) => a - b))
+  {
+    pieces.push(token.slice(from, at));
+    from = at;
+  }
+
+  pieces.push(token.slice(from));
+
+  return pieces;
+}
+
+// A naxp written out with a break allowed only at its spaces and at the places
+// naxpPieces finds. See .naxp__token in naxp.css for why the line breaker
+// cannot be left to choose.
+function naxpHtml(pattern)
+{
+  const tokens = pattern.trim().split(/\s+/)
+    .map((token) => naxpPieces(token)
+      .map((piece) => `<span class="naxp__token">${escapeHtml(piece)}</span>`)
+      .join("<wbr>"));
+
+  return `<code class="naxp">${tokens.join(" ")}</code>`;
+}
+
+// The notes allow three Markdown marks and nothing else - backticks, single and
+// double asterisks - and a newline is a line break. The library tests hold the
+// file to that, so anything else here is printed as it stands.
+function notesHtml(notes)
+{
+  return notes
+    .split(/(`[^`\n]+`)/)
+    .map((piece, at) => at % 2 === 1
+      ? codeHtml(piece.slice(1, -1))
+      : escapeHtml(piece)
+        .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+        .split("\n").join("<br>"))
+    .join("");
+}
+
+// The standard naxps, read from standards/naxp-standards.json at the root of
+// the repository, which every library carries too. On /standard/ the table
+// of them all and, in each standard's section below it, the size line and the
+// variants table come from here; the prose in each section is written by hand
+// in src/standard/, one file per standard named by its id.
+//
+// Read on every build rather than once, as the specification is, and the file
+// is read rather than imported, for the reason given beside the brand assets.
+// It throws unless the prose files and the ids match one for one, so a new
+// entry cannot go out without its prose, nor prose without its entry.
+function loadStandards(configDirectory)
+{
+  const file = path.join(configDirectory, "..", "standards", "naxp-standards.json");
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  const proseDirectory = path.join(configDirectory, "src", "standard");
+  const ids = new Set(data.standards.map((standard) => standard.id));
+
+  for (const name of fs.readdirSync(proseDirectory).filter((entry) => entry.endsWith(".html")))
+  {
+    if (!ids.has(name.slice(0, -".html".length)))
+    {
+      throw new Error(`${path.join(proseDirectory, name)} names no standard in ${file}.`);
+    }
+  }
+
+  const list = data.standards.map((standard) =>
+  {
+    const prose = path.join(proseDirectory, `${standard.id}.html`);
+
+    if (!fs.existsSync(prose))
+    {
+      throw new Error(`The standard '${standard.id}' has no prose: write ${prose}.`);
+    }
+
+    const [first] = standard.variants;
+    const max = BigInt(first.maxEncodedValue);
+
+    // The default's canonical forms, which every variant reads, so they are
+    // the examples to show.
+    const examples = [...new Set(first.valid.map((example) => example.canonical))]
+      .slice(0, 3)
+      .map(codeHtml);
+
+    return {
+      id: standard.id,
+      name: standard.name,
+      examples,
+      count: formatCount(max),
+      bits: max.toString(2).length,
+      naxp: naxpHtml(first.naxp),
+      tryUrl: tryUrl(standard.id, first.id),
+      variants: standard.variants.map((variant) => ({
+        id: variant.id,
+        naxp: naxpHtml(variant.naxp),
+        notes: notesHtml(variant.notes),
+        tryUrl: tryUrl(standard.id, variant.id)
+      }))
+    };
+  });
+
+  return { list, byId: Object.fromEntries(list.map((standard) => [standard.id, standard])) };
+}
+
+// Where a standard opens on /interactive/, which looks it up by id in the data
+// below and fills in the naxp and the examples. The default variant is left
+// out of the address, as it is anywhere a standard is named.
+function tryUrl(id, variant)
+{
+  return variant === "default"
+    ? `/interactive/?standard=${id}`
+    : `/interactive/?standard=${id}&variant=${variant}`;
+}
+
+// The standards as /interactive/ needs them, written into the page as JSON at
+// <!-- standards data --> so its example chips are there at the first paint
+// rather than after a fetch. Each variant carries its examples as one list of
+// texts, the valid then the invalid, which is what goes into the page's text
+// box; an empty example would only be a blank line there, so it is left out.
+// '<' is escaped so that nothing in the data can close the script element.
+function interactiveStandards(configDirectory)
+{
+  const file = path.join(configDirectory, "..", "standards", "naxp-standards.json");
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+
+  const standards = data.standards.map((standard) => ({
+    id: standard.id,
+    name: standard.name,
+    variants: standard.variants.map((variant) => ({
+      id: variant.id,
+      naxp: variant.naxp,
+      texts: [...variant.valid.map((example) => example.text), ...variant.invalid]
+        .filter((text) => text !== "")
+    }))
+  }));
+
+  return JSON.stringify(standards).split("<").join("\\u003c");
+}
+
 // The newest specification version, for the site header. Read from the front
 // matter of src/spec rather than written down anywhere, so it follows the
 // collection and cannot be left behind by a new version.
@@ -354,7 +553,7 @@ function slugify(headingHtml)
 // own.
 const siteHeaderLinks = [
   { href: "/", label: "Home", hint: "Home page" },
-  { href: "/pre-defined/", label: "Pre&#8209;defined", hint: "Pre-written standardised naxps available for immediate use" },
+  { href: "/standard/", label: "Standard", hint: "Standard naxps for widely used code systems, ready to use" },
   { href: "/guidelines/", label: "Guidelines", hint: "Guidelines for designing a naxp" },
   { href: "/interactive/", label: "Interactive", hint: "Test and develop a naxp interactively" },
   { href: "/migrate/", label: "Migrate", hint: "Understand the impact of changing a naxp" },
@@ -550,6 +749,8 @@ export default function (eleventyConfig)
 
   const codeTables = buildCodeTables(import.meta.dirname);
 
+  eleventyConfig.addGlobalData("standards", () => loadStandards(import.meta.dirname));
+
   // The memory of the text boxes, put back before the first paint. Inline
   // rather than a file, because a script fetched at the end of the body can
   // arrive after the paint it is there to get ahead of; and one source rather
@@ -580,6 +781,13 @@ export default function (eleventyConfig)
     if (!(this.page.outputPath || "").endsWith(".html"))
     {
       return content;
+    }
+
+    // Read here rather than once, so that an edit to the standards file shows
+    // on the next build, and only on the page that asks for it.
+    if (content.includes("<!-- standards data -->"))
+    {
+      content = content.split("<!-- standards data -->").join(interactiveStandards(import.meta.dirname));
     }
 
     return content

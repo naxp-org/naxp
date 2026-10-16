@@ -9,7 +9,7 @@ import { SetRelationship } from './set-relationship.js';
  *
  * The three are independent and each answers a different question about replacing the first naxp
  * with the second. `acceptedText` says whether text that was valid stays valid. `encoding` says
- * whether values already stored still mean what they meant. `printedText` says whether what is
+ * whether values already stored still mean what they meant. `canonicalForms` says whether what is
  * printed on decoding can change.
  *
  * `encoding` is the strongest of the three: `Equal` or `SubsetOf` there forces the same on
@@ -28,7 +28,7 @@ export class NaxpComparison {
 	 * second's, as one of {@link SetRelationship}.
 	 * @param {string} [encoding] How the set of (text, value) pairs the first naxp defines stands
 	 * to the second's.
-	 * @param {string} [printedText] How the set of strings the first naxp prints, its canonical
+	 * @param {string} [canonicalForms] How the set of strings the first naxp prints, its canonical
 	 * forms, stands to the second's. These are compared as sets of strings, so two naxps that
 	 * print every value in different forms are incomparable here however closely the forms
 	 * correspond.
@@ -36,10 +36,10 @@ export class NaxpComparison {
 	constructor(
 		acceptedText = SetRelationship.Incomparable,
 		encoding = SetRelationship.Incomparable,
-		printedText = SetRelationship.Incomparable) {
+		canonicalForms = SetRelationship.Incomparable) {
 		this.acceptedText = acceptedText;
 		this.encoding = encoding;
-		this.printedText = printedText;
+		this.canonicalForms = canonicalForms;
 
 		Object.freeze(this);
 	}

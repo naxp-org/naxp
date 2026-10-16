@@ -1,0 +1,163 @@
+{
+	"format": "naxp-standards/0.1",
+	"standards": [
+		{
+			"id": "uk-postcode",
+			"name": "UK postcode",
+			"variants": [
+				{
+					"id": "default",
+					"naxp": "\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA",
+					"maxEncodedValue": "1755842401",
+					"notes": "*Accepts* a postcode with or without a separator space, e.g. `B1 1AA` or `B11AA`.\n*Prints* **with** a space, e.g. `B1 1AA`.",
+					"valid": [
+						{ "text": "EC4M 8AD", "value": "278794572", "canonical": "EC4M 8AD" },
+						{ "text": "B1 1AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "GIR 0AA", "value": "1755842401", "canonical": "GIR 0AA" },
+						{ "text": "SW1A 1AA", "value": "1205903557", "canonical": "SW1A 1AA" },
+						{ "text": "EC4M8AD", "value": "278794572", "canonical": "EC4M 8AD" },
+						{ "text": "B11AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "GIR0AA", "value": "1755842401", "canonical": "GIR 0AA" }
+					],
+					"invalid": [ "B1   1AA", "B1  1AA", "GIR   0AA", "b1 1aa", "B1 1A", "1B 1AA", "EC4M  8AD", "B1-1AA", "" ]
+				},
+				{
+					"id": "padding-tolerant",
+					"naxp": "(\\A\\A\\9\\X|\\A\\A\\9\\s!?|\\A\\9\\X\\s!?|\\A\\9\\s!?\\s!?) \\s!! \\9\\A\\A | GIR \\s!?\\s!?\\s!! 0AA",
+					"maxEncodedValue": "1755842401",
+					"notes": "*Accepts* padding of spaces up to eight characters, e.g. `B1   1AA`, `B1 1AA` or `B11AA`.\n*Prints* as standard, i.e. with a single space, e.g. `B1 1AA`.",
+					"valid": [
+						{ "text": "EC4M 8AD", "value": "278794572", "canonical": "EC4M 8AD" },
+						{ "text": "B1 1AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "B1   1AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "B1  1AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "B11AA", "value": "67783197", "canonical": "B1 1AA" },
+						{ "text": "GIR   0AA", "value": "1755842401", "canonical": "GIR 0AA" },
+						{ "text": "GIR0AA", "value": "1755842401", "canonical": "GIR 0AA" }
+					],
+					"invalid": [ "b1 1aa", "B1 1A", "1B 1AA", "EC4M  8AD", "B1-1AA", "" ]
+				},
+				{
+					"id": "padding-canonical",
+					"naxp": "(\\A\\A\\9\\X|\\A\\A\\9\\s!!|\\A\\9\\X\\s!!|\\A\\9\\s!!\\s!!) \\s!! \\9\\A\\A | GIR \\s!!\\s!!\\s!! 0AA",
+					"maxEncodedValue": "1755842401",
+					"notes": "*Accepts* padding of spaces up to eight characters, e.g. `B1   1AA`, `B1 1AA` or `B11AA`.\n*Prints* the padded version, e.g. `B1   1AA`. (Useful for writing *to* IT systems.)",
+					"valid": [
+						{ "text": "EC4M 8AD", "value": "278794572", "canonical": "EC4M 8AD" },
+						{ "text": "B1 1AA", "value": "67783197", "canonical": "B1   1AA" },
+						{ "text": "B1   1AA", "value": "67783197", "canonical": "B1   1AA" },
+						{ "text": "B11AA", "value": "67783197", "canonical": "B1   1AA" },
+						{ "text": "GIR 0AA", "value": "1755842401", "canonical": "GIR   0AA" },
+						{ "text": "GIR0AA", "value": "1755842401", "canonical": "GIR   0AA" }
+					],
+					"invalid": [ "b1 1aa", "B1 1A", "1B 1AA", "EC4M  8AD", "B1-1AA", "" ]
+				}
+			]
+		},
+		{
+			"id": "eircode",
+			"name": "Ireland Eircode",
+			"variants": [
+				{
+					"id": "default",
+					"naxp": "[AC-FHKNPRTV-Y]\\9[\\9AC-FHKNPRTV-Y] \\s!! [\\9AC-FHKNPRTV-Y]{4}",
+					"maxEncodedValue": "1464843750",
+					"notes": "*Accepts* an Eircode with or without a separator space, e.g. `A65 F4E2` or `A65F4E2`.\n*Prints* **with** a space, e.g. `A65 F4E2`.",
+					"valid": [
+						{ "text": "A65 F4E2", "value": "60768453", "canonical": "A65 F4E2" },
+						{ "text": "D02 AF30", "value": "196258826", "canonical": "D02 AF30" },
+						{ "text": "D6W 1234", "value": "262516955", "canonical": "D6W 1234" },
+						{ "text": "A65F4E2", "value": "60768453", "canonical": "A65 F4E2" }
+					],
+					"invalid": [ "B65 F4E2", "A65 F4E", "A65  F4E2", "a65 f4e2", "A65 F4O2" ]
+				},
+				{
+					"id": "no-separator",
+					"naxp": "[AC-FHKNPRTV-Y]\\9[\\9AC-FHKNPRTV-Y] \\s!? [\\9AC-FHKNPRTV-Y]{4}",
+					"maxEncodedValue": "1464843750",
+					"notes": "*Accepts* an Eircode with or without a separator space, e.g. `A65 F4E2` or `A65F4E2`.\n*Prints* **without** a space, e.g. `A65F4E2`. (Useful for writing *to* IT systems.)",
+					"valid": [
+						{ "text": "A65 F4E2", "value": "60768453", "canonical": "A65F4E2" },
+						{ "text": "A65F4E2", "value": "60768453", "canonical": "A65F4E2" },
+						{ "text": "D6W1234", "value": "262516955", "canonical": "D6W1234" }
+					],
+					"invalid": [ "B65 F4E2", "A65 F4E", "A65  F4E2", "a65 f4e2", "A65 F4O2" ]
+				}
+			]
+		},
+		{
+			"id": "nl-postcode",
+			"name": "Netherlands postcode",
+			"variants": [
+				{
+					"id": "default",
+					"naxp": "\\9\\9\\9\\9 \\s!! \\A\\A",
+					"maxEncodedValue": "6760000",
+					"notes": "*Accepts* a postcode with or without a separator space, e.g. `1012 AB` or `1012AB`.\n*Prints* **with** a space, e.g. `1012 AB`.",
+					"valid": [
+						{ "text": "1012 AB", "value": "684114", "canonical": "1012 AB" },
+						{ "text": "9999 ZZ", "value": "6760000", "canonical": "9999 ZZ" },
+						{ "text": "0999 ZZ", "value": "676000", "canonical": "0999 ZZ" },
+						{ "text": "1012AB", "value": "684114", "canonical": "1012 AB" }
+					],
+					"invalid": [ "1012-AB", "1012  AB", "101 AB", "1012 A1", "1012 ab" ]
+				},
+				{
+					"id": "no-separator",
+					"naxp": "\\9\\9\\9\\9 \\s!? \\A\\A",
+					"maxEncodedValue": "6760000",
+					"notes": "*Accepts* a postcode with or without a separator space, e.g. `1012 AB` or `1012AB`.\n*Prints* **without** a space, e.g. `1012AB`. (Useful for writing *to* IT systems.)",
+					"valid": [
+						{ "text": "1012 AB", "value": "684114", "canonical": "1012AB" },
+						{ "text": "1012AB", "value": "684114", "canonical": "1012AB" }
+					],
+					"invalid": [ "1012-AB", "1012  AB", "101 AB", "1012 A1", "1012 ab" ]
+				},
+				{
+					"id": "hyphen-tolerant",
+					"naxp": "\\9\\9\\9\\9 (\\s|\\-)?!(\\s) \\A\\A",
+					"maxEncodedValue": "6760000",
+					"notes": "*Accepts* a postcode with or without a separator space, or with a hyphen as a separator, e.g. `1012 AB`, `1012-AB` or `1012AB`.\n*Prints* **with** a space, e.g. `1012 AB`.",
+					"valid": [
+						{ "text": "1012 AB", "value": "684114", "canonical": "1012 AB" },
+						{ "text": "1012-AB", "value": "684114", "canonical": "1012 AB" },
+						{ "text": "1012AB", "value": "684114", "canonical": "1012 AB" }
+					],
+					"invalid": [ "1012  AB", "101 AB", "1012 A1", "1012 ab" ]
+				}
+			]
+		},
+		{
+			"id": "flight-designator",
+			"name": "Flight designator",
+			"variants": [
+				{
+					"id": "default",
+					"naxp": "(\\A\\A|\\A\\9|\\9\\A) #[0!0!0!1-9999]",
+					"maxEncodedValue": "11958804",
+					"notes": "*Accepts* a designator with or without leading zeros, e.g. `AC0861` or `AC861`.\n*Prints* **with** leading zeros, e.g. `AC0861`.",
+					"valid": [
+						{ "text": "BA0001", "value": "3059695", "canonical": "BA0001" },
+						{ "text": "AC0861", "value": "2720589", "canonical": "AC0861" },
+						{ "text": "U21234", "value": "9820252", "canonical": "U21234" },
+						{ "text": "2U0123", "value": "720051", "canonical": "2U0123" },
+						{ "text": "AC861", "value": "2720589", "canonical": "AC0861" },
+						{ "text": "BA1", "value": "3059695", "canonical": "BA0001" }
+					],
+					"invalid": [ "AC0000", "AC10000", "22123", "ABC123", "ac0861" ]
+				},
+				{
+					"id": "strict",
+					"naxp": "(\\A\\A|\\A\\9|\\9\\A) #[0001-9999]",
+					"maxEncodedValue": "11958804",
+					"notes": "Four digits are always required, so `AC861` is treated as invalid.",
+					"valid": [
+						{ "text": "BA0001", "value": "3059695", "canonical": "BA0001" },
+						{ "text": "AC0861", "value": "2720589", "canonical": "AC0861" }
+					],
+					"invalid": [ "AC861", "BA1", "AC0000", "AC10000", "ac0861" ]
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,50 @@
+---
+source: >-
+  Royal Mail, <a href="https://www.poweredbypaf.com/wp-content/uploads/2025/01/Latest-Programmers_guide_Edition-7-Version-6-2.pdf"><cite>Programmer's Guide</cite> (edition 7, version 6.2)</a>, from the <a href="https://www.poweredbypaf.com/resources/">PAF resources page</a>
+---
+      <p>
+        UK postcodes comprise alphanumeric 'outward' and 'inward' parts separated by a space. For instance,
+        for the postcode <code>EC4M 8AD</code>,
+        <code>EC4M</code> is the outward and
+        <code>8AD</code> is the inward.
+      </p>
+      <p>
+        Although the space can be inferred if omitted
+        (because the final inward part is always three characters),
+        <em>the encoding is affected by whether or not including
+        a space is treated as the canonical form</em>.
+        Royal Mail says the standard version includes a space and
+        so that is the standard we adopt here.
+      </p>
+      <p>
+        The anomalous <code>GIR 0AA</code> postcode <em>is</em> included,
+        despite it officially having been phased out
+        because, while it no longer appears in the official Postcode Address File (PAF),
+        it remains in the Postzon product and may be present in older datasets.
+      </p>
+      <p>
+        Although the Royal Mail guide states that certain letters cannot appear
+        in certain parts of a postcode, the standard <strong>naxp</strong>s below
+        encode <em>all</em> letters on the basis that
+      </p>
+      <ul>
+        <li>
+          following the guide explicitly would reduce the
+          storage required from 31&nbsp;bits to 30&nbsp;bits, i.e. no material difference, and
+        </li>
+        <li>
+          there is a history of postcode character exclusions being relaxed
+          when more capacity is required
+          &ndash; see e.g. the <a href="#nl-postcode">Netherlands postcode</a>.
+        </li>
+      </ul>
+      <p>
+        Some systems store a UK postcode as exactly eight characters by padding the spaces in the middle,
+        e.g. <code>B1&#x2423;&#x2423;&#x2423;1AA</code>
+        (where <code>&#x2423;</code> represents a single space character)
+        so this is also included.
+      </p>
+      <p>
+        As with all postcode systems, a <strong>naxp</strong> encodes postcodes,
+        but validation is a separate task, in this case typically requiring the PAF.
+      </p>

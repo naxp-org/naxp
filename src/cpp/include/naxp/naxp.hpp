@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace logmu
 {
@@ -66,7 +67,7 @@ namespace logmu
 	/// The three are independent and each answers a different question about replacing the
 	/// first naxp with the second. `accepted_text` says whether text that was valid stays
 	/// valid. `encoding` says whether values already stored still mean what they meant.
-	/// `printed_text` says whether what is printed on decoding can change.
+	/// `canonical_forms` says whether what is printed on decoding can change.
 	///
 	/// `encoding` is the strongest of the three: `equal` or `subset_of` there forces the same
 	/// on `accepted_text`, since the pairs' texts are the accepted strings. Nothing else
@@ -88,13 +89,13 @@ namespace logmu
 		/// second's. These are compared as sets of strings, so two naxps that print every
 		/// value in different forms are incomparable here however closely the forms
 		/// correspond.
-		set_relationship printed_text = set_relationship::incomparable;
+		set_relationship canonical_forms = set_relationship::incomparable;
 
 		friend bool operator==(const naxp_comparison& left, const naxp_comparison& right) noexcept
 		{
 			return left.accepted_text == right.accepted_text
 				&& left.encoding == right.encoding
-				&& left.printed_text == right.printed_text;
+				&& left.canonical_forms == right.canonical_forms;
 		}
 
 		friend bool operator!=(const naxp_comparison& left, const naxp_comparison& right) noexcept
@@ -153,6 +154,30 @@ namespace logmu
 		uint64 = 7,
 	};
 
+	/// One variant of a standard naxp, as `naxp::all_standard_naxps` lists them.
+	///
+	/// The strings are the library's own and last as long as the program.
+	struct standard_naxp_variant
+	{
+		/// The standard's id, such as `uk-postcode`: lower case letters, digits and single
+		/// hyphens.
+		std::string_view id;
+
+		/// The standard's name, for display, such as `UK postcode`.
+		std::string_view name;
+
+		/// The variant's id, which is `default` for the variant a standard is used with unless
+		/// another is asked for.
+		std::string_view variant;
+
+		/// The variant's naxp.
+		std::string_view pattern;
+
+		/// What the variant accepts and what it prints, in Markdown that uses backticks, `*` and
+		/// `**` alone. A newline is a line break.
+		std::string_view notes;
+	};
+
 	/// Thrown by `naxp::parse` where the pattern is not a well-formed naxp.
 	///
 	/// The message is the error's code, offset, length and prose in one line, because a thrown
@@ -203,6 +228,30 @@ namespace logmu
 		///     caller only wants to know whether it parsed. Untouched where it did.
 		/// @returns The naxp, or nothing where the pattern is not a well-formed naxp.
 		static std::optional<naxp> try_parse(std::string_view pattern, naxp_error* error = nullptr);
+
+		/// A standard naxp, one of those built into the library and listed at
+		/// https://naxp.org/standard/.
+		///
+		/// The id and the variant are matched without regard to ASCII case. Each call parses the
+		/// naxp, so a caller using one often keeps it.
+		///
+		/// @param id The standard's id, such as `uk-postcode`.
+		/// @param variant The variant's id. Empty means `default`.
+		/// @returns The naxp.
+		/// @throws std::invalid_argument There is no such standard, or it has no such variant.
+		static naxp standard_naxp(std::string_view id, std::string_view variant = {});
+
+		/// Tries to find a standard naxp.
+		///
+		/// @param id The standard's id, such as `uk-postcode`.
+		/// @param variant The variant's id. Empty means `default`.
+		/// @returns The naxp, or nothing where there is no such standard or it has no such
+		///     variant.
+		static std::optional<naxp> try_standard_naxp(std::string_view id, std::string_view variant = {});
+
+		/// Every standard naxp, one entry per variant, in the order https://naxp.org/standard/
+		/// lists them, with each standard's default first.
+		static const std::vector<standard_naxp_variant>& all_standard_naxps();
 
 		/// The pattern this naxp was parsed from.
 		std::string_view pattern() const noexcept;

@@ -425,8 +425,8 @@ NAXP_TEST(conformance_pairs_compare_as_the_test_data_says)
 			continue;
 		}
 
-		const std::string actual = std::string(name(comparison.accepted_text)) + "/" + name(comparison.encoding) + "/" + name(comparison.printed_text);
-		const std::string expected = item.accepted_text + "/" + item.encoding + "/" + item.printed_text;
+		const std::string actual = std::string(name(comparison.accepted_text)) + "/" + name(comparison.encoding) + "/" + name(comparison.canonical_forms);
+		const std::string expected = item.accepted_text + "/" + item.encoding + "/" + item.canonical_forms;
 
 		if (actual != expected)
 		{

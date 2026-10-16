@@ -2,6 +2,8 @@
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
@@ -219,6 +221,73 @@ public sealed class Naxp
 			out errorOffset,
 			out errorLength,
 			out errorCode);
+	#endregion
+	#region Public standard naxps
+	/// <summary>
+	/// A standard naxp, one of those built into the library and listed at
+	/// https://naxp.org/standard/.
+	/// </summary>
+	/// <remarks>
+	/// The id and the variant are matched without regard to ASCII case. Each call parses the
+	/// naxp, so a caller using one often keeps it.
+	/// </remarks>
+	/// <param name="id">The standard's id, such as <c>uk-postcode</c>.</param>
+	/// <param name="variant">
+	/// The variant's id. <see langword="null"/> or empty means <c>default</c>.
+	/// </param>
+	/// <returns>The naxp.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="id"/> is <see langword="null"/>.</exception>
+	/// <exception cref="ArgumentException">
+	/// There is no such standard, or it has no such variant.
+	/// </exception>
+	public static Naxp StandardNaxp(string id, string? variant = null)
+	{
+		StandardNaxpVariant? found = FindStandardNaxp(id, variant);
+
+		if (found is null)
+		{
+			throw new ArgumentException(
+				DescribeMissingStandardNaxp(id, variant, out bool standardFound),
+				standardFound ? nameof(variant) : nameof(id));
+		}
+
+		return Parse(found.Pattern);
+	}
+
+	/// <summary>
+	/// Tries to find the default variant of a standard naxp.
+	/// </summary>
+	/// <param name="id">The standard's id, such as <c>uk-postcode</c>.</param>
+	/// <param name="naxp">The naxp, if this returns <see langword="true"/>.</param>
+	/// <returns>Whether there is such a standard.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="id"/> is <see langword="null"/>.</exception>
+	public static bool TryStandardNaxp(string id, [NotNullWhen(true)] out Naxp? naxp)
+		=> TryStandardNaxp(id, null, out naxp);
+
+	/// <summary>
+	/// Tries to find a standard naxp.
+	/// </summary>
+	/// <param name="id">The standard's id, such as <c>uk-postcode</c>.</param>
+	/// <param name="variant">
+	/// The variant's id. <see langword="null"/> or empty means <c>default</c>.
+	/// </param>
+	/// <param name="naxp">The naxp, if this returns <see langword="true"/>.</param>
+	/// <returns>Whether there is such a standard with such a variant.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="id"/> is <see langword="null"/>.</exception>
+	public static bool TryStandardNaxp(string id, string? variant, [NotNullWhen(true)] out Naxp? naxp)
+	{
+		StandardNaxpVariant? found = FindStandardNaxp(id, variant);
+
+		naxp = found is null ? null : Parse(found.Pattern);
+
+		return naxp is not null;
+	}
+
+	/// <summary>
+	/// Every standard naxp, one entry per variant, in the order https://naxp.org/standard/ lists
+	/// them, with each standard's default first.
+	/// </summary>
+	public static ImmutableArray<StandardNaxpVariant> AllStandardNaxps => StandardTable.Rows;
 	#endregion
 	#region Public properties
 	/// <summary>The pattern this naxp was parsed from.</summary>
@@ -748,7 +817,7 @@ public sealed class Naxp
 		=> TryCompare(a, b, out NaxpComparison comparison, budget)
 			? comparison
 			: throw new InvalidOperationException(
-				"The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and printed text can still be compared.")
+				"The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and canonical forms can still be compared.")
 			;
 
 	/// <summary>
@@ -845,6 +914,79 @@ public sealed class Naxp
 	public override string ToString() => this.Pattern;
 	#endregion
 	#region Private methods
+	/// <summary>
+	/// Lower case for an ASCII capital, and the character itself for anything else, so that no
+	/// character outside ASCII can stand in for a letter of an id, as the long s does for
+	/// <c>s</c> under <see cref="StringComparison.OrdinalIgnoreCase"/>.
+	/// </summary>
+	static char FoldAscii(char character)
+		=> character is >= 'A' and <= 'Z' ? (char)(character - 'A' + 'a') : character;
+
+	static bool EqualIgnoringAsciiCase(string left, string right)
+	{
+		if (left.Length != right.Length) { return false; }
+
+		for (int i = 0; i < left.Length; ++i)
+		{
+			if (FoldAscii(left[i]) != FoldAscii(right[i])) { return false; }
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// The variant of a standard naxp, or <see langword="null"/> where there is no such standard
+	/// or variant.
+	/// </summary>
+	static StandardNaxpVariant? FindStandardNaxp(string id, string? variant)
+	{
+		if (id is null) { throw new ArgumentNullException(nameof(id)); }
+
+		string wanted = string.IsNullOrEmpty(variant) ? "default" : variant!;
+
+		foreach (StandardNaxpVariant row in StandardTable.Rows)
+		{
+			if (EqualIgnoringAsciiCase(row.Id, id) && EqualIgnoringAsciiCase(row.Variant, wanted)) { return row; }
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Why there is no such standard naxp, naming those there are.
+	/// </summary>
+	static string DescribeMissingStandardNaxp(string id, string? variant, out bool standardFound)
+	{
+		var ids = new List<string>();
+		var variants = new List<string>();
+		string? foundId = null;
+
+		foreach (StandardNaxpVariant row in StandardTable.Rows)
+		{
+			if (ids.Count == 0 || ids[ids.Count - 1] != row.Id) { ids.Add(row.Id); }
+
+			if (EqualIgnoringAsciiCase(row.Id, id))
+			{
+				foundId = row.Id;
+				variants.Add(row.Variant);
+			}
+		}
+
+		standardFound = foundId is not null;
+
+		return standardFound
+			? $"The standard naxp '{foundId}' has no variant '{variant}'. Its variants are {JoinNames(variants)}."
+			: $"There is no standard naxp '{id}'. The standard naxps are {JoinNames(ids)}.";
+	}
+
+	/// <summary>
+	/// Names in a list, such as <c>a, b and c</c>.
+	/// </summary>
+	static string JoinNames(List<string> names)
+		=> names.Count < 2
+			? string.Concat(names)
+			: string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[names.Count - 1];
+
 	/// <summary>
 	/// A string a caller passed, as a span, refusing a null one rather than reading it as empty,
 	/// which is what <c>AsSpan</c> would do and which some naxps accept.

@@ -2,18 +2,13 @@
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
 #include "conformance_data.hpp"
+#include "json.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #ifndef NAXP_CONFORMANCE_FILE
@@ -24,263 +19,6 @@ namespace logmu::testing
 {
 	namespace
 	{
-		/// A parsed JSON value. Numbers are kept as their text, since the data writes every
-		/// large number as a string in any case.
-		struct json
-		{
-			using object = std::map<std::string, json>;
-			using array = std::vector<json>;
-
-			std::variant<std::nullptr_t, bool, std::string, object, array> value;
-
-			const json& operator[](const std::string& key) const
-			{
-				const object& members = std::get<object>(this->value);
-				const auto found = members.find(key);
-
-				if (found == members.end())
-				{
-					throw std::runtime_error("The conformance data has no member '" + key + "'.");
-				}
-
-				return found->second;
-			}
-
-			bool has(const std::string& key) const
-			{
-				return std::get<object>(this->value).count(key) != 0;
-			}
-
-			const std::string& text() const
-			{
-				return std::get<std::string>(this->value);
-			}
-
-			const array& items() const
-			{
-				return std::get<array>(this->value);
-			}
-
-			bool truth() const
-			{
-				return std::get<bool>(this->value);
-			}
-		};
-
-		class json_reader
-		{
-		public:
-			explicit json_reader(std::string text)
-				: text(std::move(text))
-			{
-			}
-
-			json read()
-			{
-				json result = this->read_value();
-				this->skip_whitespace();
-
-				if (this->pos != this->text.size())
-				{
-					throw std::runtime_error("The conformance data has trailing content.");
-				}
-
-				return result;
-			}
-
-		private:
-			json read_value()
-			{
-				this->skip_whitespace();
-
-				if (this->pos >= this->text.size())
-				{
-					throw std::runtime_error("The conformance data ends early.");
-				}
-
-				const char c = this->text[this->pos];
-
-				switch (c)
-				{
-					case '{': return this->read_object();
-					case '[': return this->read_array();
-					case '"': return json{this->read_string()};
-					case 't': this->expect("true"); return json{true};
-					case 'f': this->expect("false"); return json{false};
-					case 'n': this->expect("null"); return json{nullptr};
-					default: return json{this->read_number()};
-				}
-			}
-
-			json read_object()
-			{
-				json::object members;
-				++this->pos;
-				this->skip_whitespace();
-
-				if (this->peek() == '}')
-				{
-					++this->pos;
-
-					return json{std::move(members)};
-				}
-
-				while (true)
-				{
-					this->skip_whitespace();
-					std::string key = this->read_string();
-					this->skip_whitespace();
-					this->expect(":");
-					members.emplace(std::move(key), this->read_value());
-					this->skip_whitespace();
-
-					if (this->peek() == ',')
-					{
-						++this->pos;
-						continue;
-					}
-
-					this->expect("}");
-
-					return json{std::move(members)};
-				}
-			}
-
-			json read_array()
-			{
-				json::array items;
-				++this->pos;
-				this->skip_whitespace();
-
-				if (this->peek() == ']')
-				{
-					++this->pos;
-
-					return json{std::move(items)};
-				}
-
-				while (true)
-				{
-					items.push_back(this->read_value());
-					this->skip_whitespace();
-
-					if (this->peek() == ',')
-					{
-						++this->pos;
-						continue;
-					}
-
-					this->expect("]");
-
-					return json{std::move(items)};
-				}
-			}
-
-			std::string read_string()
-			{
-				this->expect("\"");
-				std::string result;
-
-				while (true)
-				{
-					if (this->pos >= this->text.size())
-					{
-						throw std::runtime_error("The conformance data has an unterminated string.");
-					}
-
-					const char c = this->text[this->pos++];
-
-					if (c == '"')
-					{
-						return result;
-					}
-
-					if (c != '\\')
-					{
-						result.push_back(c);
-						continue;
-					}
-
-					const char escaped = this->text[this->pos++];
-
-					switch (escaped)
-					{
-						case '"': result.push_back('"'); break;
-						case '\\': result.push_back('\\'); break;
-						case '/': result.push_back('/'); break;
-						case 'b': result.push_back('\b'); break;
-						case 'f': result.push_back('\f'); break;
-						case 'n': result.push_back('\n'); break;
-						case 'r': result.push_back('\r'); break;
-						case 't': result.push_back('\t'); break;
-						case 'u':
-						{
-							// The data is ASCII, so only the basic plane below U+0080 arrives
-							// this way; anything else would be a defect in the data.
-							const unsigned long code = std::stoul(this->text.substr(this->pos, 4), nullptr, 16);
-							this->pos += 4;
-
-							if (code >= 0x80)
-							{
-								throw std::runtime_error("The conformance data holds a non-ASCII escape.");
-							}
-
-							result.push_back(static_cast<char>(code));
-							break;
-						}
-
-						default:
-							throw std::runtime_error("The conformance data has an unknown escape.");
-					}
-				}
-			}
-
-			std::string read_number()
-			{
-				const std::size_t start = this->pos;
-
-				while (this->pos < this->text.size() && (std::isdigit(static_cast<unsigned char>(this->text[this->pos])) || this->text[this->pos] == '-' || this->text[this->pos] == '.' || this->text[this->pos] == 'e' || this->text[this->pos] == 'E' || this->text[this->pos] == '+'))
-				{
-					++this->pos;
-				}
-
-				if (this->pos == start)
-				{
-					throw std::runtime_error("The conformance data has an unexpected character.");
-				}
-
-				return this->text.substr(start, this->pos - start);
-			}
-
-			void expect(const char* literal)
-			{
-				const std::string_view expected(literal);
-
-				if (this->text.compare(this->pos, expected.size(), expected) != 0)
-				{
-					throw std::runtime_error("The conformance data does not read as JSON where '" + std::string(expected) + "' was expected.");
-				}
-
-				this->pos += expected.size();
-			}
-
-			char peek() const noexcept
-			{
-				return this->pos < this->text.size() ? this->text[this->pos] : '\0';
-			}
-
-			void skip_whitespace() noexcept
-			{
-				while (this->pos < this->text.size() && (this->text[this->pos] == ' ' || this->text[this->pos] == '\t' || this->text[this->pos] == '\r' || this->text[this->pos] == '\n'))
-				{
-					++this->pos;
-				}
-			}
-
-			std::string text;
-			std::size_t pos = 0;
-		};
-
 		std::uint64_t as_uint64(const std::string& digits)
 		{
 			return std::stoull(digits);
@@ -305,17 +43,7 @@ namespace logmu::testing
 		conformance_data read_file()
 		{
 			const std::string name = chosen_file();
-			std::ifstream file(name, std::ios::binary);
-
-			if (!file)
-			{
-				throw std::runtime_error("The conformance data could not be read from " + name + ".");
-			}
-
-			std::ostringstream buffer;
-			buffer << file.rdbuf();
-
-			const json root = json_reader(buffer.str()).read();
+			const json root = read_json_file(name);
 			conformance_data data;
 			data.file = name;
 
@@ -371,7 +99,7 @@ namespace logmu::testing
 						item["decided"].truth(),
 						item["acceptedText"].text(),
 						item["encoding"].text(),
-						item["printedText"].text(),
+						item["canonicalForms"].text(),
 						as_uint64(item["firstDivergentValue"].text())});
 				}
 			}

@@ -1,11 +1,7 @@
 // Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
-// The conformance data, read from the JSON the generator writes.
-//
-// The reader is written here rather than taken from a library because the build downloads
-// nothing, and the data uses only objects, arrays, strings, booleans and a few numbers: about a
-// hundred lines covers it. It is not a general JSON parser and does not claim to be.
+// The conformance data, read from the JSON the generator writes with the reader in json.hpp.
 
 #ifndef NAXP_TESTS_CONFORMANCE_DATA_HPP
 #define NAXP_TESTS_CONFORMANCE_DATA_HPP
@@ -56,7 +52,7 @@ namespace logmu::testing
 		bool decided;
 		std::string accepted_text;
 		std::string encoding;
-		std::string printed_text;
+		std::string canonical_forms;
 		std::uint64_t first_divergent_value;
 	};
 

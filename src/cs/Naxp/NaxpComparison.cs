@@ -12,7 +12,7 @@ namespace LogMu;
 /// The three are independent and each answers a different question about replacing the
 /// first naxp with the second. <see cref="AcceptedText"/> says whether text that was valid
 /// stays valid. <see cref="Encoding"/> says whether values already stored still mean what they
-/// meant. <see cref="PrintedText"/> says whether what is printed on decoding can change.
+/// meant. <see cref="CanonicalForms"/> says whether what is printed on decoding can change.
 /// </para>
 /// <para>
 /// <see cref="Encoding"/> is the strongest of the three: <see cref="SetRelationship.Equal"/>
@@ -33,7 +33,7 @@ namespace LogMu;
 /// <param name="Encoding">
 /// How the set of (text, value) pairs the first naxp defines stands to the second's.
 /// </param>
-/// <param name="PrintedText">
+/// <param name="CanonicalForms">
 /// How the set of strings the first naxp prints, its canonical forms, stands to the second's.
 /// These are compared as sets of strings, so two naxps that print every value in different
 /// forms are incomparable here however closely the forms correspond.
@@ -41,4 +41,4 @@ namespace LogMu;
 public readonly record struct NaxpComparison(
 	SetRelationship AcceptedText,
 	SetRelationship Encoding,
-	SetRelationship PrintedText);
+	SetRelationship CanonicalForms);

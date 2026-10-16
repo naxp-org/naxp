@@ -12,16 +12,20 @@
 #include "javascript_emitter.hpp"
 #include "naxp_limits.hpp"
 #include "relations.hpp"
+#include "standard_table.hpp"
 #include "value_agreement.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace logmu
 {
@@ -60,6 +64,86 @@ namespace logmu
 			length = static_cast<std::size_t>(written);
 
 			return true;
+		}
+
+		/// Lower case for an ASCII capital, and the character itself for anything else, so that
+		/// no character outside ASCII can stand in for a letter of an id.
+		char fold_ascii(char character) noexcept
+		{
+			return character >= 'A' && character <= 'Z' ? static_cast<char>(character - 'A' + 'a') : character;
+		}
+
+		bool equal_ignoring_ascii_case(std::string_view left, std::string_view right) noexcept
+		{
+			return std::equal(
+				left.begin(),
+				left.end(),
+				right.begin(),
+				right.end(),
+				[](char a, char b) { return fold_ascii(a) == fold_ascii(b); });
+		}
+
+		/// The variant of a standard naxp, or null where there is no such standard or variant.
+		const standard_naxp_variant* find_standard_naxp(std::string_view id, std::string_view variant) noexcept
+		{
+			const std::string_view wanted = variant.empty() ? std::string_view("default") : variant;
+
+			for (const auto& row : detail::standard_table)
+			{
+				if (equal_ignoring_ascii_case(row.id, id) && equal_ignoring_ascii_case(row.variant, wanted))
+				{
+					return &row;
+				}
+			}
+
+			return nullptr;
+		}
+
+		/// Names in a list, such as `a, b and c`.
+		std::string join_names(const std::vector<std::string_view>& names)
+		{
+			std::string joined;
+
+			for (std::size_t index = 0; index < names.size(); ++index)
+			{
+				if (index > 0)
+				{
+					joined += index + 1 == names.size() ? " and " : ", ";
+				}
+
+				joined += names[index];
+			}
+
+			return joined;
+		}
+
+		/// Why there is no such standard naxp, naming those there are.
+		std::string describe_missing_standard_naxp(std::string_view id, std::string_view variant)
+		{
+			std::vector<std::string_view> ids;
+			std::vector<std::string_view> variants;
+			std::string_view found_id;
+
+			for (const auto& row : detail::standard_table)
+			{
+				if (ids.empty() || ids.back() != row.id)
+				{
+					ids.push_back(row.id);
+				}
+
+				if (equal_ignoring_ascii_case(row.id, id))
+				{
+					found_id = row.id;
+					variants.push_back(row.variant);
+				}
+			}
+
+			if (variants.empty())
+			{
+				return "There is no standard naxp '" + std::string(id) + "'. The standard naxps are " + join_names(ids) + ".";
+			}
+
+			return "The standard naxp '" + std::string(found_id) + "' has no variant '" + std::string(variant) + "'. Its variants are " + join_names(variants) + ".";
 		}
 	}
 
@@ -103,6 +187,37 @@ namespace logmu
 		}
 
 		return std::nullopt;
+	}
+
+	naxp naxp::standard_naxp(std::string_view id, std::string_view variant)
+	{
+		const standard_naxp_variant* found = find_standard_naxp(id, variant);
+
+		if (found == nullptr)
+		{
+			throw std::invalid_argument(describe_missing_standard_naxp(id, variant));
+		}
+
+		return parse(found->pattern);
+	}
+
+	std::optional<naxp> naxp::try_standard_naxp(std::string_view id, std::string_view variant)
+	{
+		const standard_naxp_variant* found = find_standard_naxp(id, variant);
+
+		if (found == nullptr)
+		{
+			return std::nullopt;
+		}
+
+		return parse(found->pattern);
+	}
+
+	const std::vector<standard_naxp_variant>& naxp::all_standard_naxps()
+	{
+		static const std::vector<standard_naxp_variant> rows(std::begin(detail::standard_table), std::end(detail::standard_table));
+
+		return rows;
 	}
 
 	std::string_view naxp::pattern() const noexcept
@@ -220,7 +335,7 @@ namespace logmu
 
 		if (!try_compare(a, b, comparison, budget))
 		{
-			throw std::runtime_error("The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and printed text can still be compared.");
+			throw std::runtime_error("The relationship between the encodings of these two naxps could not be decided within the budget. Their accepted text and canonical forms can still be compared.");
 		}
 
 		return comparison;

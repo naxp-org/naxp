@@ -5,7 +5,7 @@ A **[naxp](https://naxp.org)** ('encoded ASCII expression') uses a regex-like sy
 With one simple expression you can standardise conversion of alphanumeric codes to integer indexes unambiguously and consistently across multiple coding languages and hardware platforms.
 
 ```bash
-npm install @naxp/naxp@0.13.0
+npm install @naxp/naxp@0.14.0
 ```
 
 The **naxp** package has zero dependencies and comprises plain ECMAScript modules with no build step. TypeScript declarations are included. Requires Node 18 or later. Runs as is in a browser.
@@ -22,7 +22,7 @@ The **naxp** package has zero dependencies and comprises plain ECMAScript module
 
 UK postcodes are sufficiently non-trivial that writing your own encoding risks creating bugs. A UK postcode comprises one or two letters, a number, an optional additional letter or number, a space separator (that may be omitted in practice), and then a number and two letters. Examples are `EC4M 8AD` and `M1 1AA`.
 
-This is the [standard **naxp**](https://naxp.org/pre-defined/#uk-postcode) for a UK postcode:
+This is the [standard **naxp**](https://naxp.org/standard/#uk-postcode) for a UK postcode:
 
 ```
 \A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA

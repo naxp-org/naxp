@@ -6,10 +6,19 @@
 // so every figure on this page comes from the same code the npm package ships.
 import { Naxp, SetRelationship } from '/naxp/index.js';
 import { reserveHeight, textBox } from './boxes.js';
+import { readStandards, showStandard } from './standard-match.js';
+
+/**
+ * The standard naxps, written into the page by the build, so that the note under each box can
+ * say when its naxp is one of them. Leaving a standard is worth knowing about when migrating.
+ */
+const STANDARDS = readStandards();
 
 const dom = {
 	a: document.getElementById('naxp-a'),
 	b: document.getElementById('naxp-b'),
+	aStandard: document.getElementById('naxp-a-standard'),
+	bStandard: document.getElementById('naxp-b-standard'),
 	verdict: document.getElementById('compare-verdict'),
 	axesTable: document.getElementById('compare-axes-table'),
 	axes: document.getElementById('compare-axes'),
@@ -32,26 +41,27 @@ const boxes = {
  * What each relationship means on each axis, in the reader's terms rather than the library's.
  * The relationship is always shown as well, so this explains the word rather than replacing it.
  *
- * `{a}` and `{b}` become chips, as the two naxps are written everywhere else on the page.
+ * `{a}` and `{b}` become chips, as the two naxps are written everywhere else on the page, and
+ * `{naxp}` becomes the word in bold, as the brand is written in the page's prose.
  */
 const MEANING = {
 	acceptedText: {
-		Equal: 'Both accept exactly the same text.',
-		SubsetOf: '{b} accepts everything {a} accepts, and more besides. Nothing that worked starts being refused.',
-		SupersetOf: '{b} refuses text that {a} accepts. Some of what you hold stops being valid.',
-		Incomparable: 'Each accepts text the other refuses.',
+		Equal: 'Both {naxp}s accept the same text.',
+		SubsetOf: '{b} accepts everything {a} accepts, and more. Everything that worked before still works.',
+		SupersetOf: '{b} treats some text that {a} accepts as invalid.',
+		Incomparable: 'Each {naxp} accepts text the other treats as invalid.',
 	},
 	encoding: {
-		Equal: 'Every string both accept has the same value under each. This is the one that decides the verdict.',
-		SubsetOf: '{b} gives every string {a} accepts the value {a} gave it, and numbers the rest above them. This is the one that decides the verdict.',
-		SupersetOf: '{a} defines values {b} does not produce. This is the one that decides the verdict.',
-		Incomparable: 'At least one string encodes to a different value. This is the one that decides the verdict.',
+		Equal: 'Both {naxp}s treat the same texts as valid and give each text the same encoded value. This is the critical test for these {naxp}s.',
+		SubsetOf: 'Text accepted by {a} has the same encoded value as {b}, but {b} accepts text that is invalid under {a}. This is the critical test for these {naxp}s.',
+		SupersetOf: 'Text accepted by {b} has the same encoded value as {a}, but {a} accepts text that is invalid under {b}. This is the critical test for these {naxp}s.',
+		Incomparable: 'At least one text or encoded value means something different under each {naxp}. This is the critical test for these {naxp}s.',
 	},
-	printedText: {
-		Equal: 'Decoding prints the same forms under each.',
-		SubsetOf: '{b} can print forms {a} cannot, and no others differ.',
-		SupersetOf: '{a} can print forms {b} cannot, and no others differ.',
-		Incomparable: 'Each prints forms the other does not.',
+	canonicalForms: {
+		Equal: 'The {naxp}s print the same canonical forms.',
+		SubsetOf: '{b} prints canonical forms {a} does not.',
+		SupersetOf: '{a} prints canonical forms {b} does not.',
+		Incomparable: 'Each {naxp} prints canonical forms the other does not.',
 	},
 };
 
@@ -178,15 +188,19 @@ function chip(key) {
 
 /**
  * Turns a sentence written with `{a}` and `{b}` into nodes, with each of those named as
- * {@link chip} does.
+ * {@link chip} does, and `{naxp}` as the word in bold.
  *
  * @param {string} sentence The sentence.
  * @returns {Array<Node | string>} The words and the names.
  */
 function chipped(sentence) {
 	return sentence
-		.split(/\{([ab])\}/)
-		.flatMap((part, at) => (at % 2 === 0 ? [part] : chip(part)));
+		.split(/\{(a|b|naxp)\}/)
+		.flatMap((part, at) => {
+			if (at % 2 === 0) { return [part]; }
+
+			return part === 'naxp' ? [element('strong', null, 'naxp')] : chip(part);
+		});
 }
 
 /**
@@ -299,7 +313,7 @@ function showComparison(a, b) {
 	const axes = [
 		['Accepted text', comparison.acceptedText, MEANING.acceptedText],
 		['Encoding', comparison.encoding, MEANING.encoding],
-		['Printed text', comparison.printedText, MEANING.printedText],
+		['Canonical forms', comparison.canonicalForms, MEANING.canonicalForms],
 	];
 
 	fill(
@@ -426,6 +440,9 @@ function debounce(work, delay) {
 function refresh() {
 	const left = read(dom.a, 'a');
 	const right = read(dom.b, 'b');
+
+	showStandard(dom.aStandard, left.naxp, STANDARDS);
+	showStandard(dom.bStandard, right.naxp, STANDARDS);
 
 	if (left.naxp === null || right.naxp === null) {
 		// Both errors are shown. Somebody who has pasted two naxps in wants to be told about

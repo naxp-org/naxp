@@ -6,14 +6,19 @@ set(naxp_test_sources
 	conformance_data.cpp
 	conformance_tests.cpp
 	emitter_tests.cpp
+	json.cpp
 	naxp_message_tests.cpp
 	naxp_tests.cpp
 	parser_tests.cpp
 	public_headers_tests.cpp
+	standard_tests.cpp
 	state_map_tests.cpp)
 
 # The conformance data lives at the repository root, one file per version of the language.
 set(naxp_conformance_file ${CMAKE_CURRENT_SOURCE_DIR}/../../../conformance/naxp-v0.10.json)
+
+# The standard naxps the library carries are generated from this file, and checked against it.
+set(naxp_standards_file ${CMAKE_CURRENT_SOURCE_DIR}/../../../standards/naxp-standards.json)
 
 # The tests reach the private headers, which nothing else may.
 function(naxp_set_test_properties target)
@@ -29,7 +34,9 @@ function(naxp_set_test_properties target)
 
 	naxp_set_warnings(${target})
 
-	target_compile_definitions(${target} PRIVATE NAXP_CONFORMANCE_FILE="${naxp_conformance_file}")
+	target_compile_definitions(${target} PRIVATE
+		NAXP_CONFORMANCE_FILE="${naxp_conformance_file}"
+		NAXP_STANDARDS_FILE="${naxp_standards_file}")
 endfunction()
 
 add_executable(naxp_tests ${naxp_test_sources})

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Standard naxps</title>
+<meta name="description" content="Pre-written naxps for widely used code systems, so that everyone handling the same codes gets identical encodings.">
+<link rel="icon" href="/img/naxp-icon-solid-white.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/Lisnoti-woff2/Lisnoti-Regular-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/LisnotiCode-woff2/LisnotiCode-Regular-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/Lisnoti-woff2/lisnoti.css">
+<link rel="stylesheet" href="/fonts/LisnotiCode-woff2/lisnoti-code.css">
+<link rel="stylesheet" href="/css/naxp.css">
+<script type="module" src="/js/standard.js"></script>
+<script>
+// Both before the first paint: a pinned theme, so it never flashes the other
+// one, and the marker that reveals the button that sets it.
+document.documentElement.classList.add('js');
+try {
+  var t = localStorage.getItem('naxp-theme');
+  if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+} catch (e) {}
+</script>
+<script src="/js/theme.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Standard naxps">
+<meta property="og:description" content="Pre-written naxps for widely used code systems, so that everyone handling the same codes gets identical encodings.">
+<meta property="og:url" content="https://naxp.org/standard/">
+<meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<!-- Band 1: the site header, built in eleventy.config.js -->
+<!-- siteheader -->
+
+<main>
+
+<!-- Band 2: title -->
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle">Standard <strong>naxp</strong>s</h1>
+  </div>
+</section>
+
+<!-- Band 3: what a standard naxp is, and the table of them. The table is built
+     from standards/naxp-standards.json through loadStandards in
+     eleventy.config.js. -->
+<section class="band">
+  <div class="band__inner">
+    <p>
+      This page contains standard <strong>naxp</strong>s
+      and their variants for widely used code systems.
+      (Where there are variants, they all map to the same encoded values.)
+    </p>
+    <p>
+      Click on the <strong>name</strong> in the table below
+      to go to its full definition,
+      including variants and other information.
+    </p>
+      <div class="admonition admonition--tip">
+        <p>
+          <span class="admonition__flag">Tip</span>
+          <em>The (pink) <strong>naxp</strong>s on this page are clickable.</em>
+          Clicking on a <strong>naxp</strong> will load it,
+          together with examples, onto the
+          <a href="/interactive/">interactive page</a> so you can test it for yourself.
+        </p>
+      </div>
+
+    <div class="table-scroll">
+      <table class="examples standards">
+        <thead>
+          <tr>
+            <th scope="col">Name (id)</th>
+            <th scope="col" class="standards__example">Example</th>
+            <th scope="col">Default <strong>naxp</strong></th>
+            <th scope="col" class="num">Encoded values</th>
+            <th scope="col" class="num">Bits</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for s in standards.list %}
+          <tr>
+            <th scope="row"><a href="#{{ s.id }}">{{ s.name }}</a> (<code>{{ s.id }}</code>)</th>
+            <td class="standards__example">{{ s.examples[0] | safe }}</td>
+            <td class="naxp--wrap"><a class="naxp-try" href="{{ s.tryUrl }}" title="Try in Interactive">{{ s.naxp | safe }}</a></td>
+            <td class="num">{{ s.count | safe }}</td>
+            <td class="num">{{ s.bits }}</td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- The detail of each standard, collapsed until asked for. In the same band
+         as the text above, so that it follows on from it rather than a band's
+         space away. The size line and the variants table come from the
+         standards file; the prose is the standard's file in src/standard/,
+         gathered as the 'standard' collection. /js/standard.js opens a
+         section when a link or a fragment points at it. The sections share a
+         name, so opening one closes whichever was open. A browser too old to
+         know the name attribute lets several stay open, and nothing else. -->
+    <div class="standards__detail">
+    {%- for s in standards.list %}
+    {%- for prose in collections.standard %}
+    {%- if prose.page.fileSlug == s.id %}
+
+    <details class="standard" id="{{ s.id }}" name="standard">
+      <summary><h2>{{ s.name }}</h2></summary>
+      <div class="entry">
+        <div class="entry__meta">
+          <p>Id: <code>{{ s.id }}</code></p>
+          <p>Examples: {{ s.examples | join(" ") | safe }}</p>
+          <p>{{ s.count | safe }} encoded values &middot; {{ s.bits }} bits required</p>
+          {%- if prose.data.source %}
+          <p>Source: {{ prose.data.source | safe }}</p>
+          {%- endif %}
+        </div>
+{{ prose.content | safe }}
+        <div class="table-scroll">
+          <table class="datatable">
+            <thead>
+              <tr>
+                <th scope="col">Variant</th>
+                <th scope="col"><strong>naxp</strong></th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {%- for variant in s.variants %}
+              <tr>
+                <th scope="row"><code>{{ variant.id }}</code></th>
+                <td class="naxp--wrap"><a class="naxp-try" href="{{ variant.tryUrl }}" title="Try in Interactive">{{ variant.naxp | safe }}</a></td>
+                <td>{{ variant.notes | safe }}</td>
+              </tr>
+              {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+    {%- endif %}
+    {%- endfor %}
+    {%- endfor %}
+    </div>
+
+        <h2 class="standards__propose">
+          Proposing a new standard <strong>naxp</strong>
+        </h2>
+        <p>
+          To propose a new standard <strong>naxp</strong>, open an issue on
+          <a href="https://github.com/naxp-org/naxp/issues">GitHub</a> with the <strong>naxp</strong>, the
+          code system's published structure, and a citation for that structure.
+        </p>
+        <p>
+          Good candidates for standard <strong>naxp</strong>s are public code systems
+          that are not plain numbers and are used by more than one organisation.
+        </p>
+  </div>
+</section>
+
+</main>
+
+<!-- Band 6: credits and licensing -->
+<!-- sitefooter -->
+
+</body>
+</html>

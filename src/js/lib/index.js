@@ -25,3 +25,5 @@ export { NaxpComparison } from './naxp-comparison.js';
 export { NaxpValueType } from './emitter.js';
 export { OutputLanguage } from './output-language.js';
 export { SetRelationship } from './set-relationship.js';
+
+/** @typedef {import('./naxp.js').StandardNaxpVariant} StandardNaxpVariant */

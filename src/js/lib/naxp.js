@@ -15,6 +15,7 @@ import {
 	firstDivergentValue as divergentValue,
 	tryCompareEncodings,
 } from './relations.js';
+import { standardTable } from './standard-table.js';
 import { MAX_TUPLES } from './value-agreement.js';
 
 /**
@@ -127,6 +128,80 @@ function requireNaxp(naxp, name) {
 }
 
 /**
+ * One variant of a standard naxp, as {@link Naxp.allStandardNaxps} lists them.
+ *
+ * @typedef {object} StandardNaxpVariant
+ * @property {string} id The standard's id, such as `uk-postcode`: lower case letters, digits and
+ * single hyphens.
+ * @property {string} name The standard's name, for display, such as `UK postcode`.
+ * @property {string} variant The variant's id, which is `default` for the variant a standard is
+ * used with unless another is asked for.
+ * @property {string} pattern The variant's naxp.
+ * @property {string} notes What the variant accepts and what it prints, in Markdown that uses
+ * backticks, `*` and `**` alone. A newline is a line break.
+ */
+
+/**
+ * Lower case for ASCII capitals and nothing else. `toLowerCase` would fold the Kelvin sign to `k`,
+ * making a character outside ASCII a letter of an id.
+ *
+ * @param {string} text The text.
+ * @returns {string} The text with its ASCII capitals in lower case.
+ */
+function foldAscii(text) {
+	return text.replace(/[A-Z]/g, (letter) => String.fromCharCode(letter.charCodeAt(0) + 32));
+}
+
+/**
+ * @param {unknown} id The standard's id.
+ * @param {unknown} variant The variant's id, where `undefined`, `null` and empty mean `default`.
+ * @returns {StandardNaxpVariant | null} The variant, or null where there is no such standard or
+ * variant.
+ */
+function findStandardNaxp(id, variant) {
+	if (typeof id !== 'string') { throw new TypeError('id must be a string.'); }
+
+	if (variant !== undefined && variant !== null && typeof variant !== 'string') {
+		throw new TypeError('variant must be a string, null or undefined.');
+	}
+
+	const wantedId = foldAscii(id);
+	const wantedVariant = variant ? foldAscii(variant) : 'default';
+
+	return standardTable.find((row) => row.id === wantedId && row.variant === wantedVariant) ?? null;
+}
+
+/**
+ * Names in a list, such as `a, b and c`.
+ *
+ * @param {string[]} names The names.
+ * @returns {string} The list.
+ */
+function joinNames(names) {
+	return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
+/**
+ * Why there is no such standard naxp, naming those there are.
+ *
+ * @param {string} id The standard's id.
+ * @param {string | null | undefined} variant The variant's id.
+ * @returns {string} The reason.
+ */
+function describeMissingStandardNaxp(id, variant) {
+	const variants = standardTable.filter((row) => row.id === foldAscii(id));
+
+	if (variants.length === 0) {
+		const ids = [...new Set(standardTable.map((row) => row.id))];
+
+		return `There is no standard naxp '${id}'. The standard naxps are ${joinNames(ids)}.`;
+	}
+
+	return `The standard naxp '${variants[0].id}' has no variant '${variant}'. `
+		+ `Its variants are ${joinNames(variants.map((row) => row.variant))}.`;
+}
+
+/**
  * A naxp: an expression over ASCII strings that numbers the strings it accepts.
  *
  * A naxp accepts a set of strings and gives each one an encoded value from 1 upwards, with zero
@@ -229,6 +304,50 @@ export class Naxp {
 			errorLength: error.isWholeNaxp ? pattern.length : error.length,
 			errorCode: error.code,
 		};
+	}
+
+	/**
+	 * A standard naxp, one of those built into the library and listed at
+	 * https://naxp.org/standard/.
+	 *
+	 * The id and the variant are matched without regard to ASCII case. Each call parses the naxp,
+	 * so a caller using one often keeps it.
+	 *
+	 * @param {string} id The standard's id, such as `uk-postcode`.
+	 * @param {string | null} [variant] The variant's id. Absent, null or empty means `default`.
+	 * @returns {Naxp} The naxp.
+	 * @throws {RangeError} There is no such standard, or it has no such variant.
+	 */
+	static standardNaxp(id, variant) {
+		const found = findStandardNaxp(id, variant);
+
+		if (found === null) { throw new RangeError(describeMissingStandardNaxp(id, variant)); }
+
+		return Naxp.parse(found.pattern);
+	}
+
+	/**
+	 * Tries to find a standard naxp.
+	 *
+	 * @param {string} id The standard's id, such as `uk-postcode`.
+	 * @param {string | null} [variant] The variant's id. Absent, null or empty means `default`.
+	 * @returns {Naxp | null} The naxp, or null where there is no such standard or it has no such
+	 * variant.
+	 */
+	static tryStandardNaxp(id, variant) {
+		const found = findStandardNaxp(id, variant);
+
+		return found === null ? null : Naxp.parse(found.pattern);
+	}
+
+	/**
+	 * Every standard naxp, one entry per variant, in the order https://naxp.org/standard/ lists
+	 * them, with each standard's default first. The array and its entries are frozen.
+	 *
+	 * @returns {ReadonlyArray<Readonly<StandardNaxpVariant>>} The standard naxps.
+	 */
+	static allStandardNaxps() {
+		return standardTable;
 	}
 
 	/** The pattern this naxp was parsed from. */
@@ -367,7 +486,7 @@ export class Naxp {
 		if (comparison === null) {
 			throw new Error(
 				'The relationship between the encodings of these two naxps could not be decided '
-				+ 'within the budget. Their accepted text and printed text can still be compared.');
+				+ 'within the budget. Their accepted text and canonical forms can still be compared.');
 		}
 
 		return comparison;

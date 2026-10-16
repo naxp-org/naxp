@@ -28,6 +28,10 @@ try {
 <meta property="og:image" content="https://naxp.org/img/naxp-social-card-1280x640.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="modulepreload" href="/naxp/index.js">
+<!-- The standard naxps, for the example chips and for a link such as
+     /interactive/?standard=uk-postcode. Written in by eleventy.config.js from
+     standards/naxp-standards.json. -->
+<script type="application/json" id="naxp-standards"><!-- standards data --></script>
 <script type="module" src="/js/interactive.js"></script>
 </head>
 <body>
@@ -44,18 +48,20 @@ try {
     <h1 class="bandtitle">Interactive <strong>naxp</strong> design</h1>
 
     <p>
-      Write a <strong>naxp</strong> below and it is parsed as you type.
+      Input a <strong>naxp</strong> below to see how it will work in practice.
     </p>
 
-    <p>
-      Before you start, please read
-      <a href="/#quick-tour">the quick tour</a> and the
-      <a href="/guidelines/">design guidelines</a>.
-    </p>
+    <div class="admonition admonition--tip">
+      <p>
+        <span class="admonition__flag">Tip</span>
+        For information on <strong>naxp</strong> design see
+        the <a href="/#quick-tour">quick tour</a> and
+        the <a href="/guidelines/">design guidelines</a>.
+      </p>
+    </div>
 
     <p>
-      Everything runs locally on this page (using the <strong>naxp</strong> JavaScript library) 
-      so nothing you write here is sent anywhere else.
+      Everything on this page runs locally (using the <strong>naxp</strong> JavaScript library).
     </p>
 
     <noscript>
@@ -81,6 +87,8 @@ try {
           autocapitalize="off" autocorrect="off" autocomplete="off"
           placeholder="Type a naxp here to begin"></textarea>
       </div>
+      <!-- Filled by standard-match.js when the naxp is one of the standard naxps. -->
+      <p id="naxp-standard" class="field__note" hidden></p>
     </div>
 
     <div id="naxp-status" class="status" role="status" aria-live="polite"></div>

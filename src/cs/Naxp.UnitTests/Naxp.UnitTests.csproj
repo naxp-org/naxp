@@ -59,6 +59,8 @@
 			It's currently copied from there.
 		-->
 		<None Include="..\..\..\conformance\naxp-v0.10.json" Link="conformance\naxp-v0.10.json" CopyToOutputDirectory="PreserveNewest" />
+		<!-- The standard naxps, which StandardTests checks the library's generated copy against. -->
+		<None Include="..\..\..\standards\naxp-standards.json" Link="standards\naxp-standards.json" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>

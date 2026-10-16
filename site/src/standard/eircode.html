@@ -1,0 +1,39 @@
+---
+source: >-
+  <a href="https://www.eircode.ie/docs/default-source/gating-files/ecaf---(eircode-address-file)-product-guide-edition-2-version-2---publishedf08dd1ef-74e8-4635-9cdb-b94f86cd93a8.pdf"><cite>Eircode Address File product guide</cite> (edition 2, version 2)</a>, section 1.5.4
+---
+      <p>
+        An Eircode comprises a three-character routing key plus a four-character unique identifier,
+        with eleven letters that cause readability problems always excluded.
+      </p>
+      <p>
+        The guide recommends that an Eircode should always be
+      </p>
+      <ul>
+        <li>
+          <em>stored</em> as a single string of seven upper case characters in IT systems, e.g. <code>A65F4E2</code>, but
+        </li>
+        <li>
+          <em>presented</em> in upper case as two parts separated by a space,
+          e.g. <code>A65 F4E2</code> and never <code>A65F4E2</code>.
+        </li>
+      </ul>
+      <p>
+        For this reason, the two <strong>naxp</strong>s below differ only in whether or not
+        the version with a separator space is canonical.
+      </p>
+      <p>
+        The guide specifies that routing keys are
+        letter-digit-digit
+        or <code>D6W</code>.
+        The <strong>naxp</strong>s below deliberately widen the routing keys accepted
+        to take a letter or digit as the third character on the basis that
+        this accommodates the existing <code>D6W</code> special case
+        and is one possible way Eircode could expand, while keeping the encoded value
+        storage to 31&nbsp;bits.
+      </p>
+      <p>
+        As with all postcode systems, a <strong>naxp</strong> encodes postcodes,
+        but validation is a separate task, in this case typically requiring the
+        Eircode Address File (ECAF).
+      </p>

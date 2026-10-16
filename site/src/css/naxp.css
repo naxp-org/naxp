@@ -1096,6 +1096,70 @@ p:has(> a[id]:empty:only-child:target) + *,
   color: var(--color-ink-muted);
 }
 
+/* The detail of each standard, under the table of them on /standard/: one
+   section each, closed until asked for, so the page reads as a list of names
+   rather than as one long scroll. A rule between them, as between entries. */
+.standard {
+  border-top: 1px solid var(--color-rule);
+}
+
+.standard:last-child {
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.standard > summary {
+  padding: 0.6rem 0;
+  cursor: pointer;
+}
+
+/* Inline, so the heading sits beside the disclosure marker. */
+.standard > summary h2 {
+  display: inline;
+  margin: 0;
+  font-size: var(--text-heading);
+}
+
+/* The sections follow the text above them in the same band, set off by a little
+   more than the space between its paragraphs. */
+.standards__detail {
+  margin-top: 1.25rem;
+}
+
+/* The heading after the list of standards starts a section of its own, so it
+   stands well clear of the last one's rule rather than reading as a fifth
+   standard that has lost its marker. */
+.standards__propose {
+  margin-top: 2.5rem;
+}
+
+/* The summary is the entry's heading, and the rule above the section is the
+   entry's rule, so the entry inside has neither. */
+.standard > .entry {
+  border-top: 0;
+  padding: 0 0 1.4rem;
+}
+
+/* The table of standards on /standard/: the landing page's examples table,
+   with the id each library looks a standard up by. */
+.standards {
+  margin: 0.4rem 0 1.2rem;
+}
+
+/* The example goes on a phone with the capacity columns: there are three more
+   in the standard's section, one tap away, and the name and the naxp are what
+   the table is for. */
+@media (max-width: 39.99rem) {
+  .standards .standards__example {
+    display: none;
+  }
+
+  /* The name may break on a phone, but the id after it is a literal and would
+     otherwise split at its hyphen. */
+  .standards tbody th code {
+    white-space: nowrap;
+  }
+}
+
 /* The variants of one entry. Same weights and rules as the examples table on
    the landing page, but the last column is prose and so must wrap; everything
    before it is a name, an expression or a number and must not. */
@@ -1447,6 +1511,19 @@ samp {
 code.naxp {
   background: var(--color-bg-pattern);
   border-color: var(--color-edge-pink);
+}
+
+/* A standard naxp in a table, which opens in /interactive/ with its examples.
+   It keeps its chip, so that it reads as a naxp first and a link second, and
+   shows that it is a link when pointed at: the edge and the text take the link
+   colour. No underline, which would rule across every line of a wrapped naxp. */
+a.naxp-try {
+  text-decoration: none;
+}
+
+a.naxp-try:hover code.naxp {
+  border-color: var(--color-link);
+  color: var(--color-link-hover);
 }
 
 pre {
@@ -2415,6 +2492,11 @@ a.status__code:hover {
 .results .num {
   text-align: right;
   white-space: nowrap;
+}
+
+/* The numbers themselves, not their heading, which takes the header's face and
+   weight like every other. */
+.results td.num {
   font-family: var(--font-code);
   font-feature-settings: var(--code-features);
   font-weight: 400;

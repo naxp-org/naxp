@@ -6,38 +6,16 @@
 // files the npm package ships.
 import { Naxp } from '/naxp/index.js';
 import { reserveHeight, textBox } from './boxes.js';
+import { readStandards, showStandard } from './standard-match.js';
 
 /**
- * The examples offered as chips. The first four are the first row of each table on the
- * pre-defined naxps page, in that page's order, so the two stay in step.
+ * The standard naxps, written into the page by the build from standards/naxp-standards.json.
+ * The example chips are their default variants, a link such as
+ * `/interactive/?standard=uk-postcode&variant=padding-canonical` opens any variant, and the note
+ * under the naxp box says when the naxp in it is one of them. Each variant carries the examples
+ * the file gives it, the valid then the invalid, for the text box.
  */
-const EXAMPLES = [
-	{
-		name: 'UK postcode',
-		pattern: '\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA',
-		tests: 'EC4M 8AD\nEC4M8AD\nM1 1AE\nGIR 0AA\nEC4M 8ADX',
-	},
-	{
-		name: 'Ireland Eircode',
-		pattern: '[AC-FHKNPRTV-Y]\\9[\\9AC-FHKNPRTV-Y] \\s!! [\\9AC-FHKNPRTV-Y]{4}',
-		tests: 'A65 F4E2\nD6W F4E2\nA65F4E2\nA65 F4E2I',
-	},
-	{
-		name: 'Netherlands postcode',
-		pattern: '\\9\\9\\9\\9 \\s!! \\A\\A',
-		tests: '1012 AB\n1012AB\n1012-AB',
-	},
-	{
-		name: 'Flight designator',
-		pattern: '(\\A\\A|\\A\\9|\\9\\A) #[0!0!0!1-9999]',
-		tests: 'AC861\nAC0861\nU28\nBA02490',
-	},
-	{
-		name: 'Hex colour',
-		pattern: '\\#\\C[\\9A-F]{6}',
-		tests: '#FF00AA\n#ff00aa\n#FF00A',
-	},
-];
+const STANDARDS = readStandards();
 
 /** The most test strings read from the box in one go. */
 const MAX_TEST_LINES = 200;
@@ -47,6 +25,7 @@ const dom = {
 	underlay: document.getElementById('naxp-underlay'),
 	examples: document.getElementById('naxp-examples'),
 	status: document.getElementById('naxp-status'),
+	standard: document.getElementById('naxp-standard'),
 	share: document.getElementById('naxp-share'),
 	generate: document.getElementById('naxp-generate'),
 	tests: document.getElementById('naxp-tests'),
@@ -310,6 +289,7 @@ function refresh() {
 		}
 	}
 
+	showStandard(dom.standard, current, STANDARDS);
 	updateGenerateLink();
 	runTests();
 	runDecode();
@@ -539,20 +519,47 @@ function debounce(work, delay) {
 	};
 }
 
-/** Builds the example chips. */
+/* ---------- standards ---------- */
+
+/**
+ * Finds a variant of a standard naxp. Ids are matched without regard to case, as every library
+ * matches them.
+ *
+ * @param {string} id The standard's id.
+ * @param {string} variantId The variant's id.
+ * @returns {{id: string, naxp: string, texts: string[]} | null} The variant, or null if there is
+ * no such standard or no such variant of it.
+ */
+function findVariant(id, variantId) {
+	const standard = STANDARDS.find((candidate) => candidate.id === id.toLowerCase());
+	const variant = standard?.variants.find((candidate) => candidate.id === variantId.toLowerCase());
+
+	return variant ?? null;
+}
+
+/**
+ * Puts a standard naxp and its examples in the boxes. The page is not redrawn here, so that the
+ * caller can do it once whatever else it sets.
+ *
+ * @param {{naxp: string, texts: string[]}} variant The variant.
+ */
+function fillFromStandard(variant) {
+	dom.pattern.value = variant.naxp;
+	dom.tests.value = variant.texts.join('\n');
+	dom.value.value = '1';
+	boxes.pattern();
+	boxes.tests();
+	boxes.value();
+}
+
+/** Builds the example chips, one for each standard's default variant. */
 function buildExamples() {
-	for (const example of EXAMPLES) {
-		const chip = element('button', 'chip', example.name);
+	for (const standard of STANDARDS) {
+		const chip = element('button', 'chip', standard.name);
 
 		chip.type = 'button';
 		chip.addEventListener('click', () => {
-			dom.pattern.value = example.pattern;
-			dom.tests.value = example.tests;
-			dom.value.value = '1';
-			boxes.pattern();
-			boxes.tests();
-			boxes.value();
-
+			fillFromStandard(standard.variants[0]);
 			refresh();
 			writeShareLink();
 			dom.pattern.focus();
@@ -606,9 +613,27 @@ window.addEventListener('hashchange', () => {
 	refresh();
 });
 
+// A link from another page naming a standard, such as /interactive/?standard=uk-postcode, wins
+// over a naxp in the fragment and over what the tab remembered, since it is what the reader just
+// clicked. The address is then put back in the form a shared link takes, the naxp in the
+// fragment, so that a reload keeps the reader's edits rather than opening the standard afresh.
+// An id that names nothing is dropped from the address the same way, and the page carries on as
+// if it had not been given.
+const asked = new URLSearchParams(location.search);
+const linked = asked.has('standard')
+	? findVariant(asked.get('standard'), asked.get('variant') ?? 'default')
+	: null;
 const shared = readShareLink();
 
-if (shared !== null) {
+if (asked.has('standard')) {
+	history.replaceState(null, '', `${location.pathname}${location.hash}`);
+}
+
+if (linked !== null) {
+	fillFromStandard(linked);
+	writeShareLink();
+}
+else if (shared !== null) {
 	dom.pattern.value = shared;
 	boxes.pattern();
 }

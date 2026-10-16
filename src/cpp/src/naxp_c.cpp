@@ -96,6 +96,25 @@ extern "C"
 		}
 	}
 
+	naxp *naxp_standard_naxp(const char *id, const char *variant)
+	{
+		if (id == nullptr)
+		{
+			return nullptr;
+		}
+
+		try
+		{
+			std::optional<logmu::naxp> found = logmu::naxp::try_standard_naxp(id, variant == nullptr ? "" : variant);
+
+			return found.has_value() ? new naxp(std::move(*found)) : nullptr;
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
 	void naxp_free(naxp *expression)
 	{
 		delete expression;
@@ -213,7 +232,7 @@ extern "C"
 	{
 		comparison->accepted_text = NAXP_INCOMPARABLE;
 		comparison->encoding = NAXP_INCOMPARABLE;
-		comparison->printed_text = NAXP_INCOMPARABLE;
+		comparison->canonical_forms = NAXP_INCOMPARABLE;
 
 		try
 		{
@@ -227,7 +246,7 @@ extern "C"
 			// The two enums share their values, which the tests check.
 			comparison->accepted_text = static_cast<naxp_set_relationship>(found.accepted_text);
 			comparison->encoding = static_cast<naxp_set_relationship>(found.encoding);
-			comparison->printed_text = static_cast<naxp_set_relationship>(found.printed_text);
+			comparison->canonical_forms = static_cast<naxp_set_relationship>(found.canonical_forms);
 
 			return true;
 		}

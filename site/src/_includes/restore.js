@@ -26,6 +26,10 @@
 		if (height !== null) { main.style.minHeight = height + 'px'; }
 	}
 
+	// A link naming a standard, as /interactive/?standard=uk-postcode does, fills the boxes itself
+	// once the module runs, so the memory would only show for a frame and then be replaced.
+	if (/[?&]standard=/.test(location.search)) { boxes = []; }
+
 	for (var i = 0; i < boxes.length; i++)
 	{
 		var box = boxes[i];

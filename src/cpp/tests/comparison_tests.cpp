@@ -43,9 +43,9 @@ namespace
 		return logmu::naxp::compare(logmu::naxp::parse(a), logmu::naxp::parse(b));
 	}
 
-	logmu::naxp_comparison make(set_relationship accepted_text, set_relationship encoding, set_relationship printed_text)
+	logmu::naxp_comparison make(set_relationship accepted_text, set_relationship encoding, set_relationship canonical_forms)
 	{
-		return logmu::naxp_comparison{accepted_text, encoding, printed_text};
+		return logmu::naxp_comparison{accepted_text, encoding, canonical_forms};
 	}
 
 	std::unique_ptr<compilation> compiled(std::string_view pattern)
@@ -203,8 +203,8 @@ NAXP_TEST(comparison_swapping_the_arguments_swaps_subset_and_superset)
 	NAXP_CHECK(backward.accepted_text == set_relationship::superset_of);
 	NAXP_CHECK(forward.encoding == set_relationship::incomparable);
 	NAXP_CHECK(backward.encoding == set_relationship::incomparable);
-	NAXP_CHECK(forward.printed_text == set_relationship::subset_of);
-	NAXP_CHECK(backward.printed_text == set_relationship::superset_of);
+	NAXP_CHECK(forward.canonical_forms == set_relationship::subset_of);
+	NAXP_CHECK(backward.canonical_forms == set_relationship::superset_of);
 }
 
 NAXP_TEST(comparison_default_claims_nothing)
@@ -213,7 +213,7 @@ NAXP_TEST(comparison_default_claims_nothing)
 
 	NAXP_CHECK(comparison.accepted_text == set_relationship::incomparable);
 	NAXP_CHECK(comparison.encoding == set_relationship::incomparable);
-	NAXP_CHECK(comparison.printed_text == set_relationship::incomparable);
+	NAXP_CHECK(comparison.canonical_forms == set_relationship::incomparable);
 }
 
 NAXP_TEST(comparison_try_compare_decides_what_compare_decides)
@@ -550,7 +550,7 @@ NAXP_TEST(c_compare_and_first_divergent_value)
 	NAXP_CHECK(naxp_compare(without, with, &comparison));
 	NAXP_CHECK(comparison.accepted_text == NAXP_SUBSET_OF);
 	NAXP_CHECK(comparison.encoding == NAXP_INCOMPARABLE);
-	NAXP_CHECK(comparison.printed_text == NAXP_SUBSET_OF);
+	NAXP_CHECK(comparison.canonical_forms == NAXP_SUBSET_OF);
 
 	NAXP_CHECK_EQUAL(uint64_t{405194401}, naxp_first_divergent_value(without, with));
 
@@ -562,7 +562,7 @@ NAXP_TEST(c_compare_and_first_divergent_value)
 	NAXP_CHECK(!naxp_compare_within(without, with, &within, 1));
 	NAXP_CHECK(within.accepted_text == NAXP_INCOMPARABLE);
 	NAXP_CHECK(within.encoding == NAXP_INCOMPARABLE);
-	NAXP_CHECK(within.printed_text == NAXP_INCOMPARABLE);
+	NAXP_CHECK(within.canonical_forms == NAXP_INCOMPARABLE);
 
 	NAXP_CHECK(naxp_compare_within(without, with, &within, naxp_default_budget()));
 	NAXP_CHECK(within.accepted_text == NAXP_SUBSET_OF);

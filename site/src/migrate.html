@@ -21,6 +21,9 @@ try {
 } catch (e) {}
 </script>
 <script src="/js/theme.js" defer></script>
+<!-- The standard naxps, so that the note under each box can say when its naxp is one of them.
+     Written in by eleventy.config.js from standards/naxp-standards.json. -->
+<script type="application/json" id="naxp-standards"><!-- standards data --></script>
 <script type="module" src="/js/migrate.js"></script>
 <meta property="og:type" content="website">
 <meta property="og:title" content="Migrate a naxp">
@@ -66,6 +69,8 @@ try {
           <textarea id="naxp-a" class="input input--naxp" rows="1" spellcheck="false" data-remember="migrate.old"
             autocapitalize="off" autocorrect="off" autocomplete="off">\9\9\9\9 \s!! \A\A</textarea>
         </div>
+        <!-- Filled by standard-match.js when the naxp is one of the standard naxps. -->
+        <p id="naxp-a-standard" class="field__note" hidden></p>
       </div>
       <div class="field field--pattern">
         <label class="field__label field__label--exact" for="naxp-b"><strong>naxp</strong> <code>new</code>, proposed to replace it</label>
@@ -73,6 +78,7 @@ try {
           <textarea id="naxp-b" class="input input--naxp" rows="1" spellcheck="false" data-remember="migrate.new"
             autocapitalize="off" autocorrect="off" autocomplete="off">\9\9\9\9 (\s|\-)?!(\s) \A\A</textarea>
         </div>
+        <p id="naxp-b-standard" class="field__note" hidden></p>
       </div>
     </div>
 
@@ -97,7 +103,7 @@ try {
           <tr>
             <th scope="col">Set</th>
             <th scope="col">Relationship</th>
-            <th scope="col">What it means here</th>
+            <th scope="col">Meaning</th>
           </tr>
         </thead>
         <tbody id="compare-axes"></tbody>

@@ -44,6 +44,18 @@ typedef struct naxp_error naxp_error;
 */
 naxp *naxp_parse(const char *pattern, size_t pattern_length, naxp_error **error);
 
+/*
+   A standard naxp, one of those built into the library and listed at
+   https://naxp.org/standard/. The id and the variant are matched without regard to ASCII case.
+
+   id: the standard's id, such as "uk-postcode".
+   variant: the variant's id. NULL or empty means "default".
+
+   Returns the naxp, which the caller frees with naxp_free, or NULL where there is no such
+   standard, it has no such variant, or memory ran out.
+*/
+naxp *naxp_standard_naxp(const char *id, const char *variant);
+
 /* Frees a naxp. NULL is allowed and does nothing. */
 void naxp_free(naxp *expression);
 
@@ -163,7 +175,7 @@ typedef struct naxp_comparison
 {
 	naxp_set_relationship accepted_text;
 	naxp_set_relationship encoding;
-	naxp_set_relationship printed_text;
+	naxp_set_relationship canonical_forms;
 } naxp_comparison;
 
 /*

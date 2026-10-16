@@ -17,6 +17,56 @@ Rules for this changelog:
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-16
+
+Implements [**naxp specification 0.10.2**](https://naxp.org/spec/v0.10.2/).
+
+Encoding is identical to the previous library version, 0.13.0.
+
+### Added
+
+- The [standard naxps](https://naxp.org/standard/) are built into every library, generated from `standards/naxp-standards.json`, which each release also attaches. A standard naxp is looked up by its id and, optionally, a variant, both matched without regard to ASCII case; a missing or empty variant means `default`. Once published, a standard naxp never changes.
+
+<!-- START C -->
+
+- In C++ `naxp::standard_naxp(id, variant)` returns a standard naxp, throwing `std::invalid_argument` where there is none; `naxp::try_standard_naxp` returns an empty `std::optional` instead; and `naxp::all_standard_naxps()` lists every one, a `standard_naxp_variant` per variant. In C `naxp_standard_naxp(id, variant)` returns a standard naxp, or `NULL` where there is none.
+
+<!-- END -->
+
+<!-- START C# -->
+
+- `Naxp.StandardNaxp(id, variant)` returns a standard naxp, throwing `ArgumentException` where there is none; `Naxp.TryStandardNaxp` returns `false` instead; and `Naxp.AllStandardNaxps` lists every one, a `StandardNaxpVariant` per variant.
+
+<!-- END -->
+
+<!-- START JavaScript -->
+
+- `Naxp.standardNaxp(id, variant)` returns a standard naxp, throwing `RangeError` where there is none; `Naxp.tryStandardNaxp` returns `null` instead; and `Naxp.allStandardNaxps()` lists every one, as frozen objects.
+
+<!-- END -->
+
+### Changed
+
+- The third relation in a comparison of two **naxp**s, which says whether what is printed on decoding can change, is renamed from *printed text* to *canonical forms*, the name specification 0.10.2 gives it.
+
+<!-- START C -->
+
+- **Breaking:** in C++ `naxp_comparison::printed_text` is now `canonical_forms`, and in C the `printed_text` member of `struct naxp_comparison` is now `canonical_forms`. Code using the old name no longer compiles. The layout of the C struct is unchanged.
+
+<!-- END -->
+
+<!-- START C# -->
+
+- **Breaking:** the `PrintedText` property of `NaxpComparison` is now `CanonicalForms`, and so is the record struct's third positional parameter. Code using the old name, as a property, a named argument or in a `with` expression, no longer compiles.
+
+<!-- END -->
+
+<!-- START JavaScript -->
+
+- **Breaking:** the `printedText` property of `NaxpComparison` is now `canonicalForms`, and so is the constructor's third parameter. Code reading `printedText` gets `undefined`.
+
+<!-- END -->
+
 ## [0.13.0] - 2026-10-15
 
 Implements [**naxp specification 0.10.1**](https://naxp.org/spec/v0.10.1/).
@@ -153,7 +203,8 @@ Each library can emit a self-contained encoder / decoder for a given **naxp** in
 
 The release attaches the C++ library as one file, `naxp.cpp`, which needs no include path, with `naxp.hpp` for C++ callers and `naxp.h` for C. `SHA256SUMS` holds their digests. The same library builds from source with CMake under `src/cpp`.
 
-[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/naxp-org/naxp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/naxp-org/naxp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/naxp-org/naxp/compare/v0.10.0...v0.12.0
 [0.10.0]: https://github.com/naxp-org/naxp/releases/tag/v0.10.0

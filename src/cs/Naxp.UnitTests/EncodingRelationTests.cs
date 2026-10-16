@@ -75,7 +75,7 @@ public class EncodingRelationTests
 	/// The encoding is about values, and two naxps can print a string differently while giving
 	/// it the same value. The first pair is the specification's own example under "Values", the
 	/// last is a naxp folded the wrong way. On all of them the encoding is <c>Equal</c> and the
-	/// printed text is <c>Incomparable</c>, and a comparison that confused the two axes would
+	/// canonical forms are <c>Incomparable</c>, and a comparison that confused the two axes would
 	/// tell somebody their stored values were broken when they were not.
 	/// </summary>
 	[Theory]

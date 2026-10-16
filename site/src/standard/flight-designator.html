@@ -1,0 +1,22 @@
+---
+source: >-
+  IATA, <cite>Standard Schedules Information Manual</cite>; airline designators per IATA Resolution 762
+---
+      <!-- TODO: no verified deep link for SSIM or Resolution 762 yet. -->
+      <p>
+        Airline flight designators comprise two characters (letter-letter, letter-digit or digit-letter),
+        followed by a flight number from 1 to 9999.
+      </p>
+      <p>
+        The treatment of leading zeros in the flight number varies by context:
+        tickets omit leading zeros, e.g. <code>AC861</code>,
+        whereas IT systems usually include them, e.g. <code>AC0861</code>.
+        The definition of <strong>naxp</strong> encoding means that
+        these two different formats result in different encoded values, and
+        therefore only one of these forms can be canonical.
+      </p>
+      <p>
+        The approach taken here is that the version <em>including</em> leading zeros is
+        the canonical format,
+        which has the incidental benefit that encoded values sort by flight number within an airline.
+      </p>

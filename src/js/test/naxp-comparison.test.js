@@ -59,7 +59,7 @@ test('a naxp against itself is equal on every axis', () => {
 		new NaxpComparison(SetRelationship.Equal, SetRelationship.Equal, SetRelationship.Equal));
 });
 
-// The axes are independent. The same values with different printed text, and the same printed text
+// The axes are independent. The same values with different canonical forms, and the same canonical forms
 // with different values, are both possible, and each is a different kind of change to warn about.
 // The last pair prints 'a' and 'c' either way and sends 'b' to a different one of them.
 test('the axes can disagree', () => {
@@ -70,10 +70,10 @@ test('the axes can disagree', () => {
 		['(a|b)!a|c', 'a|(b|c)!c', SetRelationship.Equal, SetRelationship.Incomparable, SetRelationship.Equal],
 	];
 
-	for (const [a, b, acceptedText, encoding, printedText] of cases) {
+	for (const [a, b, acceptedText, encoding, canonicalForms] of cases) {
 		assert.deepEqual(
 			compare(a, b),
-			new NaxpComparison(acceptedText, encoding, printedText),
+			new NaxpComparison(acceptedText, encoding, canonicalForms),
 			`${a} against ${b}`);
 	}
 });
@@ -88,8 +88,8 @@ test('swapping the arguments swaps subset and superset', () => {
 	assert.equal(backward.acceptedText, SetRelationship.SupersetOf);
 	assert.equal(forward.encoding, SetRelationship.Incomparable);
 	assert.equal(backward.encoding, SetRelationship.Incomparable);
-	assert.equal(forward.printedText, SetRelationship.SubsetOf);
-	assert.equal(backward.printedText, SetRelationship.SupersetOf);
+	assert.equal(forward.canonicalForms, SetRelationship.SubsetOf);
+	assert.equal(backward.canonicalForms, SetRelationship.SupersetOf);
 });
 
 // #endregion
@@ -100,7 +100,7 @@ test('a comparison built with no arguments claims nothing', () => {
 
 	assert.equal(comparison.acceptedText, SetRelationship.Incomparable);
 	assert.equal(comparison.encoding, SetRelationship.Incomparable);
-	assert.equal(comparison.printedText, SetRelationship.Incomparable);
+	assert.equal(comparison.canonicalForms, SetRelationship.Incomparable);
 });
 
 // The C# is a record struct and gets value equality from the language. Here the axes are strings

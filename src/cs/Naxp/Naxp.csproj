@@ -28,11 +28,12 @@
 		<PackageId>naxp</PackageId>
 		<!--
 		The package version and the specification version are separate, and both follow semantic
-		versioning. This is the package: 0.13.0 because the public surface changed, with string
-		overloads added and the source generator's own codes renumbered. The specification it
-		implements is 0.10, named in the README and in the conformance data the tests run against.
+		versioning. This is the package: 0.14.0 because the public surface changed, with the
+		standard naxps added and a comparison's printed text renamed canonical forms. The
+		specification it implements is 0.10, named in the README and in the conformance data the
+		tests run against.
 		-->
-		<Version>0.13.0</Version>
+		<Version>0.14.0</Version>
 		<Description>A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.</Description>
 		<Authors>Tim Gordon</Authors>
 		<Copyright>Copyright 2026 Tim Gordon</Copyright>
@@ -43,6 +44,13 @@
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 		<PackageIcon>naxp-icon-solid-white.png</PackageIcon>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<!--
+		A pointer rather than the notes themselves: nuget.org shows release notes as plain text, so
+		the changelog's formatting would be lost, and a link is right for every version. Written
+		here rather than passed to dotnet pack, because pack does not rebuild a package whose
+		inputs are unchanged, and a property on the command line is not one of them.
+		-->
+		<PackageReleaseNotes>Changes in this and every release: https://github.com/naxp-org/naxp/blob/main/library-changelog.md</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
