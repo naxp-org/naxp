@@ -126,6 +126,37 @@ try {
     </section>
 
     <section>
+      <h2>Leave check digits to the application</h2>
+      <p>
+        Many code systems include check digits to catch typing errors.
+        Examples include ISINs and NHS numbers.
+        There is no uniform standard for determining check digits and
+        so it is infeasible to define the check calculation using a <strong>naxp</strong>.
+      </p>
+      <p>
+        There are two approaches: 
+      </p>
+      <ol>
+        <li>
+          If a check digit is <em>always included</em> in the official form
+          then <em>include</em> that check digit in the <strong>naxp</strong>.
+          That way the official form is preserved
+          (albeit at the cost of about 3.3 bits of storage for a decimal check digit).
+        </li>
+        <li>
+          If the check digit is <em>not</em> included in the official form,
+          i.e. it is normal for the check digit to be dropped,
+          then either
+          (a)&nbsp;<em>exclude</em> it altogether, or
+          (b)&nbsp;<em>accept it but drop it</em> with <code>!?</code>, e.g. <code>\9!?</code>.
+        </li>
+      </ol>
+      <p>
+        Either way, <strong>validation of check digits is the application's responsibility</strong>.
+      </p>
+    </section>
+
+    <section>
       <h2>Consider the storage required</h2>
       <p>
         Sometimes <strong>naxp</strong> design choices
@@ -180,25 +211,26 @@ try {
     </section>
 
     <section>
-      <h2>Don't use <strong>naxp</strong>s for pure numbers</h2>
+      <h2>Don't use <strong>naxp</strong>s for purely numerical encodings</h2>
       <p>
-        If a code relates to a pure numerical mapping then 
-        a <strong>naxp</strong> may add little and there may be better tools already in place.
-        Bear in mind also that <strong>naxp</strong>s reserve <code>0</code> for invalid text,
+        If a code relates to a purely numerical encoding then 
+        a <strong>naxp</strong> doesn't add much, and 
+        there are probably already better tools in place.
+        Examples are 
+        decimal or hexadecimal numbers,
+        Base64,
+        Unicode code points and
+        network addresses (MAC and IPv4).
+      </p>
+      <p>
+        Also bear in mind that <strong>naxp</strong>s reserve <code>0</code> for invalid text,
         which may not be a good fit for your use case.
       </p>
       <p>
-        Examples of pure numerical mappings are 
-        decimal numbers, 
-        hexadecimal numbers, 
-        Base64 and 
-        Unicode code points.
-      </p>
-      <p>
         <strong>
-          Before using a naxp for purely numerical text
-          consider whether a standard parsing approach 
-          might be more appropriate.
+          Before using a naxp for purely numerical (including hexadecimal) text,
+          consider whether an existing parsing tool
+          is more appropriate.
         </strong>
       </p>
     </section>
