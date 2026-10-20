@@ -215,17 +215,64 @@ function literalCell(text) {
 }
 
 /**
- * Whether a change is safe for data already encoded.
+ * The verdict on moving data from one naxp to the other, and why.
  *
- * Safe exactly when the encoding relationship is `Equal` or `SubsetOf`: the graph of the old
- * naxp is contained in the new one's, so every (text, value) pair still holds. Anything else
- * means at least one stored value now means something different, or is no longer produced.
+ * The encoding relationship says whether every text keeps its encoded value, but not what an
+ * encoded value prints as, so the first divergent shared encoded value is read beside it; and
+ * a relationship short of safe can still leave stored data decoding as it did, which the two
+ * counts settle. The cases are taken in order and the first that holds is the verdict:
  *
- * @param {string} encoding The encoding relationship.
- * @returns {boolean} Whether the change is safe.
+ * - Equal or SubsetOf, nothing divergent: safe.
+ * - Equal or SubsetOf, something divergent: every text keeps its encoded value, but some encoded
+ *   values print differently, so take care.
+ * - SupersetOf, the counts equal, nothing divergent: stored data decodes as it did, but the new
+ *   naxp refuses some text the old one took, so take care.
+ * - Anything else is not safe, for the first of three reasons that applies: an encoded value
+ *   decodes differently, an encoded value is gone, or some text has a different encoded value.
+ *
+ * @param {Naxp} a The naxp the data was encoded with.
+ * @param {Naxp} b The naxp proposed to replace it.
+ * @param {NaxpComparison} comparison The comparison of the two.
+ * @param {bigint} divergent The first divergent shared encoded value, or 0 for none.
+ * @returns {HTMLElement} The verdict line.
  */
-function isSafe(encoding) {
-	return encoding === SetRelationship.Equal || encoding === SetRelationship.SubsetOf;
+function verdict(a, b, comparison, divergent) {
+	const ok = (sentence) => statusLine('ok', 'Safe', ...chipped(sentence));
+	const warn = (sentence) => statusLine('warn', 'Take care', ...chipped(sentence));
+	const bad = (sentence) => statusLine('bad', 'Not safe', ...chipped(sentence));
+	const { encoding } = comparison;
+
+	if (encoding === SetRelationship.Equal) {
+		return divergent === 0n
+			? ok('The {naxp}s are completely equivalent.')
+			: warn('The {naxp}s encode text identically, but they decode at least some encoded values '
+				+ 'to different text.');
+	}
+
+	if (encoding === SetRelationship.SubsetOf) {
+		return divergent === 0n
+			? ok('Every encoded value already stored under {a} decodes to the same text under {b}. '
+				+ 'Note that {b} accepts text that {a} did not.')
+			: warn('{b} encodes the text {a} accepted identically, but {b} (a) accepts text that {a} '
+				+ 'did not, and (b) decodes at least some existing encoded values to different text.');
+	}
+
+	if (encoding === SetRelationship.SupersetOf
+		&& a.maxEncodedValue === b.maxEncodedValue
+		&& divergent === 0n) {
+		return warn('Stored encoded values decode the same, but {b} rejects text that {a} accepted.');
+	}
+
+	if (divergent !== 0n) {
+		return bad('Some encoded values stored using {a} decode to different text under {b}.');
+	}
+
+	if (b.maxEncodedValue < a.maxEncodedValue) {
+		return bad('Some encoded values stored using {a} are invalid under {b}.');
+	}
+
+	return bad('Although stored encoded values decode the same, some text will be encoded '
+		+ 'differently by {b}, so new data may not match old.');
 }
 
 /* ---------- parsing the two boxes ---------- */
@@ -271,9 +318,10 @@ function read(box, name) {
  *
  * @param {Naxp} a The naxp the data was encoded with.
  * @param {Naxp} b The naxp proposed to replace it.
+ * @param {bigint} divergent The first divergent shared encoded value, or 0 for none.
  * @returns {NaxpComparison | null} The comparison, or null where it could not be decided.
  */
-function showComparison(a, b) {
+function showComparison(a, b, divergent) {
 	const comparison = Naxp.tryCompare(a, b);
 
 	if (comparison === null) {
@@ -285,8 +333,7 @@ function showComparison(a, b) {
 			statusLine(
 				'bad',
 				'Undecided',
-				'These two naxps are too tangled to compare within the work this page will do. '
-				+ 'Nothing is wrong with either of them.'));
+				'These two naxps are too tangled to compare.'));
 
 		fill(dom.axes);
 		dom.axesTable.hidden = true;
@@ -297,19 +344,7 @@ function showComparison(a, b) {
 
 	dom.axesTable.hidden = false;
 
-	const safe = isSafe(comparison.encoding);
-
-	fill(
-		dom.verdict,
-		safe
-			? statusLine(
-				'ok',
-				'Safe',
-				...chipped('Every value already stored under {a} means the same under {b}.'))
-			: statusLine(
-				'bad',
-				'Not safe',
-				...chipped('Values already stored under {a} mean something else under {b}.')));
+	fill(dom.verdict, verdict(a, b, comparison, divergent));
 
 	const axes = [
 		['Accepted text', comparison.acceptedText, MEANING.acceptedText],
@@ -403,10 +438,9 @@ function sameDecoding(a, b, comparison) {
  * @param {Naxp} a The first naxp.
  * @param {Naxp} b The second naxp.
  * @param {NaxpComparison | null} comparison The comparison, or null where it was undecided.
+ * @param {bigint} value The first divergent shared encoded value, or 0 for none.
  */
-function showDivergence(a, b, comparison) {
-	const value = Naxp.firstDivergentValue(a, b);
-
+function showDivergence(a, b, comparison, value) {
 	if (value === 0n) {
 		fill(dom.divergence, ...sameDecoding(a, b, comparison));
 
@@ -419,7 +453,7 @@ function showDivergence(a, b, comparison) {
 	// At 1 there is nothing below it, so saying so would be saying nothing.
 	fill(
 		dom.divergence,
-		'The lowest shared encoded value the two disagree about is ',
+		'The lowest shared encoded value that decodes differently is ',
 		element('strong', null, grouped(value)),
 		value === 1n ? '.' : '. Everything below it is untouched.');
 
@@ -498,9 +532,12 @@ function refresh() {
 		return;
 	}
 
-	const comparison = showComparison(left.naxp, right.naxp);
+	// Read once, since the verdict and the section further down both turn on it. It has no
+	// budget, so it is known even where the comparison is not.
+	const divergent = Naxp.firstDivergentValue(left.naxp, right.naxp);
+	const comparison = showComparison(left.naxp, right.naxp, divergent);
 
-	showDivergence(left.naxp, right.naxp, comparison);
+	showDivergence(left.naxp, right.naxp, comparison, divergent);
 }
 
 dom.a.addEventListener('input', debounce(refresh, 200));

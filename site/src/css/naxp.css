@@ -98,6 +98,12 @@
   --color-note:        #0969DA;
   --color-warn:        #C85000;
 
+  /* The orange of the 'Take care' verdict on /migrate/, brighter than the
+     warning's because the verdict is bold at 20px, which WCAG counts as large
+     text needing only 3 against white; this sits at 3.31. The warning's own
+     orange stays darker for its 14.4px flag. */
+  --color-caution:     #F55A00;
+
   /* The three roles in a listing. These are NOT part of the site's palette and
      are not required to agree with it, now or ever: syntax highlighting is its
      own convention, and the only thing these have to do is show up against the
@@ -210,6 +216,7 @@
 
     --color-note:        #6CB0FF;
     --color-warn:        #FFA24D;
+    --color-caution:     #FFA24D;
 
     --color-code-comment: #7BD693;
     --color-code-keyword: #93BEFF;
@@ -258,6 +265,7 @@
 
   --color-note:        #6CB0FF;
   --color-warn:        #FFA24D;
+  --color-caution:     #FFA24D;
 
   --color-code-comment: #7BD693;
   --color-code-keyword: #93BEFF;
@@ -2181,6 +2189,7 @@ textarea.input {
    sub-heading size, which is what makes it the first thing read rather than a
    coloured word among the prose. */
 .status__line--ok .status__flag,
+.status__line--warn .status__flag,
 .status__line--bad .status__flag {
   font-size: var(--text-sub);
   line-height: 1.3;
@@ -2191,39 +2200,64 @@ textarea.input {
   color: var(--color-ok);
 }
 
+/* Between the two: a migration that loses nothing stored but changes something a reader will
+   see, such as the text an encoded value prints as. Orange, as a warning admonition is,
+   but brighter: see --color-caution. */
+.status__line--warn .status__flag {
+  color: var(--color-caution);
+}
+
 .status__line--bad .status__flag {
   color: var(--color-bad);
 }
 
-/* A tick and a cross, drawn here rather than typeset. Lisnoti's own ✓ and ✗ are
-   not good enough to carry a verdict, and every other glyph for the job renders
-   differently on each platform or arrives as emoji.
+/* A tick, an exclamation mark and a cross, copied from the outlines of ✓, ! and
+   ✕ in Lisnoti Bold 2.004 rather than typeset, so that they cannot fall back to
+   a platform's own glyph or arrive as emoji where the font has not loaded.
 
-   Two straight strokes each, butt caps and mitred joins, so every end and every
-   elbow is a corner. They are masks rather than images, so the shape takes
-   `currentColor` and follows the green and the red through both themes without
-   a second copy of either colour. The colour is never the only thing carrying
-   the verdict: the word is written beside it, and the shapes differ. */
+   Each viewBox is the glyph's ink across and the three glyphs' common extent,
+   -18 to 742 font units, down; so at the bold face's own size the box is 0.76em
+   high and the ink's width in thousandths of an em across.
+
+   --status-mark-scale then enlarges all three alike; it is the one number to
+   change for bigger or smaller marks. Enlarged from the baseline they sat high,
+   so each is centred instead on the capitals of the word beside it: Lisnoti's
+   cap height is 714 units, so its middle is 0.357em up, and a box 0.76em times
+   the scale high is lowered by half of that from there.
+
+   They are masks rather than images, so the shape takes `currentColor` and
+   follows the green, the orange and the red through both themes without a
+   second copy of any colour. The colour is never the only thing carrying the
+   verdict: the word is written beside it, and the shapes differ. */
 @supports ((mask-image: none) or (-webkit-mask-image: none)) {
   .status__line--ok .status__flag::before,
+  .status__line--warn .status__flag::before,
   .status__line--bad .status__flag::before {
+    --status-mark-scale: 1.2;
     content: "";
     display: inline-block;
-    width: 0.9em;
-    height: 0.9em;
+    width: calc(var(--status-mark-width) * var(--status-mark-scale));
+    height: calc(0.76em * var(--status-mark-scale));
     margin-right: 0.35em;
-    vertical-align: -0.04em;
+    vertical-align: calc(0.357em - 0.38em * var(--status-mark-scale));
     background: currentColor;
     -webkit-mask: var(--status-mark) center / contain no-repeat;
     mask: var(--status-mark) center / contain no-repeat;
   }
 
   .status__line--ok .status__flag {
-    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12.5 9.5 19.5 21.5 4.5' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/svg%3E");
+    --status-mark-width: 0.727em;
+    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 727 760'%3E%3Cpath d='M84 369 284 568 624 0 727 61 307 760 0 453Z'/%3E%3C/svg%3E");
+  }
+
+  .status__line--warn .status__flag {
+    --status-mark-width: 0.173em;
+    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 173 760'%3E%3Cpath d='M147 510H27L2 28H172ZM0 672Q0 625 26 606Q51 588 87 588Q121 588 147 606Q173 625 173 672Q173 716 147 736Q121 755 87 755Q51 755 26 736Q0 716 0 672Z'/%3E%3C/svg%3E");
   }
 
   .status__line--bad .status__flag {
-    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 4.5 19.5 19.5 M19.5 4.5 4.5 19.5' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/svg%3E");
+    --status-mark-width: 0.760em;
+    --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 760'%3E%3Cpath d='M296 380 0 84 84 0 380 296 676 0 760 84 464 380 760 676 676 760 380 464 84 760 0 676Z'/%3E%3C/svg%3E");
   }
 }
 
