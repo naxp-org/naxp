@@ -2216,8 +2216,10 @@ textarea.input {
    a platform's own glyph or arrive as emoji where the font has not loaded.
 
    Each viewBox is the glyph's ink across and the three glyphs' common extent,
-   -18 to 742 font units, down; so at the bold face's own size the box is 0.76em
-   high and the ink's width in thousandths of an em across.
+   -18 to 742 font units, down. All three take the same box, 0.76em square at
+   the bold face's own size, the width of the widest, ✕; `contain` scales each
+   into it at its own size and `center` centres it across, so the words after
+   the marks line up from one verdict to the next.
 
    --status-mark-scale then enlarges all three alike; it is the one number to
    change for bigger or smaller marks. Enlarged from the baseline they sat high,
@@ -2236,7 +2238,7 @@ textarea.input {
     --status-mark-scale: 1.2;
     content: "";
     display: inline-block;
-    width: calc(var(--status-mark-width) * var(--status-mark-scale));
+    width: calc(0.76em * var(--status-mark-scale));
     height: calc(0.76em * var(--status-mark-scale));
     margin-right: 0.35em;
     vertical-align: calc(0.357em - 0.38em * var(--status-mark-scale));
@@ -2246,17 +2248,14 @@ textarea.input {
   }
 
   .status__line--ok .status__flag {
-    --status-mark-width: 0.727em;
     --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 727 760'%3E%3Cpath d='M84 369 284 568 624 0 727 61 307 760 0 453Z'/%3E%3C/svg%3E");
   }
 
   .status__line--warn .status__flag {
-    --status-mark-width: 0.173em;
     --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 173 760'%3E%3Cpath d='M147 510H27L2 28H172ZM0 672Q0 625 26 606Q51 588 87 588Q121 588 147 606Q173 625 173 672Q173 716 147 736Q121 755 87 755Q51 755 26 736Q0 716 0 672Z'/%3E%3C/svg%3E");
   }
 
   .status__line--bad .status__flag {
-    --status-mark-width: 0.760em;
     --status-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 760'%3E%3Cpath d='M296 380 0 84 84 0 380 296 676 0 760 84 464 380 760 676 676 760 380 464 84 760 0 676Z'/%3E%3C/svg%3E");
   }
 }
