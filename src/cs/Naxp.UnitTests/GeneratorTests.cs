@@ -63,6 +63,23 @@ public class GeneratorTests
 	/// same way, and neither takes it from the platform, so the same sources give the same
 	/// generated file on every machine.
 	/// </summary>
+	/// <summary>
+	/// The generator reads the attribute's value rather than its syntax, so a constant from
+	/// <c>StandardNaxp</c> in the library is a naxp like any literal.
+	/// </summary>
+	[Fact]
+	public void AStandardNaxpConstant_IsReadLikeALiteral()
+	{
+		CSharpCompilation compilation = Compile(Source("[LogMu.Naxp(LogMu.StandardNaxp.UKPostcode.Default, typeof(int))]", "internal static partial class Postcode"))
+			.AddReferences(MetadataReference.CreateFromFile(typeof(Naxp).Assembly.Location));
+
+		Run(compilation, out GeneratorResult result);
+
+		result.AssertNoDiagnostics();
+		result.AssertCompiles();
+		Assert.Contains("public const int MaxEncodedValue = 1_755_842_401;", result.SourceContaining("MaxEncodedValue"));
+	}
+
 	[Fact]
 	public void AGeneratedFile_EndsEveryLineTheSameWay()
 	{
@@ -307,9 +324,10 @@ public class GeneratorTests
 		+ "}" + Environment.NewLine;
 
 	static void Run(string source, out GeneratorResult result)
-	{
-		CSharpCompilation compilation = Compile(source);
+		=> Run(Compile(source), out result);
 
+	static void Run(CSharpCompilation compilation, out GeneratorResult result)
+	{
 		// Compilation unqualified would be LogMu's own, this test living in LogMu.UnitTests.
 		GeneratorDriver driver = Driver().RunGeneratorsAndUpdateCompilation(
 			compilation,

@@ -14,6 +14,11 @@ import { tokenise } from "./src/js/highlight.js";
 const { formatNaxpMessage } = await import(
   pathToFileURL(path.join(import.meta.dirname, "..", "src", "js", "lib", "naxp-message.js")).href);
 
+// The names the C# library gives the standard naxps' constants, from the script
+// that writes them, imported the same way and for the same reason.
+const { csharpName } = await import(
+  pathToFileURL(path.join(import.meta.dirname, "..", "standards", "generate.js")).href);
+
 // The specification is authored once, as spec/naxp-v<version>.md at the root
 // of the repository, and nothing under this folder is edited by hand to
 // publish it. This writes the page Eleventy builds from: the same text with
@@ -266,10 +271,10 @@ function notesHtml(notes)
 }
 
 // The standard naxps, read from standards/naxp-standards.json at the root of
-// the repository, which every library carries too. On /standard/ the table
-// of them all and, in each standard's section below it, the size line and the
-// variants table come from here; the prose in each section is written by hand
-// in src/standard/, one file per standard named by its id.
+// the repository, which every library carries too. The table of them all on
+// /standard/, and the meta lines and the variants table on each standard's own
+// page at /standard/<id>/, come from here; the prose on that page is written
+// by hand in src/standard/, one file per standard named by its id.
 //
 // Read on every build rather than once, as the specification is, and the file
 // is read rather than imported, for the reason given beside the brand assets.
@@ -343,6 +348,8 @@ function tryUrl(id, variant)
 // rather than after a fetch. Each variant carries its examples as one list of
 // texts, the valid then the invalid, which is what goes into the page's text
 // box; an empty example would only be a blank line there, so it is left out.
+// Each standard and variant also carries its C# name, which /code-gen/ puts
+// into the [Naxp] attribute it suggests.
 // '<' is escaped so that nothing in the data can close the script element.
 function interactiveStandards(configDirectory)
 {
@@ -352,8 +359,10 @@ function interactiveStandards(configDirectory)
   const standards = data.standards.map((standard) => ({
     id: standard.id,
     name: standard.name,
+    csharp: csharpName(standard.id),
     variants: standard.variants.map((variant) => ({
       id: variant.id,
+      csharp: csharpName(variant.id),
       naxp: variant.naxp,
       texts: [...variant.valid.map((example) => example.text), ...variant.invalid]
         .filter((text) => text !== "")
@@ -542,8 +551,12 @@ function slugify(headingHtml)
 // the label remains what a screen reader announces. Nothing depends on a
 // reader seeing a hint, because a mouse is needed to get one.
 //
-// A dropdown was considered and turned down: the page it would have hidden,
-// /migrate/, is the one nobody could find.
+// A dropdown gathering several of these under one label was considered and
+// turned down: the page it would have hidden, /migrate/, is the one nobody
+// could find. Standard is different, since what its menu lists are its own
+// pages, one per standard naxp, and the label still leads to all of them. An
+// entry naming a `menu` takes one, filled at each build by the list of that
+// name (see siteHeaderMenus), headed by an item `all` for the entry's own page.
 //
 // An entry naming a `page` is dropped where that page is not in this
 // repository. That is how a page held back from the public site keeps its
@@ -553,7 +566,7 @@ function slugify(headingHtml)
 // own.
 const siteHeaderLinks = [
   { href: "/", label: "Home", hint: "Home page" },
-  { href: "/standard/", label: "Standard", hint: "Standard naxps for widely used code systems, ready to use" },
+  { href: "/standard/", label: "Standard", hint: "Standard naxps for widely used code systems, ready to use", menu: "standards", all: "Standard naxp index" },
   { href: "/guidelines/", label: "Guidelines", hint: "Guidelines for designing a naxp" },
   { href: "/interactive/", label: "Interactive", hint: "Test and develop a naxp interactively" },
   { href: "/migrate/", label: "Migrate", hint: "Understand the impact of changing a naxp" },
@@ -576,12 +589,64 @@ function availableLinks(configDirectory, version)
       : entry);
 }
 
-function buildSiteHeader(entries, icon, versionMark, pageUrl)
+// The pages each header menu lists, by the name an entry gives as its `menu`:
+// for 'standards', one item per standard naxp, in the order of the standards
+// file. Read at the start of every build, so that a new standard joins the menu
+// without restarting the server.
+function siteHeaderMenus(configDirectory)
+{
+  const escape = (text) => text.split("&").join("&amp;").split("<").join("&lt;");
+
+  return {
+    standards: loadStandards(configDirectory).list
+      .map(({ id, name }) => ({ href: `/standard/${id}/`, label: escape(name) }))
+  };
+}
+
+// A header entry with a menu: a disclosure whose panel lists the entry's own
+// page and then each page under it. It is a <details>, so it opens and shuts
+// without script; menu.js shuts it when the reader is plainly done with it, and
+// on a phone shows the panel as part of the menu's list. The label is marked
+// while the reader is anywhere in the section, and the page they are on is
+// inert in the panel, as it is in the bar.
+function buildNavMenu({ href, label, hint, all }, items, pageUrl)
+{
+  const pages = [{ href, label: all }, ...items];
+  const current = pages.some((item) => item.href === pageUrl);
+  const caret = `<svg class="navmenu__caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  return [
+    `    <details class="navmenu${current ? " navmenu--current" : ""}">`,
+    `      <summary class="navbtn" title="${hint}">${label}${caret}</summary>`,
+    `      <div class="navmenu__panel">`,
+    ...pages.flatMap((item, index) => [
+      item.href === pageUrl
+        ? `        <span class="navbtn" aria-current="page">${item.label}</span>`
+        : `        <a class="navbtn" href="${item.href}">${item.label}</a>`,
+      // A rule between the entry's own page and the pages under it.
+      ...(index === 0 ? [`        <hr class="navmenu__rule">`] : [])
+    ]),
+    `      </div>`,
+    `    </details>`
+  ].join("\n");
+}
+
+function buildSiteHeader(entries, icon, versionMark, pageUrl, menus)
 {
   const links = entries
-    .map(({ href, label, hint, section }) => href === pageUrl || (section !== undefined && pageUrl.startsWith(section))
-      ? `    <span class="navbtn" aria-current="page" title="${hint}">${label}</span>`
-      : `    <a class="navbtn" href="${href}" title="${hint}">${label}</a>`)
+    .map((entry) =>
+    {
+      const { href, label, hint, section, menu } = entry;
+
+      if (menu !== undefined)
+      {
+        return buildNavMenu(entry, menus[menu], pageUrl);
+      }
+
+      return href === pageUrl || (section !== undefined && pageUrl.startsWith(section))
+        ? `    <span class="navbtn" aria-current="page" title="${hint}">${label}</span>`
+        : `    <a class="navbtn" href="${href}" title="${hint}">${label}</a>`;
+    })
     .join("\n");
 
   // English only for now, so it is inert rather than a picker.
@@ -761,6 +826,13 @@ export default function (eleventyConfig)
     "</script>"
   ].join("\n");
 
+  let menus = siteHeaderMenus(import.meta.dirname);
+
+  eleventyConfig.on("eleventy.before", () =>
+  {
+    menus = siteHeaderMenus(import.meta.dirname);
+  });
+
   eleventyConfig.addTransform("siteheader", function (content)
   {
     if (!(this.page.outputPath || "").endsWith(".html"))
@@ -770,7 +842,7 @@ export default function (eleventyConfig)
 
     return content
       .split("<!-- siteheader -->")
-      .join(buildSiteHeader(links, icon, versionMark, this.page.url));
+      .join(buildSiteHeader(links, icon, versionMark, this.page.url, menus));
   });
 
   // Each page marks where a shared piece goes and this puts it there, so each

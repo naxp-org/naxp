@@ -271,6 +271,7 @@ function read(box, name) {
  *
  * @param {Naxp} a The naxp the data was encoded with.
  * @param {Naxp} b The naxp proposed to replace it.
+ * @returns {NaxpComparison | null} The comparison, or null where it could not be decided.
  */
 function showComparison(a, b) {
 	const comparison = Naxp.tryCompare(a, b);
@@ -291,7 +292,7 @@ function showComparison(a, b) {
 		dom.axesTable.hidden = true;
 		fill(dom.counts);
 
-		return;
+		return null;
 	}
 
 	dom.axesTable.hidden = false;
@@ -335,6 +336,8 @@ function showComparison(a, b) {
 		dom.counts,
 		countLine('a', a.maxEncodedValue),
 		countLine('b', b.maxEncodedValue));
+
+	return comparison;
 }
 
 /**
@@ -357,19 +360,55 @@ function countLine(name, count) {
 /* ---------- where the two first disagree ---------- */
 
 /**
+ * What to say when no shared encoded value decodes differently, which depends on how else the
+ * two differ: not at all, in their counts, or only in the text they accept.
+ *
+ * The first divergent value has no budget, so it is known even where the comparison is not;
+ * what is then unknown is whether they differ in any other way.
+ *
+ * @param {Naxp} a The first naxp.
+ * @param {Naxp} b The second naxp.
+ * @param {NaxpComparison | null} comparison The comparison, or null where it was undecided.
+ * @returns {Array<Node | string>} The sentence.
+ */
+function sameDecoding(a, b, comparison) {
+	if (comparison === null) {
+		return [
+			'Shared encoded values decode the same. But the comparison above is undecided, so it '
+			+ 'is unknown how else the two differ.'];
+	}
+
+	if (comparison.acceptedText === SetRelationship.Equal
+		&& comparison.encoding === SetRelationship.Equal
+		&& comparison.canonicalForms === SetRelationship.Equal) {
+		return ['These naxps are completely equivalent.'];
+	}
+
+	if (a.maxEncodedValue !== b.maxEncodedValue) {
+		const [more, fewer] = b.maxEncodedValue > a.maxEncodedValue ? ['b', 'a'] : ['a', 'b'];
+
+		return chipped(
+			'The decoded text is the same for the shared encoded values, but '
+			+ `{${more}} produces more encoded values than {${fewer}}. See the above table for details.`);
+	}
+
+	return [
+		'The valid encoded values and matching decoded texts are the same for both naxps. But they '
+		+ 'differ in other respects – see the above table for details.'];
+}
+
+/**
  * Fills the band that names the lowest value the two decode differently.
  *
  * @param {Naxp} a The first naxp.
  * @param {Naxp} b The second naxp.
+ * @param {NaxpComparison | null} comparison The comparison, or null where it was undecided.
  */
-function showDivergence(a, b) {
+function showDivergence(a, b, comparison) {
 	const value = Naxp.firstDivergentValue(a, b);
 
 	if (value === 0n) {
-		fill(
-			dom.divergence,
-			'Every value the two both hold decodes to the same text under each. That says nothing '
-			+ 'about values only one of them holds, which the two counts above cover.');
+		fill(dom.divergence, ...sameDecoding(a, b, comparison));
 
 		fill(dom.divergenceRows);
 		dom.divergenceTable.hidden = true;
@@ -380,7 +419,7 @@ function showDivergence(a, b) {
 	// At 1 there is nothing below it, so saying so would be saying nothing.
 	fill(
 		dom.divergence,
-		'The lowest value the two disagree about is ',
+		'The lowest shared encoded value the two disagree about is ',
 		element('strong', null, grouped(value)),
 		value === 1n ? '.' : '. Everything below it is untouched.');
 
@@ -459,8 +498,9 @@ function refresh() {
 		return;
 	}
 
-	showComparison(left.naxp, right.naxp);
-	showDivergence(left.naxp, right.naxp);
+	const comparison = showComparison(left.naxp, right.naxp);
+
+	showDivergence(left.naxp, right.naxp, comparison);
 }
 
 dom.a.addEventListener('input', debounce(refresh, 200));

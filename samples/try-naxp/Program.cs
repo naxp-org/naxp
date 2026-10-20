@@ -11,7 +11,7 @@ namespace TryNaxp;
 /// Two naxps in one type, kept apart by their prefixes, each encoding to the integer type it
 /// was given.
 /// </summary>
-// The standard naxp for a UK postcode, from https://naxp.org/standard/#uk-postcode. The
+// The standard naxp for a UK postcode, from https://naxp.org/standard/uk-postcode/. The
 // space is written \s!! rather than \s?, so a postcode with the space and the same postcode
 // without it share one encoded value, and the spaced form is the one decoding prints. GIR 0AA
 // is a real postcode that fits no pattern, so it is named.

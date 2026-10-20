@@ -17,6 +17,22 @@ Rules for this changelog:
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-20
+
+Implements [**naxp specification 0.10.2**](https://naxp.org/spec/v0.10.2/).
+
+Encoding is identical to the previous library version, 0.14.0.
+
+<!-- START C# -->
+
+### Added
+
+- The static class `StandardNaxp` contains standard naxps, represented as string constants. The constants are grouped by standard as nested classes,
+one nested class per standard and one constant within the nested class
+for each variant of that standard. Class and constant names are derived direct from the standard ids, e.g. `UKPostcode` for `uk-postcode` and `Default` for each standard's `default` variant. These constants are designed specifically to be used with the C# source generator's `[Naxp]` attribute, e.g. `[Naxp(StandardNaxp.UKPostcode.PaddingTolerant, typeof(int))]`. Each nested class and string constant has relevant doc comments.
+
+<!-- END -->
+
 ## [0.14.0] - 2026-10-16
 
 Implements [**naxp specification 0.10.2**](https://naxp.org/spec/v0.10.2/).
@@ -25,7 +41,7 @@ Encoding is identical to the previous library version, 0.13.0.
 
 ### Added
 
-- The [standard naxps](https://naxp.org/standard/) are built into every library, generated from `standards/naxp-standards.json`, which each release also attaches. A standard naxp is looked up by its id and, optionally, a variant, both matched without regard to ASCII case; a missing or empty variant means `default`. Once published, a standard naxp never changes.
+- The [standard naxps](https://naxp.org/standard/) are built into every library, generated from `standards/naxp-standards.json`, also included in each release. A standard naxp is looked up by its id and, optionally, a variant, both using case-insensitive ASCII. A missing or empty variant is assumed to mean `default`. Once published, a standard naxp should remain unchanged.
 
 <!-- START C -->
 
@@ -203,7 +219,8 @@ Each library can emit a self-contained encoder / decoder for a given **naxp** in
 
 The release attaches the C++ library as one file, `naxp.cpp`, which needs no include path, with `naxp.hpp` for C++ callers and `naxp.h` for C. `SHA256SUMS` holds their digests. The same library builds from source with CMake under `src/cpp`.
 
-[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/naxp-org/naxp/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/naxp-org/naxp/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/naxp-org/naxp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/naxp-org/naxp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/naxp-org/naxp/compare/v0.10.0...v0.12.0

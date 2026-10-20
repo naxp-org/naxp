@@ -17,6 +17,10 @@
  * A row is the standard's id and name, the variant's id, the naxp and the notes. The examples
  * are test data and stay in the file.
  *
+ * A fourth, src/cs/Naxp/StandardNaxp.g.cs, holds each naxp again as a C# constant, because an
+ * attribute argument must be one: StandardNaxp.UKPostcode.PaddingTolerant is the variant
+ * padding-tolerant of uk-postcode. The names come from the ids, so they are frozen with them.
+ *
  * With --check nothing is written: the run fails, naming each file that is not what it would
  * write. The JavaScript tests and the release workflow both run it, so a file edited without
  * regenerating is caught. Lines end in LF, and a CR in the working copy is ignored when checking.
@@ -161,6 +165,138 @@ function csharp(rows) {
 }
 
 /**
+ * The parts of an id that are acronyms, and so go into a C# name in capitals, as .NET writes
+ * `IO`. Every other part is capitalised, so `no-separator` is `NoSeparator`. Adding or removing
+ * an entry renames every published constant with that part, so neither may happen once it is in
+ * use.
+ */
+const acronyms = new Set(['uk', 'nl']);
+
+/**
+ * An id as a C# name: `uk-postcode` is `UKPostcode`. The site uses it too, to show the constant
+ * a naxp matches on /code-gen/.
+ */
+export function csharpName(id) {
+	const name = id
+		.split('-')
+		.map((part) => (acronyms.has(part) ? part.toUpperCase() : `${part[0].toUpperCase()}${part.slice(1)}`))
+		.join('');
+
+	if (!/^[A-Z][A-Za-z0-9]*$/.test(name)) {
+		throw new Error(`The id ${id} gives ${name}, which is not a C# name`);
+	}
+
+	return name;
+}
+
+/** A naxp as a C# verbatim string, the way a naxp is written in the [Naxp] attribute. */
+function verbatim(text) {
+	if (!/^[\x20-\x7E]*$/.test(text)) {
+		throw new Error(`Only printable ASCII may go into a C# constant: ${JSON.stringify(text)}`);
+	}
+
+	return `@"${text.replaceAll('"', '""')}"`;
+}
+
+/**
+ * Notes as the lines of an XML documentation comment: backticks become <c>, ** becomes <b>, *
+ * becomes <i>, and a newline becomes <br/>.
+ */
+function xmlDoc(notes) {
+	const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+	const lines = notes.split('\n');
+
+	return lines.map((line, index) => {
+		const pieces = line.split('`');
+
+		if (pieces.length % 2 === 0) { throw new Error(`Unbalanced backtick in the notes: ${line}`); }
+
+		const xml = pieces.map((piece, at) => {
+			if (at % 2 === 1) { return `<c>${escape(piece)}</c>`; }
+
+			const marked = escape(piece)
+				.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+				.replace(/\*(.+?)\*/g, '<i>$1</i>');
+
+			if (marked.includes('*')) { throw new Error(`Unbalanced * in the notes: ${line}`); }
+
+			return marked;
+		}).join('');
+
+		return index < lines.length - 1 ? `${xml}<br/>` : xml;
+	});
+}
+
+function csharpConstants(rows) {
+	const lines = [
+		...comment(banner),
+		'',
+		'namespace LogMu;',
+		'',
+		'/// <summary>',
+		'/// The standard naxps listed at https://naxp.org/standard/, one class per standard and one',
+		'/// constant per variant, for where C# needs a constant, such as the <c>[Naxp]</c> attribute.',
+		'/// </summary>',
+		'/// <remarks>',
+		'/// A published naxp never changes, so a constant compiled into another assembly stays right.',
+		'/// <see cref="Naxp.StandardNaxp"/> finds the same naxps by id at run time.',
+		'/// </remarks>',
+		'public static class StandardNaxp',
+		'{',
+	];
+
+	const standards = Map.groupBy(rows, (row) => row.id);
+	const names = new Set(['StandardNaxp']);
+	let first = true;
+
+	for (const [id, variants] of standards) {
+		const name = csharpName(id);
+
+		if (names.has(name)) { throw new Error(`The id ${id} gives ${name}, which is already in use`); }
+		names.add(name);
+
+		if (!first) { lines.push(''); }
+		first = false;
+
+		// Hovering over a constant shows its own summary alone, so each one repeats this.
+		const heading = `${xmlDoc(variants[0].name)[0]}, the standard naxp <c>${id}</c>`;
+
+		lines.push(
+			`\t/// <summary>${heading}.</summary>`,
+			`\tpublic static class ${name}`,
+			'\t{',
+		);
+
+		const members = new Set([name]);
+
+		variants.forEach((row, index) => {
+			const member = csharpName(row.variant);
+
+			if (members.has(member)) { throw new Error(`The variant ${id} ${row.variant} gives ${member}, which is already in use`); }
+			members.add(member);
+
+			if (index > 0) { lines.push(''); }
+
+			lines.push(
+				'\t\t/// <summary>',
+				`\t\t/// ${heading}, variant <c>${row.variant}</c>.`,
+				'\t\t/// <para>',
+				...xmlDoc(row.notes).map((line) => `\t\t/// ${line}`),
+				'\t\t/// </para>',
+				'\t\t/// </summary>',
+				`\t\tpublic const string ${member} = ${verbatim(row.pattern)};`,
+			);
+		});
+
+		lines.push('\t}');
+	}
+
+	lines.push('}');
+
+	return lines;
+}
+
+/**
  * Every file this writes, by path from the repository root, with its text.
  *
  * @param {ReturnType<typeof readRows>} [rows] The rows; by default those of the standards file.
@@ -171,6 +307,7 @@ export function generate(rows = readRows()) {
 		['src/cpp/src/standard_table.hpp', cpp(rows)],
 		['src/js/lib/standard-table.js', javascript(rows)],
 		['src/cs/Naxp/StandardTable.g.cs', csharp(rows)],
+		['src/cs/Naxp/StandardNaxp.g.cs', csharpConstants(rows)],
 	].map(([path, lines]) => [path, `${lines.join('\n')}\n`]));
 }
 

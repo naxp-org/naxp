@@ -1,7 +1,8 @@
 // Copyright (c) Tim Gordon.
 // This file is licensed to you under the Apache Licence, Version 2.0. See the LICENSE file.
 
-// Says when a naxp in a box is one of the standard naxps, for /interactive/ and /migrate/.
+// Says when a naxp in a box is one of the standard naxps, for /interactive/ and /migrate/, and
+// for /code-gen/, which names the C# constant for it.
 //
 // A match is by behaviour, not by spelling: the naxp and the standard variant must accept the
 // same text, give it the same values and print the same canonical forms, which is every axis of
@@ -15,7 +16,7 @@ import { Naxp, SetRelationship } from '/naxp/index.js';
  * The standard naxps the build writes into the page, from standards/naxp-standards.json, at
  * `<script type="application/json" id="naxp-standards">`.
  *
- * @returns {Array<{id: string, name: string, variants: Array<{id: string, naxp: string, texts: string[]}>}>}
+ * @returns {Array<{id: string, name: string, csharp: string, variants: Array<{id: string, csharp: string, naxp: string, texts: string[]}>}>}
  * The standards, or none if the page carries no data or it cannot be read.
  */
 export function readStandards() {
@@ -77,7 +78,7 @@ export function findStandard(naxp, standards) {
 }
 
 /**
- * Fills the note under a naxp box: the standard it is, linked to its section on /standard/, or
+ * Fills the note under a naxp box: the standard it is, linked to its page under /standard/, or
  * nothing at all, hidden, when it is none.
  *
  * @param {HTMLElement} note The note.
@@ -98,7 +99,7 @@ export function showStandard(note, naxp, standards) {
 	const link = document.createElement('a');
 	const id = document.createElement('code');
 
-	link.href = `/standard/#${standard.id}`;
+	link.href = `/standard/${standard.id}/`;
 	link.textContent = standard.name;
 	id.textContent = standard.id;
 

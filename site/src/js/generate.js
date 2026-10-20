@@ -7,6 +7,10 @@
 import { Naxp, NaxpValueType, OutputLanguage } from '/naxp/index.js';
 import { copyButton, keep, recall, remember, reserveHeight, textBox } from './boxes.js';
 import { tokenise } from './highlight.js';
+import { findStandard, readStandards } from './standard-match.js';
+
+/** The standard naxps the build writes into the page, for the source generator tip. */
+const standards = readStandards();
 
 /**
  * The languages the emitters cover. Everything else on the page is a chip marked unavailable,
@@ -393,9 +397,14 @@ function showGeneratorHint(valueType) {
 	const prefix = dom.prefix.value.trim();
 	const keyword = (INTEGER_TYPES.find(type => type.name === valueType) ?? INTEGER_TYPES[7]).keyword;
 
-	// A verbatim string, because a naxp is mostly backslashes. A quotation mark is a legal naxp
-	// character and doubles inside one.
-	const attribute = `[Naxp(@"${dom.pattern.value.replace(/"/g, '""')}", typeof(${keyword})`
+	// A standard naxp goes in as the library's constant for it. Anything else is a verbatim
+	// string, because a naxp is mostly backslashes; a quotation mark is a legal naxp character and
+	// doubles inside one.
+	const match = findStandard(current, standards);
+	const naxp = match === null
+		? `@"${dom.pattern.value.replace(/"/g, '""')}"`
+		: `StandardNaxp.${match.standard.csharp}.${match.variant.csharp}`;
+	const attribute = `[Naxp(${naxp}, typeof(${keyword})`
 		+ (prefix === '' ? '' : `, Prefix = "${prefix}"`)
 		+ ')]';
 

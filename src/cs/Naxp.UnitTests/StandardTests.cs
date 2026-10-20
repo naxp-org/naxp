@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 #if NET8_0_OR_GREATER
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -122,6 +124,42 @@ public class StandardTests
 		Assert.False(Naxp.TryStandardNaxp("uk-postcode", "strict", out _));
 		Assert.Throws<ArgumentNullException>(() => Naxp.StandardNaxp(null!));
 		Assert.Throws<ArgumentNullException>(() => Naxp.TryStandardNaxp(null!, out _));
+	}
+
+	/// <summary>
+	/// <c>StandardNaxp.g.cs</c> holds each standard in a class of its own, whose constants are
+	/// that standard's naxps and nothing else, its default in <c>Default</c>.
+	/// </summary>
+	[Fact]
+	public void StandardNaxpConstants_HoldEachStandardInAClassOfItsOwn()
+	{
+		Type[] classes = typeof(StandardNaxp).GetNestedTypes();
+
+		Assert.Equal(Data.Standards.Count, classes.Length);
+
+		foreach (StandardEntry standard in Data.Standards)
+		{
+			string defaultNaxp = standard.Variants[0].Naxp;
+			Type found = Assert.Single(classes, type => (string?)type.GetField("Default")?.GetRawConstantValue() == defaultNaxp);
+
+			List<string> expected = standard.Variants.Select(variant => variant.Naxp).OrderBy(naxp => naxp, StringComparer.Ordinal).ToList();
+			List<string> actual = found.GetFields(BindingFlags.Public | BindingFlags.Static)
+				.Where(field => field.IsLiteral)
+				.Select(field => (string)field.GetRawConstantValue()!)
+				.OrderBy(naxp => naxp, StringComparer.Ordinal)
+				.ToList();
+
+			Assert.Equal(expected, actual);
+		}
+	}
+
+	[Fact]
+	public void StandardNaxpConstants_AreNamedAfterTheIds()
+	{
+		Assert.Equal(StandardNaxp.UKPostcode.Default, Naxp.StandardNaxp("uk-postcode").Pattern);
+		Assert.Equal(StandardNaxp.UKPostcode.PaddingTolerant, Naxp.StandardNaxp("uk-postcode", "padding-tolerant").Pattern);
+		Assert.Equal(StandardNaxp.NLPostcode.NoSeparator, Naxp.StandardNaxp("nl-postcode", "no-separator").Pattern);
+		Assert.Equal(StandardNaxp.FlightDesignator.Strict, Naxp.StandardNaxp("flight-designator", "strict").Pattern);
 	}
 }
 

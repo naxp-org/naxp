@@ -11,7 +11,20 @@
 <link rel="stylesheet" href="/fonts/Lisnoti-woff2/lisnoti.css">
 <link rel="stylesheet" href="/fonts/LisnotiCode-woff2/lisnoti-code.css">
 <link rel="stylesheet" href="/css/naxp.css">
-<script type="module" src="/js/standard.js"></script>
+<script>
+// Each standard was once a section of this page, and links to those sections
+// are out in the world, in the READMEs of published packages among them. So a
+// fragment naming a standard goes to its own page, before anything is drawn.
+// Two of the sections had longer ids before that.
+(function () {
+  var renamed = { 'ireland-eircode': 'eircode', 'netherlands-postcode': 'nl-postcode' };
+  var ids = [{% for s in standards.list %}'{{ s.id }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+  var id;
+  try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
+  id = renamed[id] || id;
+  if (ids.indexOf(id) >= 0) { location.replace('/standard/' + id + '/'); }
+})();
+</script>
 <script>
 // Both before the first paint: a pinned theme, so it never flashes the other
 // one, and the marker that reveals the button that sets it.
@@ -54,19 +67,18 @@ try {
       (Where there are variants, they all map to the same encoded values.)
     </p>
     <p>
-      Click on the <strong>name</strong> in the table below
-      to go to its full definition,
-      including variants and other information.
+      In the table below, click on
     </p>
-      <div class="admonition admonition--tip">
-        <p>
-          <span class="admonition__flag">Tip</span>
-          <em>The (pink) <strong>naxp</strong>s on this page are clickable.</em>
-          Clicking on a <strong>naxp</strong> will load it,
-          together with examples, onto the
-          <a href="/interactive/">interactive page</a> so you can test it for yourself.
-        </p>
-      </div>
+    <ul>
+      <li>
+        a (green) <strong>name</strong> to go to its full definition,
+        including variants and other information, or
+      </li>
+      <li>
+          a (pink) default <strong>naxp</strong>  to load it onto the
+          <a href="/interactive/">interactive page</a> (variants are available on each <strong>naxp</strong>'s definition page).
+      </li>
+    </ul>
 
     <div class="table-scroll">
       <table class="examples standards">
@@ -82,7 +94,7 @@ try {
         <tbody>
           {%- for s in standards.list %}
           <tr>
-            <th scope="row"><a href="#{{ s.id }}">{{ s.name }}</a> (<code>{{ s.id }}</code>)</th>
+            <th scope="row"><a href="/standard/{{ s.id }}/">{{ s.name }}</a> (<code>{{ s.id }}</code>)</th>
             <td class="standards__example">{{ s.examples[0] | safe }}</td>
             <td class="naxp--wrap"><a class="naxp-try" href="{{ s.tryUrl }}" title="Try in Interactive">{{ s.naxp | safe }}</a></td>
             <td class="num">{{ s.count | safe }}</td>
@@ -92,71 +104,20 @@ try {
         </tbody>
       </table>
     </div>
+  
+    <h2 class="standards__propose">
+      Proposing a new standard <strong>naxp</strong>
+    </h2>
+    <p>
+      To propose a new standard <strong>naxp</strong>, open an issue on
+      <a href="https://github.com/naxp-org/naxp/issues">GitHub</a> with the <strong>naxp</strong>, the
+      code system's published structure, and a citation for that structure.
+    </p>
+    <p>
+      Good candidates for standard <strong>naxp</strong>s are public code systems
+      that are not plain numbers and are used by more than one organisation.
+    </p>
 
-    <!-- The detail of each standard, collapsed until asked for. In the same band
-         as the text above, so that it follows on from it rather than a band's
-         space away. The size line and the variants table come from the
-         standards file; the prose is the standard's file in src/standard/,
-         gathered as the 'standard' collection. /js/standard.js opens a
-         section when a link or a fragment points at it. The sections share a
-         name, so opening one closes whichever was open. A browser too old to
-         know the name attribute lets several stay open, and nothing else. -->
-    <div class="standards__detail">
-    {%- for s in standards.list %}
-    {%- for prose in collections.standard %}
-    {%- if prose.page.fileSlug == s.id %}
-
-    <details class="standard" id="{{ s.id }}" name="standard">
-      <summary><h2>{{ s.name }}</h2></summary>
-      <div class="entry">
-        <div class="entry__meta">
-          <p>Id: <code>{{ s.id }}</code></p>
-          <p>Examples: {{ s.examples | join(" ") | safe }}</p>
-          <p>{{ s.count | safe }} encoded values &middot; {{ s.bits }} bits required</p>
-          {%- if prose.data.source %}
-          <p>Source: {{ prose.data.source | safe }}</p>
-          {%- endif %}
-        </div>
-{{ prose.content | safe }}
-        <div class="table-scroll">
-          <table class="datatable">
-            <thead>
-              <tr>
-                <th scope="col">Variant</th>
-                <th scope="col"><strong>naxp</strong></th>
-                <th scope="col">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {%- for variant in s.variants %}
-              <tr>
-                <th scope="row"><code>{{ variant.id }}</code></th>
-                <td class="naxp--wrap"><a class="naxp-try" href="{{ variant.tryUrl }}" title="Try in Interactive">{{ variant.naxp | safe }}</a></td>
-                <td>{{ variant.notes | safe }}</td>
-              </tr>
-              {%- endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </details>
-    {%- endif %}
-    {%- endfor %}
-    {%- endfor %}
-    </div>
-
-        <h2 class="standards__propose">
-          Proposing a new standard <strong>naxp</strong>
-        </h2>
-        <p>
-          To propose a new standard <strong>naxp</strong>, open an issue on
-          <a href="https://github.com/naxp-org/naxp/issues">GitHub</a> with the <strong>naxp</strong>, the
-          code system's published structure, and a citation for that structure.
-        </p>
-        <p>
-          Good candidates for standard <strong>naxp</strong>s are public code systems
-          that are not plain numbers and are used by more than one organisation.
-        </p>
   </div>
 </section>
 

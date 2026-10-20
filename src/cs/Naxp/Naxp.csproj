@@ -28,12 +28,11 @@
 		<PackageId>naxp</PackageId>
 		<!--
 		The package version and the specification version are separate, and both follow semantic
-		versioning. This is the package: 0.14.0 because the public surface changed, with the
-		standard naxps added and a comparison's printed text renamed canonical forms. The
-		specification it implements is 0.10, named in the README and in the conformance data the
-		tests run against.
+		versioning. This is the package: 0.15.0 because the public surface changed, with the
+		standard naxps added as C# constants in StandardNaxp. The specification it implements is
+		0.10, named in the README and in the conformance data the tests run against.
 		-->
-		<Version>0.14.0</Version>
+		<Version>0.15.0</Version>
 		<Description>A naxp ('encoded ASCII expression') uses a regex-like syntax to define how ASCII strings should be mapped to a numerical index.</Description>
 		<Authors>Tim Gordon</Authors>
 		<Copyright>Copyright 2026 Tim Gordon</Copyright>

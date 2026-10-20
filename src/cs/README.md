@@ -22,7 +22,7 @@ The **naxp** package includes a source generator that compiles a **naxp** into y
 
 UK postcodes are sufficiently non-trivial that writing your own encoding risks creating bugs. A UK postcode comprises one or two letters, a number, an optional additional letter or number, a space separator (that may be omitted in practice), and then a number and two letters. Examples are `EC4M 8AD` and `M1 1AA`.
 
-This is the [standard **naxp**](https://naxp.org/standard/#uk-postcode) for a UK postcode:
+This is the [standard **naxp**](https://naxp.org/standard/uk-postcode/) for a UK postcode:
 
 ```
 \A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA
@@ -45,7 +45,7 @@ Add the `[Naxp]` attribute to a `partial` class and the source generator will ad
 ```csharp
 using LogMu;
 
-[Naxp(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA", typeof(int))]
+[Naxp(StandardNaxp.UKPostcode.Default, typeof(int))]
 static partial class Postcode
 {
 }
@@ -65,7 +65,7 @@ Postcode.Encode("invalid");             // 0
 
 | Argument | Is |
 |:---|:---|
-| The **naxp** | Required, and first, so that it stays the subject. |
+| The **naxp** | Required, and first, so that it stays the subject. Any constant string will do: a literal such as `@"\A\9"`, or for a standard **naxp** a constant such as `StandardNaxp.UKPostcode.Default`, which is the **naxp** above. |
 | The value type | Required, as a `typeof`. Any C# integer type will do, and the encoded values must fit it. It is stated rather than inferred so that a **naxp** which outgrows its type is a build error rather than a silent change of type. |
 | `Prefix` | Optional. It starts every generated name, so several **naxp**s can share one type. Left out, the names are bare: `Encode`, `Decode` and the rest. |
 

@@ -720,6 +720,64 @@ p:has(> a[id]:empty:only-child:target) + *,
   }
 }
 
+/* An entry with a menu, Standard so far: the label opens a panel under it
+   listing the entry's own page and then each page under that. It is a
+   <details>, so the label is its summary, stripped of the disclosure marker
+   the browser draws and given a caret that turns over when it is open. */
+.navmenu {
+  position: relative;
+}
+
+.navmenu > summary {
+  list-style: none;
+}
+
+.navmenu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.navmenu .navmenu__caret {
+  width: 0.8em;
+  height: 0.8em;
+  margin: 0 0 0 0.2em;
+  vertical-align: -0.05em;
+}
+
+.navmenu[open] .navmenu__caret {
+  transform: rotate(180deg);
+}
+
+/* The reader is somewhere in the section, so the label is marked as the page
+   you are on is. */
+.navmenu--current > summary {
+  color: var(--color-nav-strong);
+  background: var(--color-bg-pink);
+}
+
+/* Over the page, with the page's own ground and a rule round it, so it reads as
+   lifted off the bar rather than as part of the page beneath. */
+.navmenu__panel {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: max-content;
+  padding: 0.3rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.3rem;
+}
+
+/* Between the entry's own page and the pages under it, inset to line up with
+   the labels rather than the hover fills. */
+.navmenu__rule {
+  margin: 0.25rem 0.55rem;
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
 /* The menu button, and the panel it opens. On a phone the eight links took
    three rows under the brand, which with the sticky header was a third of the
    screen gone before any page began; on anything narrower than the row (982px
@@ -771,6 +829,30 @@ p:has(> a[id]:empty:only-child:target) + *,
   /* Taller rows than the bar's, since a thumb is wider than a pointer. */
   .js .siteheader__nav .navbtn {
     padding-block: 0.5rem;
+  }
+
+  /* In the menu's list a second level to open would be one tap too many, so
+     the label goes and its panel is part of the list: the entry's own page in
+     the label's place, and the pages under it indented. menu.js opens the
+     <details> whenever the menu is open. */
+  .js .siteheader__nav .navmenu > summary {
+    display: none;
+  }
+
+  .js .siteheader__nav .navmenu__panel {
+    position: static;
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+
+  .js .siteheader__nav .navmenu__panel > :not(:first-child) {
+    padding-left: 1.6rem;
+  }
+
+  /* The indent already says which pages are under the entry. */
+  .js .siteheader__nav .navmenu__rule {
+    display: none;
   }
 }
 
@@ -1048,6 +1130,7 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 .entry > h2,
 .entry > .entry__meta,
+.entry > .entry__lead,
 .entry > .table-scroll,
 .entry > .entry__note {
   column-span: all;
@@ -1096,47 +1179,17 @@ p:has(> a[id]:empty:only-child:target) + *,
   color: var(--color-ink-muted);
 }
 
-/* The detail of each standard, under the table of them on /standard/: one
-   section each, closed until asked for, so the page reads as a list of names
-   rather than as one long scroll. A rule between them, as between entries. */
-.standard {
-  border-top: 1px solid var(--color-rule);
-}
-
-.standard:last-child {
-  border-bottom: 1px solid var(--color-rule);
-}
-
-.standard > summary {
-  padding: 0.6rem 0;
-  cursor: pointer;
-}
-
-/* Inline, so the heading sits beside the disclosure marker. */
-.standard > summary h2 {
-  display: inline;
-  margin: 0;
-  font-size: var(--text-heading);
-}
-
-/* The sections follow the text above them in the same band, set off by a little
-   more than the space between its paragraphs. */
-.standards__detail {
-  margin-top: 1.25rem;
-}
-
-/* The heading after the list of standards starts a section of its own, so it
-   stands well clear of the last one's rule rather than reading as a fifth
-   standard that has lost its marker. */
+/* The heading after the table of standards starts a section of its own, so it
+   stands well clear of the table. */
 .standards__propose {
   margin-top: 2.5rem;
 }
 
-/* The summary is the entry's heading, and the rule above the section is the
-   entry's rule, so the entry inside has neither. */
-.standard > .entry {
+/* A standard's own page, /standard/<id>/, is one entry. The title band above it
+   is its heading, so it needs no rule of its own. */
+.entry--page {
   border-top: 0;
-  padding: 0 0 1.4rem;
+  padding-top: 0;
 }
 
 /* The table of standards on /standard/: the landing page's examples table,
@@ -1146,7 +1199,7 @@ p:has(> a[id]:empty:only-child:target) + *,
 }
 
 /* The example goes on a phone with the capacity columns: there are three more
-   in the standard's section, one tap away, and the name and the naxp are what
+   on the standard's own page, one tap away, and the name and the naxp are what
    the table is for. */
 @media (max-width: 39.99rem) {
   .standards .standards__example {

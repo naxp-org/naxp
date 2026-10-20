@@ -1,0 +1,57 @@
+---
+layout: base.njk
+---
+{#- The page of one standard naxp, at /standard/<id>/. The prose is the
+    standard's file in src/standard/, which is the page's content; the meta
+    lines and the variants table come from standards/naxp-standards.json
+    through loadStandards in eleventy.config.js. -#}
+{%- set s = standards.byId[page.fileSlug] %}
+<section class="band band--title">
+  <div class="band__inner">
+    <h1 class="bandtitle">{{ s.name }}</h1>
+  </div>
+</section>
+
+<section class="band">
+  <div class="band__inner">
+    <div class="entry entry--page">
+      <div class="entry__meta">
+        <p>Id: <code>{{ s.id }}</code>, one of the <a href="/standard/">standard <strong>naxp</strong>s</a></p>
+        <p>Examples: {{ s.examples | join(" ") | safe }}</p>
+        <p>{{ s.count | safe }} encoded values &middot; {{ s.bits }} bits required</p>
+        {%- if source %}
+        <p>Source: {{ source | safe }}</p>
+        {%- endif %}
+      </div>
+{{ content | safe }}
+      <div class="admonition admonition--tip entry__lead">
+        <p>
+          <span class="admonition__flag">Tip</span>
+          Click on a (pink) <strong>naxp</strong> to load it,
+          together with examples, onto the
+          <a href="/interactive/">interactive page</a> so you can test it for yourself.
+        </p>
+      </div>
+      <div class="table-scroll">
+        <table class="datatable">
+          <thead>
+            <tr>
+              <th scope="col">Variant</th>
+              <th scope="col"><strong>naxp</strong></th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {%- for variant in s.variants %}
+            <tr>
+              <th scope="row"><code>{{ variant.id }}</code></th>
+              <td class="naxp--wrap"><a class="naxp-try" href="{{ variant.tryUrl }}" title="Try in Interactive">{{ variant.naxp | safe }}</a></td>
+              <td>{{ variant.notes | safe }}</td>
+            </tr>
+            {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
