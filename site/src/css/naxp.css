@@ -104,17 +104,22 @@
      orange stays darker for its 14.4px flag. */
   --color-caution:     #F55A00;
 
-  /* The three roles in a listing. These are NOT part of the site's palette and
+  /* The roles in a listing. These are NOT part of the site's palette and
      are not required to agree with it, now or ever: syntax highlighting is its
      own convention, and the only thing these have to do is show up against the
      code background. Do not retune them to match anything else on the page.
 
      They are conventional on purpose - blue keywords, green commentary, a warm
      colour for constants - because a reader arrives already knowing them from
-     every editor they have used. */
-  --color-code-comment: #1B7F3B;
-  --color-code-keyword: #0B47C2;
-  --color-code-literal: #A93000;
+     every editor they have used. Function names take a dark brown, close to
+     the ink so that they read as structure rather than emphasis, as VS Code's
+     light theme has them. The grey is for what an R example printed, which
+     pkgdown shows in grey too. */
+  --color-code-comment:  #1B7F3B;
+  --color-code-keyword:  #0B47C2;
+  --color-code-function: #795E26;
+  --color-code-literal:  #A93000;
+  --color-code-output:   #5E5E5E;
 
   /* Lisnoti for prose, Lisnoti Code for code.
 
@@ -218,9 +223,11 @@
     --color-warn:        #FFA24D;
     --color-caution:     #FFA24D;
 
-    --color-code-comment: #7BD693;
-    --color-code-keyword: #93BEFF;
-    --color-code-literal: #FF9E6B;
+    --color-code-comment:  #7BD693;
+    --color-code-keyword:  #93BEFF;
+    --color-code-function: #DCDCAA;
+    --color-code-literal:  #FF9E6B;
+    --color-code-output:   #A3A3A3;
   }
 }
 
@@ -267,9 +274,11 @@
   --color-warn:        #FFA24D;
   --color-caution:     #FFA24D;
 
-  --color-code-comment: #7BD693;
-  --color-code-keyword: #93BEFF;
-  --color-code-literal: #FF9E6B;
+  --color-code-comment:  #7BD693;
+  --color-code-keyword:  #93BEFF;
+  --color-code-function: #DCDCAA;
+  --color-code-literal:  #FF9E6B;
+  --color-code-output:   #A3A3A3;
 }
 
 /* So that form controls, scrollbars and the like follow the choice too. */
@@ -530,11 +539,12 @@ p:has(> a[id]:empty:only-child:target) + *,
    Shrinkage is proportional to each item's own width, so the longest label
    gives way first, which is the one we want to break. Now that every label is
    one word none of them can break at all, and in Lisnoti the row's narrowest is
-   982px (it was about 760px in Segoe UI); below 64rem the links fold into the
+   about 860px of window, scrollbar and gutters included (982px while the bar
+   carried an inert 'English' button); below 56rem the links fold into the
    menu (see .navbtn--menu), and the row goes back to wrapping for a reader
-   without script. 64rem rather than the bare 62rem leaves room for the
-   language button to carry a longer name than 'English'. */
-@media (min-width: 64rem) {
+   without script. 56rem leaves about 35px to spare, and keeps the bar in a
+   window half the width of a 1920px screen. */
+@media (min-width: 56rem) {
   .siteheader__inner {
     flex-wrap: nowrap;
   }
@@ -629,12 +639,8 @@ p:has(> a[id]:empty:only-child:target) + *,
   background: var(--color-bg-pink);
 }
 
-/* The page you are on, and the language picker that is not yet a picker. Both
-   are inert, so both are muted and neither responds to a hover. */
-/* The page you are on is marked, not dimmed. It used to share this declaration
-   with aria-disabled, so it looked exactly like the inert English button - the
-   same visual saying both 'you are here' and 'this does nothing'. Dimming now
-   means unavailable and nothing else.
+/* The page you are on is marked, not dimmed, since dimming says 'this does
+   nothing' rather than 'you are here'.
 
    The mark is the pale pink of the Get started band, filling the item that the
    .navbtn padding and radius already shape. A magenta rule was tried first and
@@ -651,20 +657,8 @@ p:has(> a[id]:empty:only-child:target) + *,
   background: var(--color-bg-pink);
 }
 
-.navbtn[aria-disabled="true"] {
-  color: var(--color-ink-disabled);
-  cursor: default;
-}
-
 .navbtn[aria-current="page"]:hover {
   color: var(--color-nav-strong);
-}
-
-/* The one item that must not take the hover fill. It does nothing when pressed,
-   and a fill promising otherwise is worse than no feedback at all. */
-.navbtn[aria-disabled="true"]:hover {
-  color: var(--color-ink-disabled);
-  background: none;
 }
 
 /* Sits in the text flow rather than as a flex item, so the label beside it is
@@ -712,7 +706,7 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 /* The page links, in a row that behaves as the loose items did before they
    had a wrapper: the same gap, the same bottom alignment, and the same
-   wrap/nowrap switch at 64rem, with min-width 0 so that above it the row can
+   wrap/nowrap switch at 56rem, with min-width 0 so that above it the row can
    be squeezed. */
 .siteheader__nav {
   display: flex;
@@ -722,7 +716,7 @@ p:has(> a[id]:empty:only-child:target) + *,
   min-width: 0;
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 56rem) {
   .siteheader__nav {
     flex-wrap: nowrap;
   }
@@ -778,6 +772,12 @@ p:has(> a[id]:empty:only-child:target) + *,
   border-radius: 0.3rem;
 }
 
+/* The entry's own page under the label it has on a phone, where it stands
+   alone in the menu's list; shown only there. */
+.navmenu__label--phone {
+  display: none;
+}
+
 /* Between the entry's own page and the pages under it, inset to line up with
    the labels rather than the hover fills. */
 .navmenu__rule {
@@ -788,9 +788,9 @@ p:has(> a[id]:empty:only-child:target) + *,
 
 /* The menu button, and the panel it opens. On a phone the eight links took
    three rows under the brand, which with the sticky header was a third of the
-   screen gone before any page began; on anything narrower than the row (982px
-   in Lisnoti) the links ran into the tools on the right instead, one-word
-   labels having nothing to break at. So below 64rem the links fold into a
+   screen gone before any page began; on anything narrower than the row (about
+   860px in Lisnoti) the links ran into the tools on the right instead, one-word
+   labels having nothing to break at. So below 56rem the links fold into a
    panel that drops under the bar when the button is pressed, one link to a
    line.
 
@@ -815,7 +815,32 @@ p:has(> a[id]:empty:only-child:target) + *,
   display: inline;
 }
 
-@media (max-width: 63.99rem) {
+/* Outlined and named, because an icon alone beside two other icons was easy to
+   miss, and it is the way into the rest of the site. The word follows the
+   icon: Menu while the panel is shut, Close while it is open. */
+.navbtn--menu {
+  border-color: var(--color-rule-strong);
+  margin-left: 0.4rem;
+  padding-inline: 0.5rem;
+}
+
+.navbtn--menu svg {
+  margin-right: 0.3em;
+}
+
+.navbtn--menu .menu__label--close {
+  display: none;
+}
+
+.navbtn--menu[aria-expanded="true"] .menu__label--open {
+  display: none;
+}
+
+.navbtn--menu[aria-expanded="true"] .menu__label--close {
+  display: inline;
+}
+
+@media (max-width: 55.99rem) {
   .js .navbtn--menu {
     display: inline-block;
   }
@@ -840,9 +865,10 @@ p:has(> a[id]:empty:only-child:target) + *,
   }
 
   /* In the menu's list a second level to open would be one tap too many, so
-     the label goes and its panel is part of the list: the entry's own page in
-     the label's place, and the pages under it indented. menu.js opens the
-     <details> whenever the menu is open. */
+     the label goes and only the entry's own page stays, in the label's place.
+     The pages under it are left out: listed here they made the menu longer
+     with every standard added, and the entry's own page lists them all.
+     menu.js opens the <details> whenever the menu is open. */
   .js .siteheader__nav .navmenu > summary {
     display: none;
   }
@@ -855,12 +881,36 @@ p:has(> a[id]:empty:only-child:target) + *,
   }
 
   .js .siteheader__nav .navmenu__panel > :not(:first-child) {
-    padding-left: 1.6rem;
+    display: none;
   }
 
-  /* The indent already says which pages are under the entry. */
-  .js .siteheader__nav .navmenu__rule {
+  .js .siteheader__nav .navmenu__label {
     display: none;
+  }
+
+  .js .siteheader__nav .navmenu__label--phone {
+    display: inline;
+  }
+
+  /* On a page under the entry, the label that says so is gone, so the entry's
+     own page takes the mark instead, while staying a link to that page. */
+  .js .siteheader__nav .navmenu--current .navmenu__panel > a:first-child {
+    color: var(--color-nav-strong);
+    background: var(--color-bg-pink);
+  }
+
+  /* Never taller than the screen below the bar, so no link can end up out of
+     reach under a sticky header; a longer list scrolls inside the menu. 4rem
+     is the bar with a little to spare (it measures about 3.3rem in Lisnoti),
+     and dvh follows the phone's own toolbars as they come and go. The column
+     must not wrap, or a full one starts a second column beside it rather than
+     scrolling. */
+  .js .siteheader__nav {
+    flex-wrap: nowrap;
+    max-height: calc(100vh - 4rem);
+    max-height: calc(100dvh - 4rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -982,9 +1032,10 @@ p:has(> a[id]:empty:only-child:target) + *,
   pointer-events: none;
 }
 
-/* Three roles and no more. A generated fragment is not prose and does not want
-   a rainbow over it; what a reader needs is the commentary told apart from the
-   code, and the constants told apart from the words around them.
+/* Few roles, and no more than these. A generated fragment is not prose and does
+   not want a rainbow over it; what a reader needs is the commentary told apart
+   from the code, the constants told apart from the words around them, and the
+   functions picked out, quietly, from the names they work on.
 
    These are the one place on the site where a colour is allowed to be strong.
    The teals that carry the rest of it sit too close to the ink to be seen at
@@ -997,8 +1048,18 @@ p:has(> a[id]:empty:only-child:target) + *,
   color: var(--color-code-keyword);
 }
 
+.code__function {
+  color: var(--color-code-function);
+}
+
 .code__literal {
   color: var(--color-code-literal);
+}
+
+/* What an R example printed, after its #> marker. Only the API page's R
+   example has any. */
+.code__output {
+  color: var(--color-code-output);
 }
 
 /* Sits under the value type, saying what the language will do with it where
@@ -2105,7 +2166,8 @@ textarea.input {
 .js[data-language="c"] .api-panel[data-language="c"],
 .js[data-language="cpp"] .api-panel[data-language="cpp"],
 .js[data-language="csharp"] .api-panel[data-language="csharp"],
-.js[data-language="javascript"] .api-panel[data-language="javascript"] {
+.js[data-language="javascript"] .api-panel[data-language="javascript"],
+.js[data-language="r"] .api-panel[data-language="r"] {
   display: block;
 }
 

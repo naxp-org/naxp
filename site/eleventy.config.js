@@ -566,7 +566,7 @@ function slugify(headingHtml)
 // own.
 const siteHeaderLinks = [
   { href: "/", label: "Home", hint: "Home page" },
-  { href: "/standard/", label: "Standard", hint: "Standard naxps for widely used code systems, ready to use", menu: "standards", all: "Standard naxp index" },
+  { href: "/standard/", label: "Standard", hint: "Standard naxps for widely used code systems, ready to use", menu: "standards", all: "Standard naxp index", allOnPhone: "Standard naxps" },
   { href: "/guidelines/", label: "Guidelines", hint: "Guidelines for designing a naxp" },
   { href: "/interactive/", label: "Interactive", hint: "Test and develop a naxp interactively" },
   { href: "/migrate/", label: "Migrate", hint: "Understand the impact of changing a naxp" },
@@ -608,10 +608,15 @@ function siteHeaderMenus(configDirectory)
 // without script; menu.js shuts it when the reader is plainly done with it, and
 // on a phone shows the panel as part of the menu's list. The label is marked
 // while the reader is anywhere in the section, and the page they are on is
-// inert in the panel, as it is in the bar.
-function buildNavMenu({ href, label, hint, all }, items, pageUrl)
+// inert in the panel, as it is in the bar. On a phone the entry's own page
+// stands alone in the menu's list, so it may carry a label of its own there; the
+// stylesheet shows one of the two.
+function buildNavMenu({ href, label, hint, all, allOnPhone }, items, pageUrl)
 {
-  const pages = [{ href, label: all }, ...items];
+  const own = allOnPhone === undefined
+    ? all
+    : `<span class="navmenu__label">${all}</span><span class="navmenu__label--phone">${allOnPhone}</span>`;
+  const pages = [{ href, label: own }, ...items];
   const current = pages.some((item) => item.href === pageUrl);
   const caret = `<svg class="navmenu__caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
@@ -649,13 +654,12 @@ function buildSiteHeader(entries, icon, versionMark, pageUrl, menus)
     })
     .join("\n");
 
-  // English only for now, so it is inert rather than a picker.
-  //
   // On a phone the links fold into a panel under the bar, opened by the menu
   // button at the end of the tools. The button is drawn only once script has
   // run (menu.js, referenced here so that no page needs a tag of its own), and
-  // until then the links stay in view as they always were. The two icons are
-  // the closed and the open state; the stylesheet shows one at a time.
+  // until then the links stay in view as they always were. The two icons, and
+  // the two words beside them, are the closed and the open state; the
+  // stylesheet shows one of each at a time.
   return [
     `<header class="siteheader band--edge-bottom">`,
     `  <div class="siteheader__inner">`,
@@ -667,7 +671,6 @@ function buildSiteHeader(entries, icon, versionMark, pageUrl, menus)
     links,
     `    </nav>`,
     `    <div class="siteheader__tools">`,
-    `      <span class="navbtn" role="button" aria-disabled="true">English</span>`,
     `      <button type="button" class="navbtn navbtn--theme navbtn--icon" id="theme"></button>`,
     `      <a class="navbtn navbtn--icon" href="https://github.com/naxp-org/naxp" aria-label="naxp on GitHub" title="naxp on GitHub">`,
     `      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>`,
@@ -675,6 +678,7 @@ function buildSiteHeader(entries, icon, versionMark, pageUrl, menus)
     `      <button type="button" class="navbtn navbtn--menu navbtn--icon" id="menu" aria-expanded="false" aria-controls="sitenav" aria-label="Menu" title="Menu">`,
     `      <svg class="menu__bars" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
     `      <svg class="menu__cross" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+    `      <span class="menu__label menu__label--open">Menu</span><span class="menu__label menu__label--close">Close</span>`,
     `      </button>`,
     `    </div>`,
     `  </div>`,

@@ -23,7 +23,7 @@ const header = button.closest('.siteheader');
 const menus = [...header.querySelectorAll('.navmenu')];
 
 /** The widths at which the links fold into the panel, as the stylesheet has them. */
-const phone = window.matchMedia('(max-width: 63.99rem)');
+const phone = window.matchMedia('(max-width: 55.99rem)');
 
 /**
  * Whether the panel is open, read from the button so that the state has one

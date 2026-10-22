@@ -108,39 +108,78 @@ const GRAMMARS = {
 	},
 };
 
+// R, for the API page's install snippet and example. A raw string comes first, so that the
+// backslashes of a pattern inside one are not read as escapes; only the r"(...)" form is
+// recognised, which is the one the examples use.
+GRAMMARS.R = {
+	comment: String.raw`#.*`,
+	literal: String.raw`\b[rR]"\([\s\S]*?\)"|\b[rR]'\([\s\S]*?\)'|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b0[xX][0-9A-Fa-f]+L?\b|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?L?\b`,
+	keywords: new Set([
+		'break', 'else', 'FALSE', 'for', 'function', 'if', 'in', 'Inf', 'NA', 'NA_character_',
+		'NA_complex_', 'NA_integer_', 'NA_real_', 'NaN', 'next', 'NULL', 'repeat', 'TRUE',
+		'while',
+	]),
+
+	// A name in R may hold dots, as in as.integer, and may start with one, but not as a number
+	// such as .5 does.
+	identifier: String.raw`(?:[A-Za-z]|\.(?!\d))[A-Za-z0-9._]*`,
+};
+
+// The same, written as pkgdown writes an example: what R printed follows on lines of its own, each
+// marked #>, and is coloured as output rather than as the comment it would be to R.
+GRAMMARS.RExample = { ...GRAMMARS.R, output: String.raw`^#>.*$` };
+
+/** A name in every language but R, which says otherwise in its grammar. */
+const IDENTIFIER = String.raw`[A-Za-z_][A-Za-z0-9_]*`;
+
 /**
- * Splits code into the pieces to colour: comments, keywords, and the literals in between.
+ * Splits code into the pieces to colour: comments, keywords, function names, and the literals in
+ * between.
+ *
+ * A function name is any name directly followed by an opening parenthesis that is not a keyword,
+ * so a declaration is coloured as well as a call, and `if (` and `sizeof(` stay keywords.
  *
  * @param {string} source The code.
  * @param {string} language The language it is written in: `CSharp`, `JavaScript`, `C` or `Cpp`,
- *     the names `OutputLanguage` gives them, or `CMake` or `Shell` for an install snippet.
- * @returns {{ kind: 'comment' | 'keyword' | 'literal' | null, text: string }[]} The pieces, in
- *     order, with a null kind for text left plain.
+ *     the names `OutputLanguage` gives them, `CMake` or `Shell` for an install snippet, or `R`
+ *     or `RExample` for the R example.
+ * @returns {{ kind: 'output' | 'comment' | 'keyword' | 'function' | 'literal' | null, text: string }[]}
+ *     The pieces, in order, with a null kind for text left plain.
  */
 export function tokenise(source, language) {
 	const grammar = GRAMMARS[language];
+	const output = grammar.output === undefined ? '' : `(?<output>${grammar.output})|`;
 	const tokens = new RegExp(
-		`(?<comment>${grammar.comment})|(?<literal>${grammar.literal})|(?<word>[A-Za-z_][A-Za-z0-9_]*)`,
-		'g');
+		`${output}(?<comment>${grammar.comment})|(?<literal>${grammar.literal})|(?<word>${grammar.identifier ?? IDENTIFIER})`,
+		'gm');
+
+	// Tried where a word ends, so that it looks only at what follows the word.
+	const opening = /\s*\(/y;
 
 	const pieces = [];
 	let at = 0;
 
 	for (const match of source.matchAll(tokens)) {
 		const [text] = match;
-		const { comment, literal } = match.groups;
+		const { comment, literal, output: printed } = match.groups;
 
-		// A word that is not a keyword is left plain, and so is everything the pattern skipped.
-		if (comment === undefined && literal === undefined && !grammar.keywords.has(text)) {
-			continue;
+		let kind = printed !== undefined ? 'output'
+			: comment !== undefined ? 'comment'
+			: literal !== undefined ? 'literal'
+			: grammar.keywords.has(text) ? 'keyword'
+			: null;
+
+		if (kind === null) {
+			opening.lastIndex = match.index + text.length;
+			if (opening.test(source)) { kind = 'function'; }
 		}
+
+		// A word that is neither is left plain, and so is everything the pattern skipped.
+		if (kind === null) { continue; }
 
 		if (match.index > at) { pieces.push({ kind: null, text: source.slice(at, match.index) }); }
 
-		pieces.push({
-			kind: comment !== undefined ? 'comment' : literal !== undefined ? 'literal' : 'keyword',
-			text
-		});
+		pieces.push({ kind, text });
 
 		at = match.index + text.length;
 	}

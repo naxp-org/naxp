@@ -24,7 +24,7 @@ try {
 // never flashes another one. A language named in the address wins, then the
 // one last chosen here or on /code-gen/, which share it, then JavaScript.
 (function () {
-  var names = { c: 'C', cpp: 'C++', csharp: 'C#', javascript: 'JavaScript' };
+  var names = { c: 'C', cpp: 'C++', csharp: 'C#', javascript: 'JavaScript', r: 'R' };
   var chosen = location.hash.slice(1).toLowerCase();
   if (!Object.prototype.hasOwnProperty.call(names, chosen)) {
     var kept = null;
@@ -90,7 +90,7 @@ try {
       <button type="button" class="api-tab" role="tab" id="api-tab-csharp" data-language="csharp" aria-controls="api-panel-csharp" aria-selected="false" tabindex="-1">C#</button>
       <button type="button" class="api-tab" role="tab" id="api-tab-javascript" data-language="javascript" aria-controls="api-panel-javascript" aria-selected="false" tabindex="-1">JavaScript</button>
       <button type="button" class="api-tab" role="tab" aria-disabled="true" tabindex="-1">Python</button>
-      <button type="button" class="api-tab" role="tab" aria-disabled="true" tabindex="-1">R</button>
+      <button type="button" class="api-tab" role="tab" id="api-tab-r" data-language="r" aria-controls="api-panel-r" aria-selected="false" tabindex="-1">R</button>
     </div>
 
     <div class="api-panels">
@@ -127,26 +127,32 @@ target_link_libraries(your_target PRIVATE naxp::naxp)</code></pre>
 <div class="codebox">
 <pre><code class="code" data-highlight="C">#include &lt;naxp/naxp.h&gt;
 
+/* UK postcodes are complicated so let's grab the standard naxp */
+naxp *postcode_naxp = naxp_standard_naxp("uk-postcode", NULL);
+
+/* Or we could have created the naxp explicitly:
 const char *pattern = "\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA";
 naxp_error *error = NULL;
-naxp *postcode = naxp_parse(pattern, strlen(pattern), &amp;error);
+naxp *postcode_naxp = naxp_parse(pattern, strlen(pattern), &amp;error);
+*/
+
 char text[16];
 
-naxp_max_encoded_value(postcode);  /* 1755842401 */
-naxp_max_length(postcode);  /* 8 */
-naxp_encode_cstr(postcode, "EC4M 8AD");  /* 278794572 */
-naxp_encode_cstr(postcode, "EC4M8AD");  /* 278794572 (same as above) */
-naxp_decode_cstr(postcode, 278794572, text, sizeof text);  /* true, text is "EC4M 8AD" */
-naxp_canonical_form_cstr(postcode, "EC4M8AD", text, sizeof text);  /* true, text is "EC4M 8AD" */
-naxp_accepts_cstr(postcode, "invalid");  /* false */
-naxp_encode_cstr(postcode, "invalid");  /* 0 */
+naxp_max_encoded_value(postcode_naxp);  /* 1755842401 */
+naxp_max_length(postcode_naxp);  /* 8 */
+naxp_encode_cstr(postcode_naxp, "EC4M 8AD");  /* 278794572 */
+naxp_encode_cstr(postcode_naxp, "EC4M8AD");  /* 278794572 (same as above) */
+naxp_decode_cstr(postcode_naxp, 278794572, text, sizeof text);  /* true, text is "EC4M 8AD" */
+naxp_canonical_form_cstr(postcode_naxp, "EC4M8AD", text, sizeof text);  /* true, text is "EC4M 8AD" */
+naxp_accepts_cstr(postcode_naxp, "invalid");  /* false */
+naxp_encode_cstr(postcode_naxp, "invalid");  /* 0 */
 
-naxp_free(postcode);</code></pre>
+naxp_free(postcode_naxp);</code></pre>
       </div>
 
       <h2 class="section__title">API</h2>
       <p>
-        Notes:
+        Notes for the following table:
       </p>
       <ul>
         <li>API functions ending <code>_cstr</code> accept and write NUL-terminated strings.</li>
@@ -207,21 +213,25 @@ target_link_libraries(your_target PRIVATE naxp::naxp)</code></pre>
 <div class="codebox">
 <pre><code class="code" data-highlight="Cpp">#include &lt;naxp/naxp.hpp&gt;
 
-const auto postcode = logmu::naxp::parse(R"(\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA)");
+// UK postcodes are complicated so let's grab the standard naxp
+const auto postcode_naxp = logmu::naxp::standard_naxp("uk-postcode");
 
-postcode.max_encoded_value();  // 1755842401
-postcode.max_length();  // 8
-postcode.encode("EC4M 8AD");  // 278794572
-postcode.encode("EC4M8AD");  // 278794572 (same as above)
-postcode.decode(278794572);  // "EC4M 8AD" (canonical form)
-*postcode.canonical_form("EC4M8AD");  // "EC4M 8AD" (canonical form)
-postcode.accepts("invalid");  // false
-postcode.encode("invalid");  // 0</code></pre>
+// Or we could have created the naxp explicitly:
+// const auto postcode_naxp = logmu::naxp::parse(R"(\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA)");
+
+postcode_naxp.max_encoded_value();  // 1755842401
+postcode_naxp.max_length();  // 8
+postcode_naxp.encode("EC4M 8AD");  // 278794572
+postcode_naxp.encode("EC4M8AD");  // 278794572 (same as above)
+postcode_naxp.decode(278794572);  // "EC4M 8AD" (canonical form)
+*postcode_naxp.canonical_form("EC4M8AD");  // "EC4M 8AD" (canonical form)
+postcode_naxp.accepts("invalid");  // false
+postcode_naxp.encode("invalid");  // 0</code></pre>
       </div>
 
       <h2 class="section__title">API</h2>
       <p>
-        Notes:
+        Notes for the following table:
       </p>
       <ul>
         <li><code>naxp</code> instances are cheap to copy and thread-safe.</li>
@@ -260,42 +270,61 @@ postcode.encode("invalid");  // 0</code></pre>
       <p class="api-panel__title">C#</p>
 
       <p>
-        .NET library <em>and</em> source generator.
+        The <a href="https://www.nuget.org/packages/naxp"><code>naxp</code> NuGet package</a>
+        targets
       </p>
+      <ul>
+        <li>.NET&#xA0;8 and above, and</li>
+        <li>.NET Standard&#xA0;2.0, which means it runs on .NET Framework.</li>
+      </ul>
       <p>
-        The source generator compiles a <strong>naxp</strong> <em>at build time</em>
-        (just like C# does for regexes). The generated code needs C#&#xA0;7.3 or later, and
+        The package also provides a <em>source generator</em>, which can create custom code for a <strong>naxp</strong>
+        <em>at compile time</em>, just like C# does for regexes.
+        The generated code needs C#&#xA0;7.3 or later, and
         the source generator needs the .NET&#xA0;8 SDK or Visual Studio 2022 17.8 or later.
       </p>
 
       <h2 class="section__title">Install</h2>
+
+      <p>
+        Install from the console:
+      </p>
       <div class="codebox listing">
 <pre><code class="code" data-highlight="Shell">dotnet add package naxp</code></pre>
       </div>
+
       <p>
-        The <a href="https://www.nuget.org/packages/naxp">NuGet package</a> targets .NET&#xA0;8
-        and .NET Standard&#xA0;2.0, which means it runs on .NET Framework.
+        Or, in Visual Studio, choose
+        <em>Tools</em> / 
+        <em>NuGet Package Manager</em> / 
+        <em>Manage NuGet Packages for Solution...</em> / 
+        <em>Browse</em>
+        and search for the <code>"naxp"</code> package.
       </p>
 
       <h2 class="section__title">Example</h2>
 <div class="codebox">
 <pre><code class="code" data-highlight="CSharp">using LogMu;
 
-var postcode = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+// UK postcodes are complicated so let's grab the standard naxp
+var postcodeNaxp = Naxp.StandardNaxp("uk-postcode");
 
-postcode.MaxEncodedValue;  // 1755842401
-postcode.MaxLength;  // 8
-postcode.Encode("EC4M 8AD");  // 278794572
-postcode.Encode("EC4M8AD");  // 278794572 (same as above)
-postcode.Decode(278794572);  // "EC4M 8AD" (canonical form)
-postcode.GetCanonicalForm("EC4M8AD");  // "EC4M 8AD" (canonical form)
-postcode.Accepts("invalid");  // false
-postcode.Encode("invalid");  // 0</code></pre>
+// Or we could have created the naxp explicitly:
+// var postcodeNaxp = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+
+postcodeNaxp.MaxEncodedValue;  // 1755842401
+postcodeNaxp.MaxLength;  // 8
+postcodeNaxp.Encode("EC4M 8AD");  // 278794572
+postcodeNaxp.Encode("EC4M8AD");  // 278794572 (same as above)
+postcodeNaxp.Decode(278794572);  // "EC4M 8AD" (canonical form)
+postcodeNaxp.GetCanonicalForm("EC4M8AD");  // "EC4M 8AD" (canonical form)
+postcodeNaxp.Accepts("invalid");  // false
+postcodeNaxp.Encode("invalid");  // 0</code></pre>
       </div>
 
       <h2 class="section__title">API</h2>
       <p>
-        Notes:
+        Notes for the following table:
       </p>
       <ul>
         <li>
@@ -346,9 +375,14 @@ postcode.Encode("invalid");  // 0</code></pre>
       <p class="api-panel__title">JavaScript</p>
 
       <p>
-        Plain JavaScript modules, with TypeScript declarations, for Node 18
-        or later and for the browser.
+        The <a href="https://www.npmjs.com/package/@naxp/naxp"><code>@naxp/naxp</code> package on npm</a>
       </p>
+      <ul>
+        <li>has zero dependencies,</li>
+        <li>has no build step,</li>
+        <li>comprises plain JavaScript modules with TypeScript declarations, and</li>
+        <li>targets Node 18 or later, and the browser.</li>
+      </ul>
       <p>
         This is the library that runs the interactive pages on this website.
       </p>
@@ -357,30 +391,30 @@ postcode.Encode("invalid");  // 0</code></pre>
       <div class="codebox listing">
 <pre><code class="code" data-highlight="Shell">npm install @naxp/naxp</code></pre>
       </div>
-      <p>
-        <a href="https://www.npmjs.com/package/@naxp/naxp">The package on npm</a> has zero
-        dependencies and no build step.
-      </p>
 
       <h2 class="section__title">Example</h2>
 <div class="codebox">
 <pre><code class="code" data-highlight="JavaScript">import { Naxp } from '@naxp/naxp';
 
-const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA');
+// UK postcodes are complicated so let's grab the standard naxp
+const postcodeNaxp = Naxp.standardNaxp('uk-postcode');
 
-postcode.maxEncodedValue;  // 1755842401n
-postcode.maxLength;  // 8
-postcode.encode('EC4M 8AD');  // 278794572n
-postcode.encode('EC4M8AD');  // 278794572n (same as above)
-postcode.decode(278794572n);  // 'EC4M 8AD' (canonical form)
-postcode.getCanonicalForm('EC4M8AD');  // 'EC4M 8AD' (canonical form)
-postcode.accepts('invalid');  // false
-postcode.encode('invalid');  // 0n</code></pre>
+// Or we could have created the naxp explicitly:
+// const postcodeNaxp = Naxp.parse('\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA');
+
+postcodeNaxp.maxEncodedValue;  // 1755842401n
+postcodeNaxp.maxLength;  // 8
+postcodeNaxp.encode('EC4M 8AD');  // 278794572n
+postcodeNaxp.encode('EC4M8AD');  // 278794572n (same as above)
+postcodeNaxp.decode(278794572n);  // 'EC4M 8AD' (canonical form)
+postcodeNaxp.getCanonicalForm('EC4M8AD');  // 'EC4M 8AD' (canonical form)
+postcodeNaxp.accepts('invalid');  // false
+postcodeNaxp.encode('invalid');  // 0n</code></pre>
       </div>
 
       <h2 class="section__title">API</h2>
       <p>
-        Notes:
+        Notes for the following table:
       </p>
       <ul>
         <li>
@@ -421,6 +455,165 @@ postcode.encode('invalid');  // 0n</code></pre>
           <tr><th scope="row">Generate code</th><td data-label="Call"><code>emit(language, prefix, valueType)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language. See <a href="/code-gen/">code-gen</a>.</td></tr>
           <tr><th scope="row">Compare</th><td data-label="Call"><code>Naxp.compare(a, b, budget?)</code>, <code>Naxp.tryCompare(a, b, budget?)</code></td><td data-label="Returns">How two <strong>naxp</strong>s relate. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
           <tr><th scope="row">First divergent value</th><td data-label="Call"><code>Naxp.firstDivergentValue(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or <code>0n</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- R -->
+    <div class="api-panel" id="api-panel-r" data-language="r" role="tabpanel" aria-labelledby="api-tab-r">
+      <p class="api-panel__title">R</p>
+
+      <p>
+        The R package <code>naxp</code> for R&#xA0;4.1 or later.
+      </p>
+      <p>
+        See <a href="https://r-naxp.logmu.org">the <code>naxp</code> package website</a> for full documentation.
+      </p>
+
+      <h2 class="section__title">Install</h2>
+
+      <p>
+        Install from <a href="https://cran.r-project.org/package=naxp">CRAN</a>:
+      </p>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="R">install.packages("naxp")</code></pre>
+      </div>
+
+      <p>
+        Or install the latest development version from GitHub:
+      </p>
+      <div class="codebox listing">
+<pre><code class="code" data-highlight="R"># install.packages("pak")
+pak::pak("logmu-org/r-naxp")</code></pre>
+      </div>
+
+      <h2 class="section__title">Example</h2>
+<div class="codebox">
+<pre><code class="code" data-highlight="RExample">library(naxp)
+
+# Assume we have some UK postcodes
+postcodes_as_text &lt;- c(
+  "CR2 6XH",
+  "DN55 1PT",
+  "M1 1AE",
+  "EC1A1BB", # The mandated space separator is sometimes omitted
+  "EC1A 1BB", # Same postcode but *with* the space separator
+  "not a postcode")
+
+# UK postcodes are complicated so let's grab the standard naxp
+postcode_naxp &lt;- naxp_standard("uk-postcode")
+postcode_naxp
+#&gt; &lt;naxp&gt; \A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA
+#&gt; Maximum encoded value: 1755842401
+
+# Or we could have created the naxp explicitly:
+# postcode_naxp &lt;- naxp_parse(r"(\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA)")
+
+# Encode the text postcodes
+postcodes &lt;- naxp_encode(postcodes_as_text, postcode_naxp)
+
+# The encoded result looks like text ...
+postcodes
+#&gt; &lt;naxp_encoded[6]&gt; \A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA
+#&gt; [1]  CR2 6XH  DN55 1PT  M1 1AE  EC1A 1BB  EC1A 1BB  &lt;invalid (0)&gt;
+
+# ... but the underlying values are numerical
+as.integer(postcodes)
+#&gt; [1]  180591302  238906246  743107201  277958384  277958384  0
+
+# In the above, note that
+# - invalid text is encoded as 0 (not NA)
+# - "EC1A1BB" and "EC1A 1BB" have the same encoded value.
+
+# We can recover the canonical text form at any time.
+# 0 (invalid text) decodes to NA.
+naxp_decode(postcodes)
+#&gt; [1]  "CR2 6XH"  "DN55 1PT"  "M1 1AE"  "EC1A 1BB"  "EC1A 1BB"  NA
+
+# We can compare with text -- the text is encoded before the comparison
+postcodes == "EC1A1BB"
+#&gt; [1]  FALSE  FALSE  FALSE  TRUE  TRUE  FALSE
+
+# The canonical form without encoding
+naxp_canonical_form(postcodes_as_text, postcode_naxp)
+#&gt; [1]  "CR2 6XH"  "DN55 1PT"  "M1 1AE"  "EC1A 1BB"  "EC1A 1BB"  NA
+
+naxp_accepts(postcodes_as_text, postcode_naxp)
+#&gt; [1]  TRUE  TRUE  TRUE  TRUE  TRUE  FALSE</code></pre>
+      </div>
+
+      <h2 class="section__title">API</h2>
+
+      <p>
+        The R API relies heavily on the S3 class <code>naxp_encoded</code>, which represents a vector
+         of encoded values.
+      </p>
+      <ul>
+        <li>
+          A <code>naxp_encoded</code> includes its <strong>naxp</strong> in its attributes, which means that
+          it can be printed as text and decoded without needing a separate <strong>naxp</strong> parameter.
+        </li>
+        <li>
+          A <code>naxp_encoded</code> can be a data frame column.
+        </li>
+        <li>
+          For convenience, a <code>naxp_encoded</code> can be compared directly with text.
+          The text to be compared is encoded <em>before</em> the comparison,
+          which is why <code>postcodes == "EC1A1BB"</code> matches both <code>"EC1A1BB"</code> 
+          and <code>"EC1A 1BB"</code> in the above example.
+        </li>
+        <li>
+          The underlying encoded values are stored as <code>integer</code> if the largest is no greater than 2<sup>31</sup>&nbsp;&minus;&nbsp;1,
+          or else <code>double</code> if the largest is no greater than 2<sup>53</sup>. A <strong>naxp</strong> producing
+          encoded values greater than 2<sup>53</sup> can be parsed and can check text, but it will not
+          produce encoded values in R because R lacks a sufficiently large built-in numerical type.
+        </li>
+        <li>
+          To write the encoded values to a file or database, use <code>as.integer()</code> or
+          <code>as.numeric()</code> to get the underlying values.
+          To restore them, use <code>naxp_encoded(values, naxp)</code>.
+        </li>
+      </ul>
+      <p>
+        Notes for the following table:
+      </p>
+      <ul>
+        <li>
+          <code>text</code> arguments are character vectors. Functions of text or encoded
+          values return a vector with the same length and the same names.
+        </li>
+        <li>
+          Wherever a <code>naxp</code> is expected, a string with the <strong>naxp</strong> pattern or a
+          <code>naxp_encoded</code> vector will also work.
+        </li>
+        <li>
+          Invalid text and <code>NA</code> encode to 0, i.e. not <code>NA</code>.
+          This is for consistency with <strong>naxp</strong> implementations across all languages.
+        </li>
+        <li>
+          More detail is available on
+          the <a href="https://r-naxp.logmu.org/">package website</a>.
+        </li>
+      </ul>
+      <table class="datatable datatable--prose">
+        <thead>
+          <tr><th scope="col">Operation</th><th scope="col">Call</th><th scope="col">Returns</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse</th><td data-label="Call"><code>naxp_parse(pattern)</code></td><td data-label="Returns">A <code>naxp</code>, or raises a <code>naxp_error</code> condition with <code>code</code>, <code>message</code>, <code>offset</code> and <code>length</code> fields.</td></tr>
+          <tr><th scope="row">Standard naxp</th><td data-label="Call"><code>naxp_standard(id, variant)</code></td><td data-label="Returns">One of the <a href="/standard/">standard <strong>naxp</strong>s</a>, such as <code>naxp_standard("uk-postcode")</code>, or raises an error where there is none. The id and variant match without regard to case, and <code>variant</code> is optional.</td></tr>
+          <tr><th scope="row">All standard naxps</th><td data-label="Call"><code>naxp_standards()</code></td><td data-label="Returns">A data frame with a row for each variant, and columns <code>id</code>, <code>name</code>, <code>variant</code>, <code>pattern</code> and <code>notes</code>.</td></tr>
+          <tr><th scope="row">Pattern</th><td data-label="Call"><code>naxp_pattern(naxp)</code></td><td data-label="Returns">The pattern the <strong>naxp</strong> was parsed from.</td></tr>
+          <tr><th scope="row">Largest encoded value</th><td data-label="Call"><code>naxp_max_encoded_value(naxp)</code></td><td data-label="Returns">An integer or a double, which is also how many encoded values there are.</td></tr>
+          <tr><th scope="row">Longest text</th><td data-label="Call"><code>naxp_max_length(naxp)</code></td><td data-label="Returns">The length of the longest text a value decodes to.</td></tr>
+          <tr><th scope="row">Accepts</th><td data-label="Call"><code>naxp_accepts(text, naxp)</code></td><td data-label="Returns">A logical vector saying whether each text is valid for the <strong>naxp</strong>.</td></tr>
+          <tr><th scope="row">Encode</th><td data-label="Call"><code>naxp_encode(text, naxp)</code></td><td data-label="Returns">A <code>naxp_encoded</code> vector of encoded values, from 1 to the largest, or 0 where the text is invalid.</td></tr>
+          <tr><th scope="row">Encoded values</th><td data-label="Call"><code>naxp_encoded(values, naxp)</code></td><td data-label="Returns">A <code>naxp_encoded</code> vector of values already encoded, such as values read from a file.</td></tr>
+          <tr><th scope="row">Decode</th><td data-label="Call"><code>naxp_decode(x)</code>, <code>naxp_decode(values, naxp)</code></td><td data-label="Returns">A character vector of canonical text, with <code>NA</code> for 0, or raises an error where a value is out of range.</td></tr>
+          <tr><th scope="row">Canonical form</th><td data-label="Call"><code>naxp_canonical_form(text, naxp)</code></td><td data-label="Returns">A character vector of the canonical form of each text, with <code>NA</code> where the text is invalid.</td></tr>
+          <tr><th scope="row">Generate code</th><td data-label="Call"><code>naxp_emit(naxp, language, prefix, value_type)</code></td><td data-label="Returns">Source code for this <strong>naxp</strong> in another language. See <a href="/code-gen/">code-gen</a>.</td></tr>
+          <tr><th scope="row">Compare</th><td data-label="Call"><code>naxp_compare(a, b, budget)</code></td><td data-label="Returns">How two <strong>naxp</strong>s relate, as a named character vector. <code>budget</code> is optional. Rarely needed outside <a href="/migrate/">migrating</a>.</td></tr>
+          <tr><th scope="row">First divergent value</th><td data-label="Call"><code>naxp_first_divergent_value(a, b)</code></td><td data-label="Returns">The lowest value both <strong>naxp</strong>s hold but decode differently, or 0.</td></tr>
         </tbody>
       </table>
     </div>

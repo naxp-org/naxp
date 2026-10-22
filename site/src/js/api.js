@@ -17,7 +17,7 @@
 import { copyButton, keep } from './boxes.js';
 
 /** Each panel's language, as its tab and the code generator's chip name it. */
-const NAMES = { c: 'C', cpp: 'C++', csharp: 'C#', javascript: 'JavaScript' };
+const NAMES = { c: 'C', cpp: 'C++', csharp: 'C#', javascript: 'JavaScript', r: 'R' };
 
 const root = document.documentElement;
 const header = document.querySelector('.siteheader');

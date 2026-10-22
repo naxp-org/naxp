@@ -8,7 +8,7 @@ With one simple expression you can standardise conversion of alphanumeric codes 
 dotnet add package naxp
 ```
 
-The **naxp** package includes a source generator that compiles a **naxp** into your own type at build time, as C# does for regexes, and a library for a **naxp** not known until the program runs. It targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too.
+The **naxp** package includes a source generator that compiles a **naxp** into your own type at compile time, as C# does for regexes, and a library for a **naxp** not known until the program runs. It targets .NET 8 and .NET Standard 2.0, so it runs on .NET Framework too.
 
 ## Why use a naxp rather than roll your own encoding?
 
@@ -46,19 +46,19 @@ Add the `[Naxp]` attribute to a `partial` class and the source generator will ad
 using LogMu;
 
 [Naxp(StandardNaxp.UKPostcode.Default, typeof(int))]
-static partial class Postcode
+static partial class PostcodeNaxp
 {
 }
 
-Postcode.MaxEncodedValue;               // 1755842401
-Postcode.MaxLength;                     // 8
-Postcode.Encode("EC4M 8AD");            // 278794572
-Postcode.Encode("EC4M8AD");             // 278794572 (same as above)
-Postcode.Decode(278794572);             // "EC4M 8AD" (canonical form)
-Postcode.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
-Postcode.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
-Postcode.Accepts("invalid");            // false
-Postcode.Encode("invalid");             // 0
+PostcodeNaxp.MaxEncodedValue;               // 1755842401
+PostcodeNaxp.MaxLength;                     // 8
+PostcodeNaxp.Encode("EC4M 8AD");            // 278794572
+PostcodeNaxp.Encode("EC4M8AD");             // 278794572 (same as above)
+PostcodeNaxp.Decode(278794572);             // "EC4M 8AD" (canonical form)
+PostcodeNaxp.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
+PostcodeNaxp.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
+PostcodeNaxp.Accepts("invalid");            // false
+PostcodeNaxp.Encode("invalid");             // 0
 
 // Performant Try... and span-writing overloads are also generated -- see the API below.
 ```
@@ -84,17 +84,21 @@ If a **naxp** is not known until run time (e.g. because it's read from configura
 ```csharp
 using LogMu;
 
-var postcode = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+// UK postcodes are complicated so let's grab the standard naxp
+var postcodeNaxp = Naxp.StandardNaxp("uk-postcode");
 
-postcode.MaxEncodedValue;               // 1755842401
-postcode.MaxLength;                     // 8
-postcode.Encode("EC4M 8AD");            // 278794572
-postcode.Encode("EC4M8AD");             // 278794572 (same as above)
-postcode.Decode(278794572);             // "EC4M 8AD" (canonical form)
-postcode.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
-postcode.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
-postcode.Accepts("invalid");            // false
-postcode.Encode("invalid");             // 0
+// Or we could have created the naxp explicitly:
+// var postcodeNaxp = Naxp.Parse(@"\A\A?\9\X? \s!! \9\A\A | GIR \s!! 0AA");
+
+postcodeNaxp.MaxEncodedValue;               // 1755842401
+postcodeNaxp.MaxLength;                     // 8
+postcodeNaxp.Encode("EC4M 8AD");            // 278794572
+postcodeNaxp.Encode("EC4M8AD");             // 278794572 (same as above)
+postcodeNaxp.Decode(278794572);             // "EC4M 8AD" (canonical form)
+postcodeNaxp.GetCanonicalForm("EC4M 8AD");  // "EC4M 8AD" (canonical form)
+postcodeNaxp.GetCanonicalForm("EC4M8AD");   // "EC4M 8AD" (canonical form)
+postcodeNaxp.Accepts("invalid");            // false
+postcodeNaxp.Encode("invalid");             // 0
 ```
 
 ## The API
@@ -109,6 +113,7 @@ The source-generated members are the same, as static members of your class, exce
 |:---|:---|
 | `Naxp.Parse(pattern)` | A `Naxp` object or throws `FormatException`. |
 | `Naxp.TryParse(pattern, out naxp, out errorMessage)` | `true` if the pattern is a **naxp**, and throws nothing. |
+| `Naxp.StandardNaxp(id, variant)` | One of the [standard **naxp**s](https://naxp.org/standard/), such as `Naxp.StandardNaxp("uk-postcode")`, or throws `ArgumentException` if there is none. `variant` is optional. |
 
 The `pattern` argument of `Naxp.Parse` and `Naxp.TryParse` is a `string` or a `ReadOnlySpan<char>`.
 

@@ -41,16 +41,20 @@ This is what it looks like in code:
 ```js
 import { Naxp } from '@naxp/naxp';
 
-const postcode = Naxp.parse('\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA');
+// UK postcodes are complicated so let's grab the standard naxp
+const postcodeNaxp = Naxp.standardNaxp('uk-postcode');
 
-postcode.maxEncodedValue;                // 1755842401n
-postcode.encode('EC4M 8AD');             // 278794572n
-postcode.encode('EC4M8AD');              // 278794572n (same as above)
-postcode.decode(278794572n);             // 'EC4M 8AD' (canonical form)
-postcode.getCanonicalForm('EC4M 8AD');   // 'EC4M 8AD' (canonical form)
-postcode.getCanonicalForm('EC4M8AD');    // 'EC4M 8AD' (canonical form)
-postcode.accepts('invalid');             // false
-postcode.encode('invalid');              // 0n
+// Or we could have created the naxp explicitly:
+// const postcodeNaxp = Naxp.parse('\\A\\A?\\9\\X? \\s!! \\9\\A\\A | GIR \\s!! 0AA');
+
+postcodeNaxp.maxEncodedValue;                // 1755842401n
+postcodeNaxp.encode('EC4M 8AD');             // 278794572n
+postcodeNaxp.encode('EC4M8AD');              // 278794572n (same as above)
+postcodeNaxp.decode(278794572n);             // 'EC4M 8AD' (canonical form)
+postcodeNaxp.getCanonicalForm('EC4M 8AD');   // 'EC4M 8AD' (canonical form)
+postcodeNaxp.getCanonicalForm('EC4M8AD');    // 'EC4M 8AD' (canonical form)
+postcodeNaxp.accepts('invalid');             // false
+postcodeNaxp.encode('invalid');              // 0n
 ```
 
 ## The API
@@ -61,6 +65,7 @@ postcode.encode('invalid');              // 0n
 |:---|:---|
 |`Naxp.parse(pattern)` | A `Naxp` object or throws `NaxpFormatError`. |
 | `Naxp.tryParse(pattern)` |A result object and throws nothing.|
+| `Naxp.standardNaxp(id, variant?)` | One of the [standard **naxp**s](https://naxp.org/standard/), such as `Naxp.standardNaxp('uk-postcode')`, or throws `RangeError` if there is none. |
 
 The `pattern` argument of `Naxp.parse` and `Naxp.tryParse` must be a `String`.
 

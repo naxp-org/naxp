@@ -423,7 +423,7 @@ function showGeneratorHint(valueType) {
 		element('strong', null, 'naxp'),
 		' defined in your source ',
 		element('em', null, 'plus'),
-		' compile time code gen.');
+		' compile-time code generation.');
 
 	dom.generatorHint.hidden = false;
 }
